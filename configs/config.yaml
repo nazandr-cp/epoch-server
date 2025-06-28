@@ -1,0 +1,21 @@
+# Sample configuration for epoch-server
+# TODO: Add configuration parameters
+server:
+  host: "localhost"
+  port: 8080
+
+database:
+  # TODO: Add database configuration
+
+logging:
+  level: "info"
+  # TODO: Add logging configuration
+
+ethereum:
+  # TODO: Add Ethereum client configuration
+
+subgraph:
+  # TODO: Add subgraph endpoint configuration
+
+scheduler:
+  interval: "1h"
