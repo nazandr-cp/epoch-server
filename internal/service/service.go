@@ -5,13 +5,17 @@ import (
 	"fmt"
 
 	"github.com/andrey/epoch-server/internal/clients/contract"
+	"github.com/andrey/epoch-server/internal/clients/epoch"
 	"github.com/andrey/epoch-server/internal/clients/graph"
+	"github.com/andrey/epoch-server/internal/clients/storage"
+	"github.com/andrey/epoch-server/internal/clients/subsidizer"
 	"github.com/go-pkgz/lgr"
 )
 
 type GraphClient interface {
 	QueryUsers(ctx context.Context) ([]graph.User, error)
 	QueryEligibility(ctx context.Context, epochID string) ([]graph.Eligibility, error)
+	ExecuteQuery(ctx context.Context, request graph.GraphQLRequest, response interface{}) error
 }
 
 type ContractClient interface {
@@ -53,23 +57,21 @@ func (s *Service) StartEpoch(ctx context.Context, epochID string) error {
 	return nil
 }
 
-func (s *Service) DistributeSubsidies(ctx context.Context, epochID string) error {
-	eligibilities, err := s.graphClient.QueryEligibility(ctx, epochID)
-	if err != nil {
-		return fmt.Errorf("failed to query eligibility for epoch %s: %w", epochID, err)
-	}
+func (s *Service) DistributeSubsidies(ctx context.Context, vaultId string) error {
+	epochClient := epoch.NewClient(s.logger)
+	subsidizerClient := subsidizer.NewClient(s.logger)
+	storageClient := storage.NewClient(s.logger)
 
-	eligibleCount := 0
-	for _, eligibility := range eligibilities {
-		if eligibility.IsEligible {
-			eligibleCount++
-		}
-	}
+	lazyDistributor := NewLazyDistributor(
+		s.graphClient,
+		epochClient,
+		subsidizerClient,
+		storageClient,
+		s.logger,
+	)
 
-	s.logger.Logf("INFO found %d eligible users for epoch %s", eligibleCount, epochID)
-
-	if err := s.contractClient.DistributeSubsidies(ctx, epochID); err != nil {
-		return fmt.Errorf("failed to distribute subsidies for epoch %s: %w", epochID, err)
+	if err := lazyDistributor.Run(ctx, vaultId); err != nil {
+		return fmt.Errorf("failed to run lazy distributor for vault %s: %w", vaultId, err)
 	}
 
 	return nil

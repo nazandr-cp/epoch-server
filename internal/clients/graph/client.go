@@ -297,3 +297,7 @@ func (c *Client) executeQuery(ctx context.Context, request GraphQLRequest, respo
 
 	return nil
 }
+
+func (c *Client) ExecuteQuery(ctx context.Context, request GraphQLRequest, response interface{}) error {
+	return c.executeQuery(ctx, request, response)
+}
