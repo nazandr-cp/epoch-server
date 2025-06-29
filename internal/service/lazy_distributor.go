@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/andrey/epoch-server/internal/clients/epoch"
-	"github.com/andrey/epoch-server/internal/clients/graph"
 	"github.com/andrey/epoch-server/internal/clients/storage"
 	"github.com/go-pkgz/lgr"
 )
@@ -33,6 +32,7 @@ type EpochManagerClient interface {
 
 type DebtSubsidizerClient interface {
 	UpdateMerkleRoot(ctx context.Context, vaultId string, root [32]byte) error
+	UpdateMerkleRootAndWaitForConfirmation(ctx context.Context, vaultId string, root [32]byte) error
 }
 
 type StorageClient interface {
@@ -102,8 +102,8 @@ func (ld *LazyDistributor) Run(ctx context.Context, vaultId string) error {
 	var rootBytes [32]byte
 	copy(rootBytes[:], merkleRoot[:])
 
-	if err := ld.debtSubsidizerClient.UpdateMerkleRoot(ctx, vaultId, rootBytes); err != nil {
-		return fmt.Errorf("failed to update merkle root: %w", err)
+	if err := ld.debtSubsidizerClient.UpdateMerkleRootAndWaitForConfirmation(ctx, vaultId, rootBytes); err != nil {
+		return fmt.Errorf("failed to update merkle root and wait for confirmation: %w", err)
 	}
 
 	if err := ld.epochManagerClient.FinalizeEpoch(); err != nil {
@@ -116,12 +116,13 @@ func (ld *LazyDistributor) Run(ctx context.Context, vaultId string) error {
 
 func (ld *LazyDistributor) queryLazySubsidies(ctx context.Context, vaultId string) ([]AccountSubsidyPerCollection, error) {
 	query := `
-		query GetLazySubsidies($vaultId: ID!) {
+		query GetLazySubsidies($vaultId: ID!, $first: Int!, $skip: Int!) {
 			accountSubsidiesPerCollections(
 				where: { vault: $vaultId, secondsAccumulated_gt: "0" }
 				orderBy: account
 				orderDirection: asc
-				first: 1000
+				first: $first
+				skip: $skip
 			) {
 				account {
 					id
@@ -134,11 +135,8 @@ func (ld *LazyDistributor) queryLazySubsidies(ctx context.Context, vaultId strin
 		}
 	`
 
-	req := graph.GraphQLRequest{
-		Query: query,
-		Variables: map[string]interface{}{
-			"vaultId": vaultId,
-		},
+	variables := map[string]interface{}{
+		"vaultId": vaultId,
 	}
 
 	var response struct {
@@ -147,8 +145,8 @@ func (ld *LazyDistributor) queryLazySubsidies(ctx context.Context, vaultId strin
 		} `json:"data"`
 	}
 
-	if err := ld.graphClient.ExecuteQuery(ctx, req, &response); err != nil {
-		return nil, fmt.Errorf("failed to execute GraphQL query: %w", err)
+	if err := ld.graphClient.ExecutePaginatedQuery(ctx, query, variables, "accountSubsidiesPerCollections", &response); err != nil {
+		return nil, fmt.Errorf("failed to execute paginated GraphQL query: %w", err)
 	}
 
 	return response.Data.AccountSubsidiesPerCollections, nil

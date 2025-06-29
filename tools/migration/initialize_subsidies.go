@@ -98,13 +98,18 @@ func (m *MigrationService) InitializeSubsidies(ctx context.Context) error {
 }
 
 func (m *MigrationService) fetchAccountSubsidyRecords(ctx context.Context) ([]*AccountSubsidyRecord, error) {
+	return m.fetchAccountSubsidyRecordsPaginated(ctx)
+}
+
+func (m *MigrationService) fetchAccountSubsidyRecordsPaginated(ctx context.Context) ([]*AccountSubsidyRecord, error) {
 	query := `
-		query GetAccountSubsidies($vaultId: ID!) {
+		query GetAccountSubsidies($vaultId: ID!, $first: Int!, $skip: Int!) {
 			accountSubsidiesPerCollections(
 				where: { vault: $vaultId }
 				orderBy: account
 				orderDirection: asc
-				first: 1000
+				first: $first
+				skip: $skip
 			) {
 				account {
 					id
@@ -119,61 +124,79 @@ func (m *MigrationService) fetchAccountSubsidyRecords(ctx context.Context) ([]*A
 		}
 	`
 
-	request := graph.GraphQLRequest{
-		Query: query,
-		Variables: map[string]interface{}{
-			"vaultId": m.config.VaultID,
-		},
-	}
+	const pageSize = 1000
+	var allRecords []*AccountSubsidyRecord
+	skip := 0
 
-	var response struct {
-		Data struct {
-			AccountSubsidiesPerCollections []struct {
-				Account struct {
-					ID string `json:"id"`
-				} `json:"account"`
-				WeightedBalance    string `json:"weightedBalance"`
-				LastEffectiveValue string `json:"lastEffectiveValue"`
-				SecondsAccumulated string `json:"secondsAccumulated"`
-				AccountMarket      struct {
-					BorrowBalance string `json:"borrowBalance"`
-				} `json:"accountMarket"`
-			} `json:"accountSubsidiesPerCollections"`
-		} `json:"data"`
-	}
-
-	if err := m.graphClient.ExecuteQuery(ctx, request, &response); err != nil {
-		return nil, fmt.Errorf("failed to execute GraphQL query: %w", err)
-	}
-
-	records := make([]*AccountSubsidyRecord, 0, len(response.Data.AccountSubsidiesPerCollections))
-	for _, item := range response.Data.AccountSubsidiesPerCollections {
-		weightedBalance, ok := new(big.Int).SetString(item.WeightedBalance, 10)
-		if !ok {
-			return nil, fmt.Errorf("invalid weighted balance for account %s: %s", item.Account.ID, item.WeightedBalance)
+	for {
+		request := graph.GraphQLRequest{
+			Query: query,
+			Variables: map[string]interface{}{
+				"vaultId": m.config.VaultID,
+				"first":   pageSize,
+				"skip":    skip,
+			},
 		}
 
-		currentBorrowU, ok := new(big.Int).SetString(item.AccountMarket.BorrowBalance, 10)
-		if !ok {
-			return nil, fmt.Errorf("invalid borrow balance for account %s: %s", item.Account.ID, item.AccountMarket.BorrowBalance)
+		var response struct {
+			Data struct {
+				AccountSubsidiesPerCollections []struct {
+					Account struct {
+						ID string `json:"id"`
+					} `json:"account"`
+					WeightedBalance    string `json:"weightedBalance"`
+					LastEffectiveValue string `json:"lastEffectiveValue"`
+					SecondsAccumulated string `json:"secondsAccumulated"`
+					AccountMarket      struct {
+						BorrowBalance string `json:"borrowBalance"`
+					} `json:"accountMarket"`
+				} `json:"accountSubsidiesPerCollections"`
+			} `json:"data"`
 		}
 
-		secondsAccumulated, ok := new(big.Int).SetString(item.SecondsAccumulated, 10)
-		if !ok {
-			return nil, fmt.Errorf("invalid seconds accumulated for account %s: %s", item.Account.ID, item.SecondsAccumulated)
+		if err := m.graphClient.ExecuteQuery(ctx, request, &response); err != nil {
+			return nil, fmt.Errorf("failed to execute GraphQL query at skip %d: %w", skip, err)
 		}
 
-		record := &AccountSubsidyRecord{
-			Account:            item.Account.ID,
-			WeightedBalance:    weightedBalance,
-			CurrentBorrowU:     currentBorrowU,
-			SecondsAccumulated: secondsAccumulated,
+		pageData := response.Data.AccountSubsidiesPerCollections
+		if len(pageData) == 0 {
+			break
 		}
 
-		records = append(records, record)
+		for _, item := range pageData {
+			weightedBalance, ok := new(big.Int).SetString(item.WeightedBalance, 10)
+			if !ok {
+				return nil, fmt.Errorf("invalid weighted balance for account %s: %s", item.Account.ID, item.WeightedBalance)
+			}
+
+			currentBorrowU, ok := new(big.Int).SetString(item.AccountMarket.BorrowBalance, 10)
+			if !ok {
+				return nil, fmt.Errorf("invalid borrow balance for account %s: %s", item.Account.ID, item.AccountMarket.BorrowBalance)
+			}
+
+			secondsAccumulated, ok := new(big.Int).SetString(item.SecondsAccumulated, 10)
+			if !ok {
+				return nil, fmt.Errorf("invalid seconds accumulated for account %s: %s", item.Account.ID, item.SecondsAccumulated)
+			}
+
+			record := &AccountSubsidyRecord{
+				Account:            item.Account.ID,
+				WeightedBalance:    weightedBalance,
+				CurrentBorrowU:     currentBorrowU,
+				SecondsAccumulated: secondsAccumulated,
+			}
+
+			allRecords = append(allRecords, record)
+		}
+
+		if len(pageData) < pageSize {
+			break
+		}
+
+		skip += pageSize
 	}
 
-	return records, nil
+	return allRecords, nil
 }
 
 func (m *MigrationService) computeLastEffectiveValues(ctx context.Context, records []*AccountSubsidyRecord) error {

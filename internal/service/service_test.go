@@ -32,6 +32,10 @@ func (m *mockGraphClient) ExecuteQuery(ctx context.Context, request graph.GraphQ
 	return nil
 }
 
+func (m *mockGraphClient) ExecutePaginatedQuery(ctx context.Context, queryTemplate string, variables map[string]interface{}, entityField string, response interface{}) error {
+	return nil
+}
+
 type mockContractClient struct {
 	startEpochFunc          func(ctx context.Context, epochID string) error
 	distributeSubsidiesFunc func(ctx context.Context, epochID string) error

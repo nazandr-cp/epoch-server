@@ -125,8 +125,8 @@ type EligibilitiesResponse struct {
 
 func (c *Client) QueryUsers(ctx context.Context) ([]User, error) {
 	query := `
-		query GetUsers {
-			users(first: 1000) {
+		query GetUsers($first: Int!, $skip: Int!) {
+			users(first: $first, skip: $skip) {
 				id
 				totalSecondsClaimed
 				totalSubsidiesReceived
@@ -142,15 +142,11 @@ func (c *Client) QueryUsers(ctx context.Context) ([]User, error) {
 		}
 	`
 
-	req := GraphQLRequest{
-		Query: query,
-	}
-
 	var response struct {
 		Data UsersResponse `json:"data"`
 	}
 
-	if err := c.executeQuery(ctx, req, &response); err != nil {
+	if err := c.ExecutePaginatedQuery(ctx, query, map[string]interface{}{}, "users", &response); err != nil {
 		return nil, fmt.Errorf("failed to query users: %w", err)
 	}
 
@@ -159,8 +155,8 @@ func (c *Client) QueryUsers(ctx context.Context) ([]User, error) {
 
 func (c *Client) QueryEligibility(ctx context.Context, epochID string) ([]Eligibility, error) {
 	query := `
-		query GetEligibility($epochId: String!) {
-			userEpochEligibilities(where: { epoch: $epochId }, first: 1000) {
+		query GetEligibility($epochId: String!, $first: Int!, $skip: Int!) {
+			userEpochEligibilities(where: { epoch: $epochId }, first: $first, skip: $skip) {
 				id
 				user {
 					id
@@ -236,18 +232,15 @@ func (c *Client) QueryEligibility(ctx context.Context, epochID string) ([]Eligib
 		}
 	`
 
-	req := GraphQLRequest{
-		Query: query,
-		Variables: map[string]interface{}{
-			"epochId": epochID,
-		},
-	}
-
 	var response struct {
 		Data EligibilitiesResponse `json:"data"`
 	}
 
-	if err := c.executeQuery(ctx, req, &response); err != nil {
+	variables := map[string]interface{}{
+		"epochId": epochID,
+	}
+
+	if err := c.ExecutePaginatedQuery(ctx, query, variables, "userEpochEligibilities", &response); err != nil {
 		return nil, fmt.Errorf("failed to query eligibility for epoch %s: %w", epochID, err)
 	}
 
@@ -300,4 +293,95 @@ func (c *Client) executeQuery(ctx context.Context, request GraphQLRequest, respo
 
 func (c *Client) ExecuteQuery(ctx context.Context, request GraphQLRequest, response interface{}) error {
 	return c.executeQuery(ctx, request, response)
+}
+
+// ExecutePaginatedQuery executes a GraphQL query with pagination, automatically fetching all pages
+func (c *Client) ExecutePaginatedQuery(ctx context.Context, queryTemplate string, variables map[string]interface{}, entityField string, response interface{}) error {
+	const pageSize = 1000
+	var allResults []json.RawMessage
+	skip := 0
+
+	for {
+		// Add pagination variables
+		paginatedVars := make(map[string]interface{})
+		for k, v := range variables {
+			paginatedVars[k] = v
+		}
+		paginatedVars["first"] = pageSize
+		paginatedVars["skip"] = skip
+
+		req := GraphQLRequest{
+			Query:     queryTemplate,
+			Variables: paginatedVars,
+		}
+
+		var pageResponse struct {
+			Data json.RawMessage `json:"data"`
+		}
+
+		if err := c.executeQuery(ctx, req, &pageResponse); err != nil {
+			return fmt.Errorf("failed to execute paginated query at skip %d: %w", skip, err)
+		}
+
+		// Parse the data to extract the entity field
+		var data map[string]json.RawMessage
+		if err := json.Unmarshal(pageResponse.Data, &data); err != nil {
+			return fmt.Errorf("failed to parse response data: %w", err)
+		}
+
+		entitiesRaw, ok := data[entityField]
+		if !ok {
+			return fmt.Errorf("missing %s field in response", entityField)
+		}
+
+		// Parse entities as array
+		var entities []json.RawMessage
+		if err := json.Unmarshal(entitiesRaw, &entities); err != nil {
+			return fmt.Errorf("failed to parse %s array: %w", entityField, err)
+		}
+
+		// If this page is empty, we've reached the end
+		if len(entities) == 0 {
+			break
+		}
+
+		allResults = append(allResults, entities...)
+
+		// If this page has fewer results than pageSize, we've reached the end
+		if len(entities) < pageSize {
+			break
+		}
+
+		skip += pageSize
+	}
+
+	// Reconstruct the full response
+	allEntitiesJson, err := json.Marshal(allResults)
+	if err != nil {
+		return fmt.Errorf("failed to marshal accumulated results: %w", err)
+	}
+
+	fullResponseData := map[string]json.RawMessage{
+		entityField: allEntitiesJson,
+	}
+
+	fullResponseDataJson, err := json.Marshal(fullResponseData)
+	if err != nil {
+		return fmt.Errorf("failed to marshal response data: %w", err)
+	}
+
+	fullResponse := map[string]json.RawMessage{
+		"data": fullResponseDataJson,
+	}
+
+	fullResponseJson, err := json.Marshal(fullResponse)
+	if err != nil {
+		return fmt.Errorf("failed to marshal full response: %w", err)
+	}
+
+	if err := json.Unmarshal(fullResponseJson, response); err != nil {
+		return fmt.Errorf("failed to unmarshal into response type: %w", err)
+	}
+
+	return nil
 }

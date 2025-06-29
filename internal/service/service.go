@@ -16,6 +16,7 @@ type GraphClient interface {
 	QueryUsers(ctx context.Context) ([]graph.User, error)
 	QueryEligibility(ctx context.Context, epochID string) ([]graph.Eligibility, error)
 	ExecuteQuery(ctx context.Context, request graph.GraphQLRequest, response interface{}) error
+	ExecutePaginatedQuery(ctx context.Context, queryTemplate string, variables map[string]interface{}, entityField string, response interface{}) error
 }
 
 type ContractClient interface {
