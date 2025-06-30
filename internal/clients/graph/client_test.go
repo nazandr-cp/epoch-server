@@ -21,7 +21,7 @@ func TestClient_QueryUsers(t *testing.T) {
 			name: "successful query",
 			serverResponse: `{
 				"data": {
-					"users": [
+					"accounts": [
 						{
 							"id": "user1",
 							"totalSecondsClaimed": "100",
@@ -67,7 +67,7 @@ func TestClient_QueryUsers(t *testing.T) {
 			serverResponse: `{
 				"data": null,
 				"errors": [
-					{"message": "Field 'users' doesn't exist on type 'Query'"}
+					{"message": "Field 'accounts' doesn't exist on type 'Query'"}
 				]
 			}`,
 			statusCode:     http.StatusOK,
@@ -76,7 +76,7 @@ func TestClient_QueryUsers(t *testing.T) {
 		},
 		{
 			name:           "malformed json",
-			serverResponse: `{"data": {"users": [invalid json`,
+			serverResponse: `{"data": {"accounts": [invalid json`,
 			statusCode:     http.StatusOK,
 			wantErr:        true,
 			wantUsersCount: 0,
@@ -99,8 +99,9 @@ func TestClient_QueryUsers(t *testing.T) {
 					t.Errorf("Failed to decode request: %v", err)
 				}
 
-				if !strings.Contains(req.Query, "users(first: 1000)") {
-					t.Errorf("Expected users query, got %s", req.Query)
+				// QueryUsers now delegates to QueryAccounts, so we expect accounts query
+				if !strings.Contains(req.Query, "accounts(first:") {
+					t.Errorf("Expected accounts query (via QueryUsers delegation), got %s", req.Query)
 				}
 
 				w.Header().Set("Content-Type", "application/json")
@@ -205,9 +206,6 @@ func TestClient_QueryEligibility(t *testing.T) {
 								"minBorrowAmount": "100",
 								"maxBorrowAmount": "10000",
 								"totalNFTsDeposited": "500",
-								"totalBorrowVolume": "50000",
-								"totalYieldGenerated": "1000",
-								"totalSubsidiesReceived": "200",
 								"registeredAtBlock": "500",
 								"registeredAtTimestamp": "1640994000",
 								"updatedAtBlock": "2000",

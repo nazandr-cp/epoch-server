@@ -23,7 +23,8 @@ func NewClient(endpoint string) *Client {
 	}
 }
 
-type User struct {
+// Account represents a user account in the new schema (previously User)
+type Account struct {
 	ID                           string `json:"id"`
 	TotalSecondsClaimed          string `json:"totalSecondsClaimed"`
 	TotalSubsidiesReceived       string `json:"totalSubsidiesReceived"`
@@ -37,9 +38,31 @@ type User struct {
 	UpdatedAtTimestamp           string `json:"updatedAtTimestamp"`
 }
 
+// User is an alias for backward compatibility
+type User = Account
+
+// AccountSubsidy represents the new consolidated account subsidy entity
+type AccountSubsidy struct {
+	ID                       string  `json:"id"`
+	Account                  Account `json:"account"`
+	AccountMarket            string  `json:"accountMarket"`
+	CollectionParticipation  string  `json:"collectionParticipation"`
+	BalanceNFT               string  `json:"balanceNFT"`
+	WeightedBalance          string  `json:"weightedBalance"`
+	SecondsAccumulated       string  `json:"secondsAccumulated"`
+	SecondsClaimed           string  `json:"secondsClaimed"`
+	SubsidiesAccrued         string  `json:"subsidiesAccrued"`
+	SubsidiesClaimed         string  `json:"subsidiesClaimed"`
+	AverageHoldingPeriod     string  `json:"averageHoldingPeriod"`
+	TotalRewardsEarned       string  `json:"totalRewardsEarned"`
+	LastEffectiveValue       string  `json:"lastEffectiveValue"`
+	UpdatedAtBlock           string  `json:"updatedAtBlock"`
+	UpdatedAtTimestamp       string  `json:"updatedAtTimestamp"`
+}
+
 type Eligibility struct {
 	ID                    string     `json:"id"`
-	User                  User       `json:"user"`
+	Account               Account    `json:"account"` // Changed from User to Account
 	Epoch                 Epoch      `json:"epoch"`
 	Collection            Collection `json:"collection"`
 	NFTBalance            string     `json:"nftBalance"`
@@ -51,6 +74,8 @@ type Eligibility struct {
 	BonusMultiplier       string     `json:"bonusMultiplier"`
 	CalculatedAtBlock     string     `json:"calculatedAtBlock"`
 	CalculatedAtTimestamp string     `json:"calculatedAtTimestamp"`
+	// Backward compatibility
+	User                  Account    `json:"user"`
 }
 
 type Epoch struct {
@@ -94,9 +119,7 @@ type Collection struct {
 	MinBorrowAmount        string `json:"minBorrowAmount"`
 	MaxBorrowAmount        string `json:"maxBorrowAmount"`
 	TotalNFTsDeposited     string `json:"totalNFTsDeposited"`
-	TotalBorrowVolume      string `json:"totalBorrowVolume"`
-	TotalYieldGenerated    string `json:"totalYieldGenerated"`
-	TotalSubsidiesReceived string `json:"totalSubsidiesReceived"`
+	// REMOVED: TotalBorrowVolume, TotalYieldGenerated, TotalSubsidiesReceived (duplicate stats)
 	RegisteredAtBlock      string `json:"registeredAtBlock"`
 	RegisteredAtTimestamp  string `json:"registeredAtTimestamp"`
 	UpdatedAtBlock         string `json:"updatedAtBlock"`
@@ -115,6 +138,12 @@ type GraphQLResponse struct {
 	} `json:"errors,omitempty"`
 }
 
+// AccountsResponse represents the response for accounts query (new schema)
+type AccountsResponse struct {
+	Accounts []Account `json:"accounts"`
+}
+
+// UsersResponse is kept for backward compatibility
 type UsersResponse struct {
 	Users []User `json:"users"`
 }
@@ -123,10 +152,11 @@ type EligibilitiesResponse struct {
 	UserEpochEligibilities []Eligibility `json:"userEpochEligibilities"`
 }
 
-func (c *Client) QueryUsers(ctx context.Context) ([]User, error) {
+// QueryAccounts queries accounts using the new schema
+func (c *Client) QueryAccounts(ctx context.Context) ([]Account, error) {
 	query := `
-		query GetUsers($first: Int!, $skip: Int!) {
-			users(first: $first, skip: $skip) {
+		query GetAccounts($first: Int!, $skip: Int!) {
+			accounts(first: $first, skip: $skip) {
 				id
 				totalSecondsClaimed
 				totalSubsidiesReceived
@@ -143,14 +173,28 @@ func (c *Client) QueryUsers(ctx context.Context) ([]User, error) {
 	`
 
 	var response struct {
-		Data UsersResponse `json:"data"`
+		Data AccountsResponse `json:"data"`
 	}
 
-	if err := c.ExecutePaginatedQuery(ctx, query, map[string]interface{}{}, "users", &response); err != nil {
-		return nil, fmt.Errorf("failed to query users: %w", err)
+	if err := c.ExecutePaginatedQuery(ctx, query, map[string]interface{}{}, "accounts", &response); err != nil {
+		return nil, fmt.Errorf("failed to query accounts: %w", err)
 	}
 
-	return response.Data.Users, nil
+	return response.Data.Accounts, nil
+}
+
+// QueryUsers is kept for backward compatibility - delegates to QueryAccounts
+func (c *Client) QueryUsers(ctx context.Context) ([]User, error) {
+	accounts, err := c.QueryAccounts(ctx)
+	if err != nil {
+		return nil, err
+	}
+	// Convert accounts to users (they have the same structure due to type alias)
+	users := make([]User, len(accounts))
+	for i, account := range accounts {
+		users[i] = User(account)
+	}
+	return users, nil
 }
 
 func (c *Client) QueryEligibility(ctx context.Context, epochID string) ([]Eligibility, error) {
@@ -211,9 +255,7 @@ func (c *Client) QueryEligibility(ctx context.Context, epochID string) ([]Eligib
 					minBorrowAmount
 					maxBorrowAmount
 					totalNFTsDeposited
-					totalBorrowVolume
-					totalYieldGenerated
-					totalSubsidiesReceived
+					# REMOVED: totalBorrowVolume, totalYieldGenerated, totalSubsidiesReceived (duplicate stats)
 					registeredAtBlock
 					registeredAtTimestamp
 					updatedAtBlock

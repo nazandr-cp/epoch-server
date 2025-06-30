@@ -16,17 +16,15 @@ type mockGraphClient struct {
 func (m *mockGraphClient) ExecuteQuery(ctx context.Context, request graph.GraphQLRequest, response interface{}) error {
 	resp := response.(*struct {
 		Data struct {
-			AccountSubsidiesPerCollections []struct {
+			AccountSubsidies []struct {
 				Account struct {
 					ID string `json:"id"`
 				} `json:"account"`
 				WeightedBalance    string `json:"weightedBalance"`
 				LastEffectiveValue string `json:"lastEffectiveValue"`
 				SecondsAccumulated string `json:"secondsAccumulated"`
-				AccountMarket      struct {
-					BorrowBalance string `json:"borrowBalance"`
-				} `json:"accountMarket"`
-			} `json:"accountSubsidiesPerCollections"`
+				// Note: AccountMarket removed from new schema structure
+			} `json:"accountSubsidies"`
 		} `json:"data"`
 	})
 
@@ -38,17 +36,15 @@ func (m *mockGraphClient) ExecuteQuery(ctx context.Context, request graph.GraphQ
 			WeightedBalance    string `json:"weightedBalance"`
 			LastEffectiveValue string `json:"lastEffectiveValue"`
 			SecondsAccumulated string `json:"secondsAccumulated"`
-			AccountMarket      struct {
-				BorrowBalance string `json:"borrowBalance"`
-			} `json:"accountMarket"`
+			// Note: AccountMarket removed from new schema structure
 		}{}
 
 		item.Account.ID = record.Account
 		item.WeightedBalance = record.WeightedBalance.String()
 		item.SecondsAccumulated = record.SecondsAccumulated.String()
-		item.AccountMarket.BorrowBalance = record.CurrentBorrowU.String()
+		// Note: BorrowBalance no longer directly available in AccountSubsidy
 
-		resp.Data.AccountSubsidiesPerCollections = append(resp.Data.AccountSubsidiesPerCollections, item)
+		resp.Data.AccountSubsidies = append(resp.Data.AccountSubsidies, item)
 	}
 
 	return nil

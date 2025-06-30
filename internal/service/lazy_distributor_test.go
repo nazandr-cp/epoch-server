@@ -205,19 +205,19 @@ func (m *mockPaginatedGraphClient) ExecutePaginatedQuery(ctx context.Context, qu
 
 	mockResponse := struct {
 		Data struct {
-			AccountSubsidiesPerCollections []AccountSubsidyPerCollection `json:"accountSubsidiesPerCollections"`
+			AccountSubsidies []AccountSubsidy `json:"accountSubsidies"`
 		} `json:"data"`
 	}{
 		Data: struct {
-			AccountSubsidiesPerCollections []AccountSubsidyPerCollection `json:"accountSubsidiesPerCollections"`
+			AccountSubsidies []AccountSubsidy `json:"accountSubsidies"`
 		}{
-			AccountSubsidiesPerCollections: records,
+			AccountSubsidies: records,
 		},
 	}
 
 	*response.(*struct {
 		Data struct {
-			AccountSubsidiesPerCollections []AccountSubsidyPerCollection `json:"accountSubsidiesPerCollections"`
+			AccountSubsidies []AccountSubsidy `json:"accountSubsidies"`
 		} `json:"data"`
 	}) = mockResponse
 

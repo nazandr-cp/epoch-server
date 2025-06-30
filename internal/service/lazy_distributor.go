@@ -13,13 +13,17 @@ import (
 	"github.com/go-pkgz/lgr"
 )
 
-type AccountSubsidyPerCollection struct {
+// AccountSubsidy represents the new consolidated account subsidy entity
+type AccountSubsidy struct {
 	Account            Account `json:"account"`
 	SecondsAccumulated string  `json:"secondsAccumulated"`
 	SecondsClaimed     string  `json:"secondsClaimed"`
 	LastEffectiveValue string  `json:"lastEffectiveValue"`
 	UpdatedAtTimestamp string  `json:"updatedAtTimestamp"`
 }
+
+// AccountSubsidyPerCollection is kept for backward compatibility
+type AccountSubsidyPerCollection = AccountSubsidy
 
 type Account struct {
 	ID string `json:"id"`
@@ -114,11 +118,11 @@ func (ld *LazyDistributor) Run(ctx context.Context, vaultId string) error {
 	return nil
 }
 
-func (ld *LazyDistributor) queryLazySubsidies(ctx context.Context, vaultId string) ([]AccountSubsidyPerCollection, error) {
+func (ld *LazyDistributor) queryLazySubsidies(ctx context.Context, vaultId string) ([]AccountSubsidy, error) {
 	query := `
 		query GetLazySubsidies($vaultId: ID!, $first: Int!, $skip: Int!) {
-			accountSubsidiesPerCollections(
-				where: { vault: $vaultId, secondsAccumulated_gt: "0" }
+			accountSubsidies(
+				where: { collectionParticipation_contains: $vaultId, secondsAccumulated_gt: "0" }
 				orderBy: account
 				orderDirection: asc
 				first: $first
@@ -141,18 +145,18 @@ func (ld *LazyDistributor) queryLazySubsidies(ctx context.Context, vaultId strin
 
 	var response struct {
 		Data struct {
-			AccountSubsidiesPerCollections []AccountSubsidyPerCollection `json:"accountSubsidiesPerCollections"`
+			AccountSubsidies []AccountSubsidy `json:"accountSubsidies"`
 		} `json:"data"`
 	}
 
-	if err := ld.graphClient.ExecutePaginatedQuery(ctx, query, variables, "accountSubsidiesPerCollections", &response); err != nil {
+	if err := ld.graphClient.ExecutePaginatedQuery(ctx, query, variables, "accountSubsidies", &response); err != nil {
 		return nil, fmt.Errorf("failed to execute paginated GraphQL query: %w", err)
 	}
 
-	return response.Data.AccountSubsidiesPerCollections, nil
+	return response.Data.AccountSubsidies, nil
 }
 
-func (ld *LazyDistributor) calculateTotalEarned(subsidy AccountSubsidyPerCollection, epochEnd int64) (*big.Int, error) {
+func (ld *LazyDistributor) calculateTotalEarned(subsidy AccountSubsidy, epochEnd int64) (*big.Int, error) {
 	secondsAccumulated, ok := new(big.Int).SetString(subsidy.SecondsAccumulated, 10)
 	if !ok {
 		return nil, fmt.Errorf("invalid secondsAccumulated: %s", subsidy.SecondsAccumulated)
