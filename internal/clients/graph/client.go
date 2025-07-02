@@ -172,15 +172,13 @@ func (c *Client) QueryAccounts(ctx context.Context) ([]Account, error) {
 		}
 	`
 
-	var response struct {
-		Data AccountsResponse `json:"data"`
-	}
+	var response AccountsResponse
 
 	if err := c.ExecutePaginatedQuery(ctx, query, map[string]interface{}{}, "accounts", &response); err != nil {
 		return nil, fmt.Errorf("failed to query accounts: %w", err)
 	}
 
-	return response.Data.Accounts, nil
+	return response.Accounts, nil
 }
 
 // QueryUsers is kept for backward compatibility - delegates to QueryAccounts
@@ -274,9 +272,7 @@ func (c *Client) QueryEligibility(ctx context.Context, epochID string) ([]Eligib
 		}
 	`
 
-	var response struct {
-		Data EligibilitiesResponse `json:"data"`
-	}
+	var response EligibilitiesResponse
 
 	variables := map[string]interface{}{
 		"epochId": epochID,
@@ -286,7 +282,7 @@ func (c *Client) QueryEligibility(ctx context.Context, epochID string) ([]Eligib
 		return nil, fmt.Errorf("failed to query eligibility for epoch %s: %w", epochID, err)
 	}
 
-	return response.Data.UserEpochEligibilities, nil
+	return response.UserEpochEligibilities, nil
 }
 
 func (c *Client) executeQuery(ctx context.Context, request GraphQLRequest, response interface{}) error {
@@ -357,18 +353,10 @@ func (c *Client) ExecutePaginatedQuery(ctx context.Context, queryTemplate string
 			Variables: paginatedVars,
 		}
 
-		var pageResponse struct {
-			Data json.RawMessage `json:"data"`
-		}
-
-		if err := c.executeQuery(ctx, req, &pageResponse); err != nil {
-			return fmt.Errorf("failed to execute paginated query at skip %d: %w", skip, err)
-		}
-
-		// Parse the data to extract the entity field
 		var data map[string]json.RawMessage
-		if err := json.Unmarshal(pageResponse.Data, &data); err != nil {
-			return fmt.Errorf("failed to parse response data: %w", err)
+
+		if err := c.executeQuery(ctx, req, &data); err != nil {
+			return fmt.Errorf("failed to execute paginated query at skip %d: %w", skip, err)
 		}
 
 		entitiesRaw, ok := data[entityField]
@@ -397,23 +385,14 @@ func (c *Client) ExecutePaginatedQuery(ctx context.Context, queryTemplate string
 		skip += pageSize
 	}
 
-	// Reconstruct the full response
+	// Reconstruct the full response directly without nested data field
 	allEntitiesJson, err := json.Marshal(allResults)
 	if err != nil {
 		return fmt.Errorf("failed to marshal accumulated results: %w", err)
 	}
 
-	fullResponseData := map[string]json.RawMessage{
-		entityField: allEntitiesJson,
-	}
-
-	fullResponseDataJson, err := json.Marshal(fullResponseData)
-	if err != nil {
-		return fmt.Errorf("failed to marshal response data: %w", err)
-	}
-
 	fullResponse := map[string]json.RawMessage{
-		"data": fullResponseDataJson,
+		entityField: allEntitiesJson,
 	}
 
 	fullResponseJson, err := json.Marshal(fullResponse)
