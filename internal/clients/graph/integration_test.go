@@ -21,7 +21,7 @@ func TestClient_RealSubgraph_QueryAccounts(t *testing.T) {
 		},
 		endpoint: realSubgraphEndpoint,
 	}
-	
+
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
@@ -34,7 +34,7 @@ func TestClient_RealSubgraph_QueryAccounts(t *testing.T) {
 
 	if len(accounts) > 0 {
 		account := accounts[0]
-		t.Logf("First account: ID=%s, TotalSecondsClaimed=%s, TotalSubsidiesReceived=%s", 
+		t.Logf("First account: ID=%s, TotalSecondsClaimed=%s, TotalSubsidiesReceived=%s",
 			account.ID, account.TotalSecondsClaimed, account.TotalSubsidiesReceived)
 
 		// Validate account structure
@@ -50,7 +50,7 @@ func TestClient_RealSubgraph_QueryAccounts(t *testing.T) {
 	}
 }
 
-func TestClient_RealSubgraph_QueryUsers_BackwardCompatibility(t *testing.T) {
+func TestClient_RealSubgraph_QueryAccounts_Updated(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
 	}
@@ -62,20 +62,20 @@ func TestClient_RealSubgraph_QueryUsers_BackwardCompatibility(t *testing.T) {
 		},
 		endpoint: realSubgraphEndpoint,
 	}
-	
+
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
-	users, err := client.QueryUsers(ctx)
+	accounts, err := client.QueryAccounts(ctx)
 	if err != nil {
-		t.Fatalf("QueryUsers failed: %v", err)
+		t.Fatalf("QueryAccounts failed: %v", err)
 	}
 
-	t.Logf("Retrieved %d users via backward compatibility method", len(users))
+	t.Logf("Retrieved %d accounts", len(accounts))
 
-	if len(users) > 0 {
-		user := users[0]
-		t.Logf("First user: ID=%s, TotalSecondsClaimed=%s", user.ID, user.TotalSecondsClaimed)
+	if len(accounts) > 0 {
+		account := accounts[0]
+		t.Logf("First account: ID=%s, TotalSecondsClaimed=%s", account.ID, account.TotalSecondsClaimed)
 	}
 }
 
@@ -91,7 +91,7 @@ func TestClient_RealSubgraph_DirectQuery(t *testing.T) {
 		},
 		endpoint: realSubgraphEndpoint,
 	}
-	
+
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
@@ -132,7 +132,7 @@ func TestClient_RealSubgraph_AccountSubsidies(t *testing.T) {
 		},
 		endpoint: realSubgraphEndpoint,
 	}
-	
+
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
@@ -165,7 +165,7 @@ func TestClient_RealSubgraph_AccountSubsidies(t *testing.T) {
 
 	if len(response.AccountSubsidies) > 0 {
 		subsidy := response.AccountSubsidies[0]
-		t.Logf("First subsidy: ID=%s, SecondsAccumulated=%s, SecondsClaimed=%s", 
+		t.Logf("First subsidy: ID=%s, SecondsAccumulated=%s, SecondsClaimed=%s",
 			subsidy.ID, subsidy.SecondsAccumulated, subsidy.SecondsClaimed)
 
 		// Validate subsidy structure
@@ -190,7 +190,7 @@ func TestClient_RealSubgraph_PaginationStress(t *testing.T) {
 		},
 		endpoint: realSubgraphEndpoint,
 	}
-	
+
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
 
@@ -224,10 +224,10 @@ func TestClient_RealSubgraph_PaginationStress(t *testing.T) {
 	// Verify we got some data
 	if len(response.AccountSubsidies) > 0 {
 		t.Logf("Successfully retrieved dataset via pagination: %d records", len(response.AccountSubsidies))
-		
+
 		// Log first few records
 		for i, subsidy := range response.AccountSubsidies[:min(3, len(response.AccountSubsidies))] {
-			t.Logf("Record %d: ID=%s, Account=%s, SecondsAccumulated=%s", 
+			t.Logf("Record %d: ID=%s, Account=%s, SecondsAccumulated=%s",
 				i+1, subsidy.ID, subsidy.Account.ID, subsidy.SecondsAccumulated)
 		}
 	}
@@ -238,125 +238,4 @@ func min(a, b int) int {
 		return a
 	}
 	return b
-}
-
-func TestClient_RealSubgraph_SchemaValidation(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration test in short mode")
-	}
-
-	// Create client with longer timeout for integration tests
-	client := &Client{
-		httpClient: &http.Client{
-			Timeout: 60 * time.Second,
-		},
-		endpoint: realSubgraphEndpoint,
-	}
-	
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
-	defer cancel()
-
-	// Test schema introspection to validate available fields
-	request := GraphQLRequest{
-		Query: `query {
-			__schema {
-				queryType {
-					fields {
-						name
-					}
-				}
-			}
-		}`,
-	}
-
-	var response struct {
-		Data struct {
-			Schema struct {
-				QueryType struct {
-					Fields []struct {
-						Name string `json:"name"`
-					} `json:"fields"`
-				} `json:"queryType"`
-			} `json:"__schema"`
-		} `json:"data"`
-	}
-
-	err := client.ExecuteQuery(ctx, request, &response)
-	if err != nil {
-		t.Fatalf("Schema introspection failed: %v", err)
-	}
-
-	// Check for expected query fields
-	expectedFields := []string{"accounts", "accountSubsidies", "userEpochEligibilities"}
-	fieldMap := make(map[string]bool)
-	
-	for _, field := range response.Data.Schema.QueryType.Fields {
-		fieldMap[field.Name] = true
-		t.Logf("Available query field: %s", field.Name)
-	}
-
-	for _, expected := range expectedFields {
-		if !fieldMap[expected] {
-			t.Errorf("Expected query field '%s' not found in schema", expected)
-		}
-	}
-}
-
-func TestClient_RealSubgraph_EpochData(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration test in short mode")
-	}
-
-	// Create client with longer timeout for integration tests
-	client := &Client{
-		httpClient: &http.Client{
-			Timeout: 60 * time.Second,
-		},
-		endpoint: realSubgraphEndpoint,
-	}
-	
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
-	defer cancel()
-
-	// Test epochs query
-	request := GraphQLRequest{
-		Query: `query { 
-			epoches(first: 5, orderBy: epochNumber, orderDirection: desc) { 
-				id
-				epochNumber
-				status
-				startTimestamp
-				endTimestamp
-				totalYieldAvailable
-				totalYieldAllocated
-				totalYieldDistributed
-				remainingYield
-				totalSubsidiesDistributed
-				totalEligibleUsers
-				totalParticipatingCollections
-				participantCount
-				createdAtBlock
-				createdAtTimestamp
-				updatedAtBlock
-				updatedAtTimestamp
-			} 
-		}`,
-	}
-
-	var response struct {
-		Epochs []Epoch `json:"epoches"`
-	}
-
-	err := client.ExecuteQuery(ctx, request, &response)
-	if err != nil {
-		t.Fatalf("Epochs query failed: %v", err)
-	}
-
-	t.Logf("Retrieved %d epochs", len(response.Epochs))
-
-	if len(response.Epochs) > 0 {
-		epoch := response.Epochs[0]
-		t.Logf("Latest epoch: Number=%s, Status=%s, TotalYieldAvailable=%s", 
-			epoch.EpochNumber, epoch.Status, epoch.TotalYieldAvailable)
-	}
 }

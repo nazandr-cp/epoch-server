@@ -114,7 +114,7 @@ func TestClient_QueryUsers(t *testing.T) {
 			defer server.Close()
 
 			client := NewClient(server.URL)
-			users, err := client.QueryUsers(context.Background())
+			accounts, err := client.QueryAccounts(context.Background())
 
 			if tt.wantErr && err == nil {
 				t.Errorf("Expected error, got nil")
@@ -122,17 +122,17 @@ func TestClient_QueryUsers(t *testing.T) {
 			if !tt.wantErr && err != nil {
 				t.Errorf("Expected no error, got %v", err)
 			}
-			if len(users) != tt.wantUsersCount {
-				t.Errorf("Expected %d users, got %d", tt.wantUsersCount, len(users))
+			if len(accounts) != tt.wantUsersCount {
+				t.Errorf("Expected %d accounts, got %d", tt.wantUsersCount, len(accounts))
 			}
 
-			if !tt.wantErr && len(users) > 0 {
-				user := users[0]
-				if user.ID != "user1" {
-					t.Errorf("Expected first user ID to be 'user1', got %s", user.ID)
+			if !tt.wantErr && len(accounts) > 0 {
+				account := accounts[0]
+				if account.ID != "user1" {
+					t.Errorf("Expected first account ID to be 'user1', got %s", account.ID)
 				}
-				if user.TotalSecondsClaimed != "100" {
-					t.Errorf("Expected TotalSecondsClaimed to be '100', got %s", user.TotalSecondsClaimed)
+				if account.TotalSecondsClaimed != "100" {
+					t.Errorf("Expected TotalSecondsClaimed to be '100', got %s", account.TotalSecondsClaimed)
 				}
 			}
 		})
@@ -156,7 +156,7 @@ func TestClient_QueryEligibility(t *testing.T) {
 					"userEpochEligibilities": [
 						{
 							"id": "eligibility1",
-							"user": {
+							"account": {
 								"id": "user1",
 								"totalSecondsClaimed": "100",
 								"totalSubsidiesReceived": "50",
@@ -313,8 +313,8 @@ func TestClient_QueryEligibility(t *testing.T) {
 				if eligibility.ID != "eligibility1" {
 					t.Errorf("Expected first eligibility ID to be 'eligibility1', got %s", eligibility.ID)
 				}
-				if eligibility.User.ID != "user1" {
-					t.Errorf("Expected user ID to be 'user1', got %s", eligibility.User.ID)
+				if eligibility.Account.ID != "user1" {
+					t.Errorf("Expected account ID to be 'user1', got %s", eligibility.Account.ID)
 				}
 				if !eligibility.IsEligible {
 					t.Errorf("Expected isEligible to be true, got %v", eligibility.IsEligible)

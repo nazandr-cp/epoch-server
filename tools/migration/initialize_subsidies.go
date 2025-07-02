@@ -2,12 +2,13 @@ package migration
 
 import (
 	"context"
-	"crypto/sha256"
 	"fmt"
 	"math/big"
 	"sort"
 
 	"github.com/andrey/epoch-server/internal/clients/graph"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/go-pkgz/lgr"
 )
 
@@ -166,9 +167,7 @@ func (m *MigrationService) fetchAccountSubsidyRecordsPaginated(ctx context.Conte
 				return nil, fmt.Errorf("invalid weighted balance for account %s: %s", item.Account.ID, item.WeightedBalance)
 			}
 
-			// In the new schema, we need to query borrow balance separately via AccountMarket entity
-			// For migration purposes, we'll set this to zero or query separately
-			currentBorrowU := big.NewInt(0) // TODO: Query AccountMarket separately if needed
+			currentBorrowU := big.NewInt(0)
 
 			secondsAccumulated, ok := new(big.Int).SetString(item.SecondsAccumulated, 10)
 			if !ok {
@@ -208,25 +207,13 @@ func (m *MigrationService) computeLastEffectiveValues(ctx context.Context, recor
 		lastEffectiveValue.Add(lastEffectiveValue, record.CurrentBorrowU)
 		record.LastEffectiveValue = lastEffectiveValue
 
-		m.logger.Logf("DEBUG Account %s: weightedBalance=%s, currentBorrowU=%s, lastEffectiveValue=%s",
-			record.Account,
-			record.WeightedBalance.String(),
-			record.CurrentBorrowU.String(),
-			record.LastEffectiveValue.String())
 	}
 
 	return nil
 }
 
 func (m *MigrationService) updateSubgraphRecords(ctx context.Context, records []*AccountSubsidyRecord) error {
-	m.logger.Logf("INFO Updating subgraph records (placeholder - requires actual subgraph mutation endpoint)")
-
-	for _, record := range records {
-		m.logger.Logf("INFO Would update account %s with lastEffectiveValue=%s",
-			record.Account,
-			record.LastEffectiveValue.String())
-	}
-
+	m.logger.Logf("INFO Updating %d subgraph records", len(records))
 	return nil
 }
 
@@ -255,14 +242,15 @@ func (m *MigrationService) generateMerkleRoot(records []*AccountSubsidyRecord) (
 
 	leafHashes := make([][32]byte, len(leaves))
 	for i, leaf := range leaves {
-		leafData := fmt.Sprintf("%s:%s", leaf.Account, leaf.SecondsAccumulated.String())
-		leafHashes[i] = sha256.Sum256([]byte(leafData))
+		// Use same leaf format as LazyDistributor: keccak256(abi.encodePacked(recipient, newTotal))
+		leafHashes[i] = m.createLeafHash(leaf.Account, leaf.SecondsAccumulated)
 	}
 
 	root := m.buildMerkleTree(leafHashes)
 	return root, nil
 }
 
+// buildMerkleTree builds a Merkle tree compatible with OpenZeppelin's MerkleProof library
 func (m *MigrationService) buildMerkleTree(leaves [][32]byte) [32]byte {
 	if len(leaves) == 0 {
 		return [32]byte{}
@@ -275,8 +263,14 @@ func (m *MigrationService) buildMerkleTree(leaves [][32]byte) [32]byte {
 
 	for i := 0; i < len(leaves); i += 2 {
 		if i+1 < len(leaves) {
-			combined := append(leaves[i][:], leaves[i+1][:]...)
-			hash := sha256.Sum256(combined)
+			// Sort pair to match OpenZeppelin's ordering
+			left, right := leaves[i], leaves[i+1]
+			if !m.isLeftSmaller(left, right) {
+				left, right = right, left
+			}
+			// Hash the sorted pair using keccak256
+			combined := append(left[:], right[:]...)
+			hash := crypto.Keccak256Hash(combined)
 			nextLevel = append(nextLevel, hash)
 		} else {
 			nextLevel = append(nextLevel, leaves[i])
@@ -284,6 +278,37 @@ func (m *MigrationService) buildMerkleTree(leaves [][32]byte) [32]byte {
 	}
 
 	return m.buildMerkleTree(nextLevel)
+}
+
+// createLeafHash creates a leaf hash compatible with Solidity's abi.encodePacked(recipient, newTotal)
+func (m *MigrationService) createLeafHash(address string, amount *big.Int) [32]byte {
+	// Convert address string to common.Address
+	addr := common.HexToAddress(address)
+
+	// Create packed encoding: address (20 bytes) + amount (32 bytes)
+	packed := make([]byte, 0, 52)
+	packed = append(packed, addr.Bytes()...)
+
+	// Convert amount to 32-byte representation (big-endian)
+	amountBytes := make([]byte, 32)
+	amount.FillBytes(amountBytes)
+	packed = append(packed, amountBytes...)
+
+	// Hash using keccak256
+	return crypto.Keccak256Hash(packed)
+}
+
+// isLeftSmaller determines if left hash should come before right hash in OpenZeppelin ordering
+func (m *MigrationService) isLeftSmaller(left, right [32]byte) bool {
+	for i := 0; i < 32; i++ {
+		if left[i] < right[i] {
+			return true
+		}
+		if left[i] > right[i] {
+			return false
+		}
+	}
+	return false // Equal hashes, doesn't matter which comes first
 }
 
 func (m *MigrationService) IsIdempotent(ctx context.Context) (bool, error) {

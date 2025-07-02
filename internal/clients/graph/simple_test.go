@@ -43,20 +43,18 @@ func TestClient_DirectQuery(t *testing.T) {
 		Query: `query { accounts { id totalSecondsClaimed } }`,
 	}
 
-	var response struct {
-		Data AccountsResponse `json:"data"`
-	}
+	var response AccountsResponse
 
 	err := client.ExecuteQuery(context.Background(), request, &response)
 	if err != nil {
 		t.Fatalf("ExecuteQuery failed: %v", err)
 	}
 
-	if len(response.Data.Accounts) != 1 {
-		t.Errorf("Expected 1 account, got %d", len(response.Data.Accounts))
+	if len(response.Accounts) != 1 {
+		t.Errorf("Expected 1 account, got %d", len(response.Accounts))
 	}
 
-	if response.Data.Accounts[0].ID != "user1" {
-		t.Errorf("Expected user1, got %s", response.Data.Accounts[0].ID)
+	if len(response.Accounts) > 0 && response.Accounts[0].ID != "user1" {
+		t.Errorf("Expected user1, got %s", response.Accounts[0].ID)
 	}
 }

@@ -26,14 +26,14 @@ func main() {
 	logger := internalLog.New(cfg.Logging.Level)
 
 	graphClient := graph.NewClient(cfg.Subgraph.Endpoint)
-	
+
 	ethConfig := contract.EthereumConfig{
 		RPCURL:     cfg.Ethereum.RPCURL,
 		PrivateKey: cfg.Ethereum.PrivateKey,
 		GasLimit:   cfg.Ethereum.GasLimit,
 		GasPrice:   cfg.Ethereum.GasPrice,
 	}
-	
+
 	contractAddresses := contract.ContractAddresses{
 		Comptroller:        cfg.Contracts.Comptroller,
 		EpochManager:       cfg.Contracts.EpochManager,
@@ -41,7 +41,7 @@ func main() {
 		LendingManager:     cfg.Contracts.LendingManager,
 		CollectionRegistry: cfg.Contracts.CollectionRegistry,
 	}
-	
+
 	contractClient := contract.NewClientWithConfig(logger, ethConfig, contractAddresses)
 
 	svc := service.NewService(graphClient, contractClient, logger)

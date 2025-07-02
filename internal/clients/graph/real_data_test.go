@@ -22,7 +22,7 @@ func TestEpochServer_RealData(t *testing.T) {
 		},
 		endpoint: prodSubgraphEndpoint,
 	}
-	
+
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
@@ -30,7 +30,7 @@ func TestEpochServer_RealData(t *testing.T) {
 
 	// Test 1: Query AccountSubsidies - This is the core data the epoch server needs
 	t.Log("\n1. Testing AccountSubsidies query (core epoch server functionality)")
-	
+
 	request := GraphQLRequest{
 		Query: `query { 
 			accountSubsidies(first: 10) { 
@@ -59,7 +59,7 @@ func TestEpochServer_RealData(t *testing.T) {
 
 	if len(subsidyResponse.AccountSubsidies) > 0 {
 		subsidy := subsidyResponse.AccountSubsidies[0]
-		t.Logf("   Sample data: Account=%s, SecondsAccumulated=%s, LastEffectiveValue=%s", 
+		t.Logf("   Sample data: Account=%s, SecondsAccumulated=%s, LastEffectiveValue=%s",
 			subsidy.Account.ID, subsidy.SecondsAccumulated, subsidy.LastEffectiveValue)
 
 		// Validate data structure for epoch server compatibility
@@ -84,7 +84,7 @@ func TestEpochServer_RealData(t *testing.T) {
 
 	// Test 2: Test schema compatibility
 	t.Log("\n2. Testing schema field availability")
-	
+
 	schemaRequest := GraphQLRequest{
 		Query: `query {
 			__schema {
@@ -115,7 +115,7 @@ func TestEpochServer_RealData(t *testing.T) {
 	// Check for required fields
 	requiredFields := []string{"accountSubsidies", "account", "accounts"}
 	fieldMap := make(map[string]bool)
-	
+
 	for _, field := range schemaResponse.Schema.QueryType.Fields {
 		fieldMap[field.Name] = true
 	}
@@ -136,7 +136,7 @@ func TestEpochServer_RealData(t *testing.T) {
 
 	// Test 3: Direct query performance test
 	t.Log("\n3. Testing query performance")
-	
+
 	start := time.Now()
 	err = client.ExecuteQuery(ctx, request, &subsidyResponse)
 	duration := time.Since(start)
@@ -155,19 +155,19 @@ func TestEpochServer_RealData(t *testing.T) {
 
 	// Test 4: Data consistency check
 	t.Log("\n4. Testing data consistency")
-	
+
 	if len(subsidyResponse.AccountSubsidies) > 0 {
 		subsidy := subsidyResponse.AccountSubsidies[0]
-		
+
 		// Check if numeric fields are valid
 		if subsidy.SecondsAccumulated != "0" && subsidy.SecondsAccumulated != "" {
 			t.Log("✅ SecondsAccumulated contains meaningful data")
 		}
-		
+
 		if subsidy.UpdatedAtTimestamp != "0" && subsidy.UpdatedAtTimestamp != "" {
 			t.Log("✅ UpdatedAtTimestamp contains meaningful data")
 		}
-		
+
 		if subsidy.LastEffectiveValue != "0" && subsidy.LastEffectiveValue != "" {
 			t.Log("✅ LastEffectiveValue contains meaningful data")
 		}

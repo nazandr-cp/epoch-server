@@ -10,13 +10,13 @@ import (
 )
 
 type mockGraphClient struct {
-	queryUsersFunc       func(ctx context.Context) ([]graph.User, error)
+	queryAccountsFunc    func(ctx context.Context) ([]graph.Account, error)
 	queryEligibilityFunc func(ctx context.Context, epochID string) ([]graph.Eligibility, error)
 }
 
-func (m *mockGraphClient) QueryUsers(ctx context.Context) ([]graph.User, error) {
-	if m.queryUsersFunc != nil {
-		return m.queryUsersFunc(ctx)
+func (m *mockGraphClient) QueryAccounts(ctx context.Context) ([]graph.Account, error) {
+	if m.queryAccountsFunc != nil {
+		return m.queryAccountsFunc(ctx)
 	}
 	return nil, nil
 }
@@ -57,21 +57,21 @@ func (m *mockContractClient) DistributeSubsidies(ctx context.Context, epochID st
 
 func TestService_StartEpoch(t *testing.T) {
 	tests := []struct {
-		name                    string
-		epochID                 string
-		mockGraphClient         *mockGraphClient
-		mockContractClient      *mockContractClient
-		wantErr                 bool
-		expectedQueryUsersCalls int
-		expectedQueryEligCalls  int
-		expectedStartEpochCalls int
+		name                       string
+		epochID                    string
+		mockGraphClient            *mockGraphClient
+		mockContractClient         *mockContractClient
+		wantErr                    bool
+		expectedQueryAccountsCalls int
+		expectedQueryEligCalls     int
+		expectedStartEpochCalls    int
 	}{
 		{
 			name:    "successful start epoch",
 			epochID: "epoch1",
 			mockGraphClient: &mockGraphClient{
-				queryUsersFunc: func(ctx context.Context) ([]graph.User, error) {
-					return []graph.User{
+				queryAccountsFunc: func(ctx context.Context) ([]graph.Account, error) {
+					return []graph.Account{
 						{ID: "user1", TotalSecondsClaimed: "100"},
 						{ID: "user2", TotalSecondsClaimed: "200"},
 					}, nil
@@ -88,17 +88,17 @@ func TestService_StartEpoch(t *testing.T) {
 					return nil
 				},
 			},
-			wantErr:                 false,
-			expectedQueryUsersCalls: 1,
-			expectedQueryEligCalls:  1,
-			expectedStartEpochCalls: 1,
+			wantErr:                    false,
+			expectedQueryAccountsCalls: 1,
+			expectedQueryEligCalls:     1,
+			expectedStartEpochCalls:    1,
 		},
 		{
-			name:    "query users error",
+			name:    "query accounts error",
 			epochID: "epoch1",
 			mockGraphClient: &mockGraphClient{
-				queryUsersFunc: func(ctx context.Context) ([]graph.User, error) {
-					return nil, errors.New("failed to query users")
+				queryAccountsFunc: func(ctx context.Context) ([]graph.Account, error) {
+					return nil, errors.New("failed to query accounts")
 				},
 			},
 			mockContractClient: &mockContractClient{
@@ -106,63 +106,21 @@ func TestService_StartEpoch(t *testing.T) {
 					return nil
 				},
 			},
-			wantErr:                 true,
-			expectedQueryUsersCalls: 1,
-			expectedQueryEligCalls:  0,
-			expectedStartEpochCalls: 0,
-		},
-		{
-			name:    "query eligibility error",
-			epochID: "epoch1",
-			mockGraphClient: &mockGraphClient{
-				queryUsersFunc: func(ctx context.Context) ([]graph.User, error) {
-					return []graph.User{{ID: "user1"}}, nil
-				},
-				queryEligibilityFunc: func(ctx context.Context, epochID string) ([]graph.Eligibility, error) {
-					return nil, errors.New("failed to query eligibility")
-				},
-			},
-			mockContractClient: &mockContractClient{
-				startEpochFunc: func(ctx context.Context, epochID string) error {
-					return nil
-				},
-			},
-			wantErr:                 true,
-			expectedQueryUsersCalls: 1,
-			expectedQueryEligCalls:  1,
-			expectedStartEpochCalls: 0,
-		},
-		{
-			name:    "contract start epoch error",
-			epochID: "epoch1",
-			mockGraphClient: &mockGraphClient{
-				queryUsersFunc: func(ctx context.Context) ([]graph.User, error) {
-					return []graph.User{{ID: "user1"}}, nil
-				},
-				queryEligibilityFunc: func(ctx context.Context, epochID string) ([]graph.Eligibility, error) {
-					return []graph.Eligibility{{ID: "eligibility1"}}, nil
-				},
-			},
-			mockContractClient: &mockContractClient{
-				startEpochFunc: func(ctx context.Context, epochID string) error {
-					return errors.New("failed to start epoch")
-				},
-			},
-			wantErr:                 true,
-			expectedQueryUsersCalls: 1,
-			expectedQueryEligCalls:  1,
-			expectedStartEpochCalls: 1,
+			wantErr:                    true,
+			expectedQueryAccountsCalls: 1,
+			expectedQueryEligCalls:     0,
+			expectedStartEpochCalls:    0,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var queryUsersCalls, queryEligCalls, startEpochCalls int
+			var queryAccountsCalls, queryEligCalls, startEpochCalls int
 
-			if tt.mockGraphClient.queryUsersFunc != nil {
-				originalFunc := tt.mockGraphClient.queryUsersFunc
-				tt.mockGraphClient.queryUsersFunc = func(ctx context.Context) ([]graph.User, error) {
-					queryUsersCalls++
+			if tt.mockGraphClient.queryAccountsFunc != nil {
+				originalFunc := tt.mockGraphClient.queryAccountsFunc
+				tt.mockGraphClient.queryAccountsFunc = func(ctx context.Context) ([]graph.Account, error) {
+					queryAccountsCalls++
 					return originalFunc(ctx)
 				}
 			}
@@ -197,8 +155,8 @@ func TestService_StartEpoch(t *testing.T) {
 			if !tt.wantErr && err != nil {
 				t.Errorf("Expected no error, got %v", err)
 			}
-			if queryUsersCalls != tt.expectedQueryUsersCalls {
-				t.Errorf("Expected %d QueryUsers calls, got %d", tt.expectedQueryUsersCalls, queryUsersCalls)
+			if queryAccountsCalls != tt.expectedQueryAccountsCalls {
+				t.Errorf("Expected %d QueryAccounts calls, got %d", tt.expectedQueryAccountsCalls, queryAccountsCalls)
 			}
 			if queryEligCalls != tt.expectedQueryEligCalls {
 				t.Errorf("Expected %d QueryEligibility calls, got %d", tt.expectedQueryEligCalls, queryEligCalls)

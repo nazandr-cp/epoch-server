@@ -38,26 +38,23 @@ type Account struct {
 	UpdatedAtTimestamp           string `json:"updatedAtTimestamp"`
 }
 
-// User is an alias for backward compatibility
-type User = Account
-
 // AccountSubsidy represents the new consolidated account subsidy entity
 type AccountSubsidy struct {
-	ID                       string  `json:"id"`
-	Account                  Account `json:"account"`
-	AccountMarket            string  `json:"accountMarket"`
-	CollectionParticipation  string  `json:"collectionParticipation"`
-	BalanceNFT               string  `json:"balanceNFT"`
-	WeightedBalance          string  `json:"weightedBalance"`
-	SecondsAccumulated       string  `json:"secondsAccumulated"`
-	SecondsClaimed           string  `json:"secondsClaimed"`
-	SubsidiesAccrued         string  `json:"subsidiesAccrued"`
-	SubsidiesClaimed         string  `json:"subsidiesClaimed"`
-	AverageHoldingPeriod     string  `json:"averageHoldingPeriod"`
-	TotalRewardsEarned       string  `json:"totalRewardsEarned"`
-	LastEffectiveValue       string  `json:"lastEffectiveValue"`
-	UpdatedAtBlock           string  `json:"updatedAtBlock"`
-	UpdatedAtTimestamp       string  `json:"updatedAtTimestamp"`
+	ID                      string  `json:"id"`
+	Account                 Account `json:"account"`
+	AccountMarket           string  `json:"accountMarket"`
+	CollectionParticipation string  `json:"collectionParticipation"`
+	BalanceNFT              string  `json:"balanceNFT"`
+	WeightedBalance         string  `json:"weightedBalance"`
+	SecondsAccumulated      string  `json:"secondsAccumulated"`
+	SecondsClaimed          string  `json:"secondsClaimed"`
+	SubsidiesAccrued        string  `json:"subsidiesAccrued"`
+	SubsidiesClaimed        string  `json:"subsidiesClaimed"`
+	AverageHoldingPeriod    string  `json:"averageHoldingPeriod"`
+	TotalRewardsEarned      string  `json:"totalRewardsEarned"`
+	LastEffectiveValue      string  `json:"lastEffectiveValue"`
+	UpdatedAtBlock          string  `json:"updatedAtBlock"`
+	UpdatedAtTimestamp      string  `json:"updatedAtTimestamp"`
 }
 
 type Eligibility struct {
@@ -74,8 +71,6 @@ type Eligibility struct {
 	BonusMultiplier       string     `json:"bonusMultiplier"`
 	CalculatedAtBlock     string     `json:"calculatedAtBlock"`
 	CalculatedAtTimestamp string     `json:"calculatedAtTimestamp"`
-	// Backward compatibility
-	User                  Account    `json:"user"`
 }
 
 type Epoch struct {
@@ -105,25 +100,24 @@ type Epoch struct {
 }
 
 type Collection struct {
-	ID                     string `json:"id"`
-	ContractAddress        string `json:"contractAddress"`
-	Name                   string `json:"name"`
-	Symbol                 string `json:"symbol"`
-	TotalSupply            string `json:"totalSupply"`
-	CollectionType         string `json:"collectionType"`
-	IsActive               bool   `json:"isActive"`
-	YieldSharePercentage   string `json:"yieldSharePercentage"`
-	WeightFunctionType     string `json:"weightFunctionType"`
-	WeightFunctionP1       string `json:"weightFunctionP1"`
-	WeightFunctionP2       string `json:"weightFunctionP2"`
-	MinBorrowAmount        string `json:"minBorrowAmount"`
-	MaxBorrowAmount        string `json:"maxBorrowAmount"`
-	TotalNFTsDeposited     string `json:"totalNFTsDeposited"`
-	// REMOVED: TotalBorrowVolume, TotalYieldGenerated, TotalSubsidiesReceived (duplicate stats)
-	RegisteredAtBlock      string `json:"registeredAtBlock"`
-	RegisteredAtTimestamp  string `json:"registeredAtTimestamp"`
-	UpdatedAtBlock         string `json:"updatedAtBlock"`
-	UpdatedAtTimestamp     string `json:"updatedAtTimestamp"`
+	ID                    string `json:"id"`
+	ContractAddress       string `json:"contractAddress"`
+	Name                  string `json:"name"`
+	Symbol                string `json:"symbol"`
+	TotalSupply           string `json:"totalSupply"`
+	CollectionType        string `json:"collectionType"`
+	IsActive              bool   `json:"isActive"`
+	YieldSharePercentage  string `json:"yieldSharePercentage"`
+	WeightFunctionType    string `json:"weightFunctionType"`
+	WeightFunctionP1      string `json:"weightFunctionP1"`
+	WeightFunctionP2      string `json:"weightFunctionP2"`
+	MinBorrowAmount       string `json:"minBorrowAmount"`
+	MaxBorrowAmount       string `json:"maxBorrowAmount"`
+	TotalNFTsDeposited    string `json:"totalNFTsDeposited"`
+	RegisteredAtBlock     string `json:"registeredAtBlock"`
+	RegisteredAtTimestamp string `json:"registeredAtTimestamp"`
+	UpdatedAtBlock        string `json:"updatedAtBlock"`
+	UpdatedAtTimestamp    string `json:"updatedAtTimestamp"`
 }
 
 type GraphQLRequest struct {
@@ -144,9 +138,6 @@ type AccountsResponse struct {
 }
 
 // UsersResponse is kept for backward compatibility
-type UsersResponse struct {
-	Users []User `json:"users"`
-}
 
 type EligibilitiesResponse struct {
 	UserEpochEligibilities []Eligibility `json:"userEpochEligibilities"`
@@ -179,20 +170,6 @@ func (c *Client) QueryAccounts(ctx context.Context) ([]Account, error) {
 	}
 
 	return response.Accounts, nil
-}
-
-// QueryUsers is kept for backward compatibility - delegates to QueryAccounts
-func (c *Client) QueryUsers(ctx context.Context) ([]User, error) {
-	accounts, err := c.QueryAccounts(ctx)
-	if err != nil {
-		return nil, err
-	}
-	// Convert accounts to users (they have the same structure due to type alias)
-	users := make([]User, len(accounts))
-	for i, account := range accounts {
-		users[i] = User(account)
-	}
-	return users, nil
 }
 
 func (c *Client) QueryEligibility(ctx context.Context, epochID string) ([]Eligibility, error) {
@@ -253,7 +230,6 @@ func (c *Client) QueryEligibility(ctx context.Context, epochID string) ([]Eligib
 					minBorrowAmount
 					maxBorrowAmount
 					totalNFTsDeposited
-					# REMOVED: totalBorrowVolume, totalYieldGenerated, totalSubsidiesReceived (duplicate stats)
 					registeredAtBlock
 					registeredAtTimestamp
 					updatedAtBlock
