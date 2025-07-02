@@ -32,8 +32,8 @@ type Account struct {
 	TotalBorrowVolume            string `json:"totalBorrowVolume"`
 	TotalNFTsOwned               string `json:"totalNFTsOwned"`
 	TotalCollectionsParticipated string `json:"totalCollectionsParticipated"`
-	FirstInteractionBlock        string `json:"firstInteractionBlock"`
-	FirstInteractionTimestamp    string `json:"firstInteractionTimestamp"`
+	CreatedAtBlock               string `json:"createdAtBlock"`
+	CreatedAtTimestamp           string `json:"createdAtTimestamp"`
 	UpdatedAtBlock               string `json:"updatedAtBlock"`
 	UpdatedAtTimestamp           string `json:"updatedAtTimestamp"`
 }
@@ -164,8 +164,8 @@ func (c *Client) QueryAccounts(ctx context.Context) ([]Account, error) {
 				totalBorrowVolume
 				totalNFTsOwned
 				totalCollectionsParticipated
-				firstInteractionBlock
-				firstInteractionTimestamp
+				createdAtBlock
+				createdAtTimestamp
 				updatedAtBlock
 				updatedAtTimestamp
 			}
@@ -210,8 +210,8 @@ func (c *Client) QueryEligibility(ctx context.Context, epochID string) ([]Eligib
 					totalBorrowVolume
 					totalNFTsOwned
 					totalCollectionsParticipated
-					firstInteractionBlock
-					firstInteractionTimestamp
+					createdAtBlock
+					createdAtTimestamp
 					updatedAtBlock
 					updatedAtTimestamp
 				}

@@ -1,21 +1,51 @@
-# Sample configuration for epoch-server
-# TODO: Add configuration parameters
+# Configuration for epoch-server
 server:
   host: "localhost"
   port: 8080
 
 database:
-  # TODO: Add database configuration
+  # Database configuration for storing epoch state and snapshots
+  # Currently using in-memory storage - can be extended for production
+  type: "memory"
+  connection_string: ""
 
 logging:
   level: "info"
-  # TODO: Add logging configuration
+  format: "json"
+  output: "stdout"
 
 ethereum:
-  # TODO: Add Ethereum client configuration
+  # Ethereum client configuration
+  rpc_url: "http://localhost:8545"  # Local development RPC
+  # rpc_url: "https://rpc.apechain.com/http/curtis"  # ApeChain Curtis testnet
+  private_key: ""  # Set via environment variable ETHEREUM_PRIVATE_KEY
+  gas_limit: 500000
+  gas_price: "20000000000"  # 20 gwei
 
 subgraph:
-  # TODO: Add subgraph endpoint configuration
+  # GraphQL subgraph endpoint for querying indexed data
+  endpoint: "http://localhost:8000/subgraphs/name/rewards-subgraph"
+  # endpoint: "https://api.thegraph.com/subgraphs/name/lend-fam/rewards-subgraph"  # Production endpoint
+  timeout: "30s"
+  max_retries: 3
+  pagination_size: 1000
 
 scheduler:
+  # Epoch processing schedule
   interval: "1h"
+  enabled: true
+  timezone: "UTC"
+
+# Contract addresses for the deployed system
+contracts:
+  comptroller: "0x7E81fAaF1132A17DCc0C76b1280E0C0e598D5635"
+  epoch_manager: "0x5B6dD10DD0fa3454a2749dec1dcBc9e0983620DA"
+  debt_subsidizer: "0xf45CfbC6553BA36328Aba23A4473D4b4a3F569aF"
+  lending_manager: "0xb493bEE4C9E0C7d0eC57c38751c9A1c08fAfE434"
+  collection_registry: "0xF9fF756360fD6Aea39db9Ab2E998235Dc1F6322F"
+
+# Feature flags for development and testing
+features:
+  dry_run: false  # Set to true to simulate epoch processing without on-chain transactions
+  enable_metrics: true
+  debug_mode: false

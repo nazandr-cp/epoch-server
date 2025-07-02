@@ -22,7 +22,7 @@ func TestLazyDistributor_CalculateTotalEarned(t *testing.T) {
 	graphClient := &mockLazyGraphClient{}
 	ld := NewLazyDistributor(graphClient, epochClient, subsidizerClient, storageClient, logger)
 
-	subsidy := AccountSubsidyPerCollection{
+	subsidy := AccountSubsidy{
 		Account:            Account{ID: "0x123"},
 		SecondsAccumulated: "1000000000000000000",
 		SecondsClaimed:     "0",
@@ -75,13 +75,13 @@ func (m *mockLazyGraphClient) QueryEligibility(ctx context.Context, epochID stri
 func (m *mockLazyGraphClient) ExecuteQuery(ctx context.Context, request graph.GraphQLRequest, response interface{}) error {
 	mockResponse := struct {
 		Data struct {
-			AccountSubsidiesPerCollections []AccountSubsidyPerCollection `json:"accountSubsidiesPerCollections"`
+			AccountSubsidies []AccountSubsidy `json:"accountSubsidies"`
 		} `json:"data"`
 	}{
 		Data: struct {
-			AccountSubsidiesPerCollections []AccountSubsidyPerCollection `json:"accountSubsidiesPerCollections"`
+			AccountSubsidies []AccountSubsidy `json:"accountSubsidies"`
 		}{
-			AccountSubsidiesPerCollections: []AccountSubsidyPerCollection{
+			AccountSubsidies: []AccountSubsidy{
 				{
 					Account:            Account{ID: "0x123"},
 					SecondsAccumulated: "1000000000000000000",
@@ -95,7 +95,7 @@ func (m *mockLazyGraphClient) ExecuteQuery(ctx context.Context, request graph.Gr
 
 	*response.(*struct {
 		Data struct {
-			AccountSubsidiesPerCollections []AccountSubsidyPerCollection `json:"accountSubsidiesPerCollections"`
+			AccountSubsidies []AccountSubsidy `json:"accountSubsidies"`
 		} `json:"data"`
 	}) = mockResponse
 
@@ -105,13 +105,13 @@ func (m *mockLazyGraphClient) ExecuteQuery(ctx context.Context, request graph.Gr
 func (m *mockLazyGraphClient) ExecutePaginatedQuery(ctx context.Context, queryTemplate string, variables map[string]interface{}, entityField string, response interface{}) error {
 	mockResponse := struct {
 		Data struct {
-			AccountSubsidiesPerCollections []AccountSubsidyPerCollection `json:"accountSubsidiesPerCollections"`
+			AccountSubsidies []AccountSubsidy `json:"accountSubsidies"`
 		} `json:"data"`
 	}{
 		Data: struct {
-			AccountSubsidiesPerCollections []AccountSubsidyPerCollection `json:"accountSubsidiesPerCollections"`
+			AccountSubsidies []AccountSubsidy `json:"accountSubsidies"`
 		}{
-			AccountSubsidiesPerCollections: []AccountSubsidyPerCollection{
+			AccountSubsidies: []AccountSubsidy{
 				{
 					Account:            Account{ID: "0x123"},
 					SecondsAccumulated: "1000000000000000000",
@@ -125,7 +125,7 @@ func (m *mockLazyGraphClient) ExecutePaginatedQuery(ctx context.Context, queryTe
 
 	*response.(*struct {
 		Data struct {
-			AccountSubsidiesPerCollections []AccountSubsidyPerCollection `json:"accountSubsidiesPerCollections"`
+			AccountSubsidies []AccountSubsidy `json:"accountSubsidies"`
 		} `json:"data"`
 	}) = mockResponse
 

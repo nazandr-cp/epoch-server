@@ -30,8 +30,8 @@ func TestClient_QueryUsers(t *testing.T) {
 							"totalBorrowVolume": "1000",
 							"totalNFTsOwned": "5",
 							"totalCollectionsParticipated": "2",
-							"firstInteractionBlock": "1000",
-							"firstInteractionTimestamp": "1640995200",
+							"createdAtBlock": "1000",
+							"createdAtTimestamp": "1640995200",
 							"updatedAtBlock": "2000",
 							"updatedAtTimestamp": "1640995300"
 						},
@@ -43,8 +43,8 @@ func TestClient_QueryUsers(t *testing.T) {
 							"totalBorrowVolume": "2000",
 							"totalNFTsOwned": "10",
 							"totalCollectionsParticipated": "3",
-							"firstInteractionBlock": "1100",
-							"firstInteractionTimestamp": "1640995400",
+							"createdAtBlock": "1100",
+							"createdAtTimestamp": "1640995400",
 							"updatedAtBlock": "2100",
 							"updatedAtTimestamp": "1640995500"
 						}
@@ -106,7 +106,10 @@ func TestClient_QueryUsers(t *testing.T) {
 
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(tt.statusCode)
-				w.Write([]byte(tt.serverResponse))
+				_, err := w.Write([]byte(tt.serverResponse))
+				if err != nil {
+					t.Errorf("Failed to write response: %v", err)
+				}
 			}))
 			defer server.Close()
 
@@ -161,8 +164,8 @@ func TestClient_QueryEligibility(t *testing.T) {
 								"totalBorrowVolume": "1000",
 								"totalNFTsOwned": "5",
 								"totalCollectionsParticipated": "2",
-								"firstInteractionBlock": "1000",
-								"firstInteractionTimestamp": "1640995200",
+								"createdAtBlock": "1000",
+								"createdAtTimestamp": "1640995200",
 								"updatedAtBlock": "2000",
 								"updatedAtTimestamp": "1640995300"
 							},
@@ -285,7 +288,10 @@ func TestClient_QueryEligibility(t *testing.T) {
 
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(tt.statusCode)
-				w.Write([]byte(tt.serverResponse))
+				_, err := w.Write([]byte(tt.serverResponse))
+				if err != nil {
+					t.Errorf("Failed to write response: %v", err)
+				}
 			}))
 			defer server.Close()
 
