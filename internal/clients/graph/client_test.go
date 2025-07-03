@@ -139,6 +139,108 @@ func TestClient_QueryUsers(t *testing.T) {
 	}
 }
 
+func TestClient_HealthCheck(t *testing.T) {
+	tests := []struct {
+		name           string
+		serverResponse string
+		statusCode     int
+		wantErr        bool
+	}{
+		{
+			name: "successful health check",
+			serverResponse: `{
+				"data": {
+					"__schema": {
+						"queryType": {
+							"name": "Query"
+						}
+					}
+				}
+			}`,
+			statusCode: http.StatusOK,
+			wantErr:    false,
+		},
+		{
+			name:           "server error",
+			serverResponse: `{"error": "internal server error"}`,
+			statusCode:     http.StatusInternalServerError,
+			wantErr:        true,
+		},
+		{
+			name: "graphql errors",
+			serverResponse: `{
+				"data": null,
+				"errors": [
+					{"message": "Schema introspection not allowed"}
+				]
+			}`,
+			statusCode: http.StatusOK,
+			wantErr:    true,
+		},
+		{
+			name:           "malformed json",
+			serverResponse: `{"data": {"__schema": invalid json`,
+			statusCode:     http.StatusOK,
+			wantErr:        true,
+		},
+		{
+			name: "unexpected response structure",
+			serverResponse: `{
+				"data": {
+					"__schema": {
+						"queryType": {
+							"name": "Mutation"
+						}
+					}
+				}
+			}`,
+			statusCode: http.StatusOK,
+			wantErr:    true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.Method != http.MethodPost {
+					t.Errorf("Expected POST request, got %s", r.Method)
+				}
+
+				if r.Header.Get("Content-Type") != "application/json" {
+					t.Errorf("Expected Content-Type application/json, got %s", r.Header.Get("Content-Type"))
+				}
+
+				var req GraphQLRequest
+				if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+					t.Errorf("Failed to decode request: %v", err)
+				}
+
+				if !strings.Contains(req.Query, "__schema") {
+					t.Errorf("Expected __schema introspection query, got %s", req.Query)
+				}
+
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(tt.statusCode)
+				_, err := w.Write([]byte(tt.serverResponse))
+				if err != nil {
+					t.Errorf("Failed to write response: %v", err)
+				}
+			}))
+			defer server.Close()
+
+			client := NewClient(server.URL)
+			err := client.HealthCheck(context.Background())
+
+			if tt.wantErr && err == nil {
+				t.Errorf("Expected error, got nil")
+			}
+			if !tt.wantErr && err != nil {
+				t.Errorf("Expected no error, got %v", err)
+			}
+		})
+	}
+}
+
 func TestClient_QueryEligibility(t *testing.T) {
 	tests := []struct {
 		name                 string
@@ -156,7 +258,7 @@ func TestClient_QueryEligibility(t *testing.T) {
 					"userEpochEligibilities": [
 						{
 							"id": "eligibility1",
-							"account": {
+							"user": {
 								"id": "user1",
 								"totalSecondsClaimed": "100",
 								"totalSubsidiesReceived": "50",

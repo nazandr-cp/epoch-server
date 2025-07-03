@@ -70,5 +70,10 @@ func Load(path string) (*Config, error) {
 		return nil, err
 	}
 
+	// Override with environment variables if they exist
+	if privateKey := os.Getenv("ETHEREUM_PRIVATE_KEY"); privateKey != "" {
+		cfg.Ethereum.PrivateKey = privateKey
+	}
+
 	return &cfg, nil
 }

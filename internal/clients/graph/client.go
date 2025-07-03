@@ -348,14 +348,23 @@ func (c *Client) ExecutePaginatedQuery(ctx context.Context, queryTemplate string
 		skip += pageSize
 	}
 
-	// Reconstruct the full response directly without nested data field
+	// Reconstruct the full response with nested data field to match GraphQL standard
 	allEntitiesJson, err := json.Marshal(allResults)
 	if err != nil {
 		return fmt.Errorf("failed to marshal accumulated results: %w", err)
 	}
 
-	fullResponse := map[string]json.RawMessage{
+	dataField := map[string]json.RawMessage{
 		entityField: allEntitiesJson,
+	}
+	
+	dataFieldJson, err := json.Marshal(dataField)
+	if err != nil {
+		return fmt.Errorf("failed to marshal data field: %w", err)
+	}
+
+	fullResponse := map[string]json.RawMessage{
+		"data": dataFieldJson,
 	}
 
 	fullResponseJson, err := json.Marshal(fullResponse)
@@ -368,4 +377,44 @@ func (c *Client) ExecutePaginatedQuery(ctx context.Context, queryTemplate string
 	}
 
 	return nil
+}
+
+// HealthCheck performs a basic connectivity check to verify the subgraph is accessible
+// It executes a simple introspection query to validate the GraphQL endpoint is responding
+func (c *Client) HealthCheck(ctx context.Context) error {
+	// Use a simple introspection query to check if the subgraph is accessible
+	query := `
+		query HealthCheck {
+			__schema {
+				queryType {
+					name
+				}
+			}
+		}
+	`
+
+	req := GraphQLRequest{
+		Query: query,
+	}
+
+	var response map[string]interface{}
+
+	if err := c.executeQuery(ctx, req, &response); err != nil {
+		return fmt.Errorf("subgraph health check failed: %w", err)
+	}
+
+	// Check if the response contains the expected schema information
+	if schema, ok := response["__schema"]; ok {
+		if schemaMap, ok := schema.(map[string]interface{}); ok {
+			if queryType, ok := schemaMap["queryType"]; ok {
+				if queryTypeMap, ok := queryType.(map[string]interface{}); ok {
+					if name, ok := queryTypeMap["name"]; ok && name == "Query" {
+						return nil
+					}
+				}
+			}
+		}
+	}
+
+	return fmt.Errorf("subgraph health check failed: unexpected response structure")
 }

@@ -27,6 +27,14 @@ func main() {
 
 	graphClient := graph.NewClient(cfg.Subgraph.Endpoint)
 
+	// Perform subgraph health check during startup
+	logger.Logf("INFO checking subgraph connectivity at %s", cfg.Subgraph.Endpoint)
+	ctx := context.Background()
+	if err := graphClient.HealthCheck(ctx); err != nil {
+		log.Fatalf("Failed to connect to subgraph: %v", err)
+	}
+	logger.Logf("INFO subgraph health check passed")
+
 	ethConfig := contract.EthereumConfig{
 		RPCURL:     cfg.Ethereum.RPCURL,
 		PrivateKey: cfg.Ethereum.PrivateKey,
@@ -42,12 +50,13 @@ func main() {
 		CollectionRegistry: cfg.Contracts.CollectionRegistry,
 	}
 
-	contractClient := contract.NewClientWithConfig(logger, ethConfig, contractAddresses)
+	contractClient, err := contract.NewClientWithConfig(logger, ethConfig, contractAddresses)
+	if err != nil {
+		log.Fatalf("Failed to initialize contract client: %v", err)
+	}
 
 	svc := service.NewService(graphClient, contractClient, logger)
 	handler := handlers.NewHandler(svc, logger)
-
-	ctx := context.Background()
 	schedulerInstance := scheduler.NewScheduler(cfg.Scheduler.Interval, svc, logger)
 	go schedulerInstance.Start(ctx)
 

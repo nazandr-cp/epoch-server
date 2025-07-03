@@ -74,14 +74,22 @@ func (ld *LazyDistributor) Run(ctx context.Context, vaultId string) error {
 		return fmt.Errorf("failed to query lazy subsidies: %w", err)
 	}
 
+	ld.logger.Logf("INFO found %d subsidies from query", len(subsidies))
+
 	epochEnd := ld.epochManagerClient.Current().EndTime
+	ld.logger.Logf("INFO epoch end time: %d", epochEnd)
 
 	entries := make([]storage.MerkleEntry, 0, len(subsidies))
 	for _, subsidy := range subsidies {
+		ld.logger.Logf("INFO processing account %s: secondsAccumulated=%s, lastEffectiveValue=%s, updatedAtTimestamp=%s", 
+			subsidy.Account.ID, subsidy.SecondsAccumulated, subsidy.LastEffectiveValue, subsidy.UpdatedAtTimestamp)
+		
 		totalEarned, err := ld.calculateTotalEarned(subsidy, epochEnd)
 		if err != nil {
 			return fmt.Errorf("failed to calculate total earned for account %s: %w", subsidy.Account.ID, err)
 		}
+
+		ld.logger.Logf("INFO calculated totalEarned for account %s: %s", subsidy.Account.ID, totalEarned.String())
 
 		entries = append(entries, storage.MerkleEntry{
 			Address:     subsidy.Account.ID,
@@ -121,8 +129,8 @@ func (ld *LazyDistributor) queryLazySubsidies(ctx context.Context, vaultId strin
 	query := `
 		query GetLazySubsidies($vaultId: ID!, $first: Int!, $skip: Int!) {
 			accountSubsidies(
-				where: { collectionParticipation_contains: $vaultId, secondsAccumulated_gt: "0" }
-				orderBy: account
+				where: { collectionParticipation_: { vault: $vaultId }, secondsAccumulated_gt: "0" }
+				orderBy: id
 				orderDirection: asc
 				first: $first
 				skip: $skip

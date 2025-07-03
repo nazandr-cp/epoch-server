@@ -39,7 +39,7 @@ scheduler:
 # Contract addresses for the deployed system
 contracts:
   comptroller: "0x7E81fAaF1132A17DCc0C76b1280E0C0e598D5635"
-  epoch_manager: "0x5B6dD10DD0fa3454a2749dec1dcBc9e0983620DA"
+  epoch_manager: "0x10BCdc7fFdEc4D6ec2613A6218403Ad3E17124ba"
   debt_subsidizer: "0xf45CfbC6553BA36328Aba23A4473D4b4a3F569aF"
   lending_manager: "0xb493bEE4C9E0C7d0eC57c38751c9A1c08fAfE434"
   collection_registry: "0xF9fF756360fD6Aea39db9Ab2E998235Dc1F6322F"

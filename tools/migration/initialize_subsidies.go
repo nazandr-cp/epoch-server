@@ -106,8 +106,8 @@ func (m *MigrationService) fetchAccountSubsidyRecordsPaginated(ctx context.Conte
 	query := `
 		query GetAccountSubsidies($vaultId: ID!, $first: Int!, $skip: Int!) {
 			accountSubsidies(
-				where: { collectionParticipation_contains: $vaultId }
-				orderBy: account
+				where: { collectionParticipation_: { vault: $vaultId } }
+				orderBy: id
 				orderDirection: asc
 				first: $first
 				skip: $skip

@@ -12,7 +12,7 @@ import (
 
 type Service interface {
 	StartEpoch(ctx context.Context, epochID string) error
-	DistributeSubsidies(ctx context.Context, epochID string) error
+	DistributeSubsidies(ctx context.Context, vaultId string) error
 }
 
 type Handler struct {
@@ -49,11 +49,15 @@ func (h *Handler) StartEpoch(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) DistributeSubsidies(w http.ResponseWriter, r *http.Request) {
 	epochID := chi.URLParam(r, "id")
+	
+	// For now, use the vault address from the subgraph data
+	// TODO: Make this configurable or accept as parameter
+	vaultId := "0x4a4be724f522946296a51d8c82c7c2e8e5a62655"
 
-	h.logger.Logf("INFO received distribute subsidies request for epoch %s", epochID)
+	h.logger.Logf("INFO received distribute subsidies request for epoch %s, vault %s", epochID, vaultId)
 
-	if err := h.service.DistributeSubsidies(r.Context(), epochID); err != nil {
-		h.logger.Logf("ERROR failed to distribute subsidies for epoch %s: %v", epochID, err)
+	if err := h.service.DistributeSubsidies(r.Context(), vaultId); err != nil {
+		h.logger.Logf("ERROR failed to distribute subsidies for epoch %s, vault %s: %v", epochID, vaultId, err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}

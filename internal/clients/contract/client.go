@@ -3,6 +3,7 @@ package contract
 import (
 	"context"
 	"crypto/ecdsa"
+	"fmt"
 	"math/big"
 
 	"github.com/andrey/epoch-server/pkg/contracts"
@@ -43,7 +44,7 @@ func NewClient(logger lgr.L) *Client {
 	}
 }
 
-func NewClientWithConfig(logger lgr.L, ethConfig EthereumConfig, contracts ContractAddresses) *Client {
+func NewClientWithConfig(logger lgr.L, ethConfig EthereumConfig, contracts ContractAddresses) (*Client, error) {
 	client := &Client{
 		logger:    logger,
 		ethConfig: ethConfig,
@@ -53,27 +54,41 @@ func NewClientWithConfig(logger lgr.L, ethConfig EthereumConfig, contracts Contr
 	// Initialize Ethereum client and contracts
 	if err := client.initialize(); err != nil {
 		logger.Logf("ERROR failed to initialize contract client: %v", err)
+		return nil, err
 	}
 	
-	return client
+	return client, nil
 }
 
 func (c *Client) initialize() error {
+	// Validate required configuration
+	if c.ethConfig.RPCURL == "" {
+		return fmt.Errorf("RPC URL is required")
+	}
+	if c.ethConfig.PrivateKey == "" {
+		return fmt.Errorf("private key is required")
+	}
+	if c.contracts.EpochManager == "" {
+		return fmt.Errorf("EpochManager contract address is required")
+	}
+
 	// Connect to Ethereum client
 	ethClient, err := ethclient.Dial(c.ethConfig.RPCURL)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to connect to Ethereum RPC: %w", err)
 	}
 	c.ethClient = ethClient
 
-	// Parse private key
-	if c.ethConfig.PrivateKey != "" {
-		privateKey, err := crypto.HexToECDSA(c.ethConfig.PrivateKey)
-		if err != nil {
-			return err
-		}
-		c.privateKey = privateKey
+	// Parse private key (strip 0x prefix if present)
+	privateKeyHex := c.ethConfig.PrivateKey
+	if len(privateKeyHex) > 2 && privateKeyHex[:2] == "0x" {
+		privateKeyHex = privateKeyHex[2:]
 	}
+	privateKey, err := crypto.HexToECDSA(privateKeyHex)
+	if err != nil {
+		return fmt.Errorf("failed to parse private key: %w", err)
+	}
+	c.privateKey = privateKey
 
 	// Initialize EpochManager contract
 	c.epochManager = contracts.NewIEpochManager()
