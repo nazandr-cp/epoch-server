@@ -20,7 +20,6 @@ func (m *mockGraphClient) ExecuteQuery(ctx context.Context, request graph.GraphQ
 				Account struct {
 					ID string `json:"id"`
 				} `json:"account"`
-				WeightedBalance    string `json:"weightedBalance"`
 				LastEffectiveValue string `json:"lastEffectiveValue"`
 				SecondsAccumulated string `json:"secondsAccumulated"`
 				// Note: AccountMarket removed from new schema structure
@@ -33,14 +32,12 @@ func (m *mockGraphClient) ExecuteQuery(ctx context.Context, request graph.GraphQ
 			Account struct {
 				ID string `json:"id"`
 			} `json:"account"`
-			WeightedBalance    string `json:"weightedBalance"`
 			LastEffectiveValue string `json:"lastEffectiveValue"`
 			SecondsAccumulated string `json:"secondsAccumulated"`
 			// Note: AccountMarket removed from new schema structure
 		}{}
 
 		item.Account.ID = record.Account
-		item.WeightedBalance = record.WeightedBalance.String()
 		item.SecondsAccumulated = record.SecondsAccumulated.String()
 		// Note: BorrowBalance no longer directly available in AccountSubsidy
 
@@ -77,34 +74,31 @@ func TestMigrationService_ComputeLastEffectiveValues(t *testing.T) {
 		expectedValue *big.Int
 	}{
 		{
-			name: "zero weighted balance with borrow",
+			name: "zero borrow balance",
 			record: &AccountSubsidyRecord{
 				Account:            "0x123",
-				WeightedBalance:    big.NewInt(0),
 				CurrentBorrowU:     big.NewInt(1000),
 				SecondsAccumulated: big.NewInt(3600),
 			},
 			expectedValue: big.NewInt(1000),
 		},
 		{
-			name: "positive weighted balance with borrow",
+			name: "positive borrow balance",
 			record: &AccountSubsidyRecord{
 				Account:            "0x456",
-				WeightedBalance:    big.NewInt(500),
 				CurrentBorrowU:     big.NewInt(1000),
 				SecondsAccumulated: big.NewInt(7200),
 			},
-			expectedValue: big.NewInt(1500),
+			expectedValue: big.NewInt(1000),
 		},
 		{
-			name: "positive weighted balance with zero borrow",
+			name: "zero borrow balance case 2",
 			record: &AccountSubsidyRecord{
 				Account:            "0x789",
-				WeightedBalance:    big.NewInt(2000),
 				CurrentBorrowU:     big.NewInt(0),
 				SecondsAccumulated: big.NewInt(1800),
 			},
-			expectedValue: big.NewInt(2000),
+			expectedValue: big.NewInt(0),
 		},
 	}
 
@@ -217,13 +211,11 @@ func TestMigrationService_InitializeSubsidies(t *testing.T) {
 		records: map[string]*AccountSubsidyRecord{
 			"0x123": {
 				Account:            "0x123",
-				WeightedBalance:    big.NewInt(1000),
 				CurrentBorrowU:     big.NewInt(500),
 				SecondsAccumulated: big.NewInt(3600),
 			},
 			"0x456": {
 				Account:            "0x456",
-				WeightedBalance:    big.NewInt(0),
 				CurrentBorrowU:     big.NewInt(2000),
 				SecondsAccumulated: big.NewInt(7200),
 			},

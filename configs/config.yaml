@@ -1,6 +1,6 @@
 # Configuration for epoch-server
 server:
-  host: "localhost"
+  host: "0.0.0.0"
   port: 8080
 
 database:
@@ -16,16 +16,16 @@ logging:
 
 ethereum:
   # Ethereum client configuration
-  rpc_url: "http://localhost:8545"  # Local development RPC
+  rpc_url: "https://apechain-curtis.g.alchemy.com/v2/ARHRws7GPIN5-9uuAui0w0jXgNYNQZmd" # Local development RPC
   # rpc_url: "https://rpc.apechain.com/http/curtis"  # ApeChain Curtis testnet
-  private_key: ""  # Set via environment variable ETHEREUM_PRIVATE_KEY
+  private_key: "" # Set via environment variable ETHEREUM_PRIVATE_KEY
   gas_limit: 500000
-  gas_price: "20000000000"  # 20 gwei
+  gas_price: "20000000000" # 20 gwei
 
 subgraph:
   # GraphQL subgraph endpoint for querying indexed data
-  endpoint: "http://localhost:8000/subgraphs/name/rewards-subgraph"
-  # endpoint: "https://api.thegraph.com/subgraphs/name/lend-fam/rewards-subgraph"  # Production endpoint
+  endpoint: "https://subgraph.satsuma-prod.com/63265bbf8342/analog-renaissances-team--450535/subsidiz/version/v0.0.4/api"
+  # endpoint: "http://localhost:8000/subgraphs/name/rewards-subgraph"  # Local development endpoint
   timeout: "30s"
   max_retries: 3
   pagination_size: 1000
@@ -46,6 +46,6 @@ contracts:
 
 # Feature flags for development and testing
 features:
-  dry_run: false  # Set to true to simulate epoch processing without on-chain transactions
+  dry_run: false # Set to true to simulate epoch processing without on-chain transactions
   enable_metrics: true
   debug_mode: false

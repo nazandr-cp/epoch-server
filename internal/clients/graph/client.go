@@ -45,7 +45,6 @@ type AccountSubsidy struct {
 	AccountMarket           string  `json:"accountMarket"`
 	CollectionParticipation string  `json:"collectionParticipation"`
 	BalanceNFT              string  `json:"balanceNFT"`
-	WeightedBalance         string  `json:"weightedBalance"`
 	SecondsAccumulated      string  `json:"secondsAccumulated"`
 	SecondsClaimed          string  `json:"secondsClaimed"`
 	SubsidiesAccrued        string  `json:"subsidiesAccrued"`
@@ -59,7 +58,7 @@ type AccountSubsidy struct {
 
 type Eligibility struct {
 	ID                    string     `json:"id"`
-	Account               Account    `json:"account"` // Changed from User to Account
+	Account               Account    `json:"user"` // Changed to match subgraph schema
 	Epoch                 Epoch      `json:"epoch"`
 	Collection            Collection `json:"collection"`
 	NFTBalance            string     `json:"nftBalance"`
@@ -69,8 +68,6 @@ type Eligibility struct {
 	SubsidyReceived       string     `json:"subsidyReceived"`
 	YieldShare            string     `json:"yieldShare"`
 	BonusMultiplier       string     `json:"bonusMultiplier"`
-	CalculatedAtBlock     string     `json:"calculatedAtBlock"`
-	CalculatedAtTimestamp string     `json:"calculatedAtTimestamp"`
 }
 
 type Epoch struct {
@@ -88,9 +85,7 @@ type Epoch struct {
 	TotalSubsidiesDistributed     string `json:"totalSubsidiesDistributed"`
 	TotalEligibleUsers            string `json:"totalEligibleUsers"`
 	TotalParticipatingCollections string `json:"totalParticipatingCollections"`
-	ParticipantCount              string `json:"participantCount"`
 	ProcessingTimeMs              string `json:"processingTimeMs"`
-	EstimatedProcessingTime       string `json:"estimatedProcessingTime"`
 	ProcessingGasUsed             string `json:"processingGasUsed"`
 	ProcessingTransactionCount    string `json:"processingTransactionCount"`
 	CreatedAtBlock                string `json:"createdAtBlock"`
@@ -114,8 +109,6 @@ type Collection struct {
 	MinBorrowAmount       string `json:"minBorrowAmount"`
 	MaxBorrowAmount       string `json:"maxBorrowAmount"`
 	TotalNFTsDeposited    string `json:"totalNFTsDeposited"`
-	RegisteredAtBlock     string `json:"registeredAtBlock"`
-	RegisteredAtTimestamp string `json:"registeredAtTimestamp"`
 	UpdatedAtBlock        string `json:"updatedAtBlock"`
 	UpdatedAtTimestamp    string `json:"updatedAtTimestamp"`
 }
@@ -205,9 +198,7 @@ func (c *Client) QueryEligibility(ctx context.Context, epochID string) ([]Eligib
 					totalSubsidiesDistributed
 					totalEligibleUsers
 					totalParticipatingCollections
-					participantCount
 					processingTimeMs
-					estimatedProcessingTime
 					processingGasUsed
 					processingTransactionCount
 					createdAtBlock
@@ -230,8 +221,6 @@ func (c *Client) QueryEligibility(ctx context.Context, epochID string) ([]Eligib
 					minBorrowAmount
 					maxBorrowAmount
 					totalNFTsDeposited
-					registeredAtBlock
-					registeredAtTimestamp
 					updatedAtBlock
 					updatedAtTimestamp
 				}
@@ -242,8 +231,6 @@ func (c *Client) QueryEligibility(ctx context.Context, epochID string) ([]Eligib
 				subsidyReceived
 				yieldShare
 				bonusMultiplier
-				calculatedAtBlock
-				calculatedAtTimestamp
 			}
 		}
 	`

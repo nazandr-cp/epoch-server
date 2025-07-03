@@ -115,7 +115,6 @@ func (m *MigrationService) fetchAccountSubsidyRecordsPaginated(ctx context.Conte
 				account {
 					id
 				}
-				weightedBalance
 				lastEffectiveValue
 				secondsAccumulated
 				# Note: accountMarket is now a string reference, need to query separately if needed
@@ -143,7 +142,6 @@ func (m *MigrationService) fetchAccountSubsidyRecordsPaginated(ctx context.Conte
 					Account struct {
 						ID string `json:"id"`
 					} `json:"account"`
-					WeightedBalance    string `json:"weightedBalance"`
 					LastEffectiveValue string `json:"lastEffectiveValue"`
 					SecondsAccumulated string `json:"secondsAccumulated"`
 					// Note: AccountMarket is now a string reference in the new schema
@@ -162,11 +160,6 @@ func (m *MigrationService) fetchAccountSubsidyRecordsPaginated(ctx context.Conte
 		}
 
 		for _, item := range pageData {
-			weightedBalance, ok := new(big.Int).SetString(item.WeightedBalance, 10)
-			if !ok {
-				return nil, fmt.Errorf("invalid weighted balance for account %s: %s", item.Account.ID, item.WeightedBalance)
-			}
-
 			currentBorrowU := big.NewInt(0)
 
 			secondsAccumulated, ok := new(big.Int).SetString(item.SecondsAccumulated, 10)
@@ -176,7 +169,7 @@ func (m *MigrationService) fetchAccountSubsidyRecordsPaginated(ctx context.Conte
 
 			record := &AccountSubsidyRecord{
 				Account:            item.Account.ID,
-				WeightedBalance:    weightedBalance,
+				WeightedBalance:    big.NewInt(0), // No longer used, set to zero
 				CurrentBorrowU:     currentBorrowU,
 				SecondsAccumulated: secondsAccumulated,
 			}
@@ -200,10 +193,7 @@ func (m *MigrationService) computeLastEffectiveValues(ctx context.Context, recor
 	for _, record := range records {
 		lastEffectiveValue := new(big.Int)
 
-		if record.WeightedBalance.Cmp(big.NewInt(0)) > 0 {
-			lastEffectiveValue.Add(lastEffectiveValue, record.WeightedBalance)
-		}
-
+		// WeightedBalance is no longer used, only use CurrentBorrowU
 		lastEffectiveValue.Add(lastEffectiveValue, record.CurrentBorrowU)
 		record.LastEffectiveValue = lastEffectiveValue
 
