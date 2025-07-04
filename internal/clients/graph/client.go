@@ -56,19 +56,6 @@ type AccountSubsidy struct {
 	UpdatedAtTimestamp      string  `json:"updatedAtTimestamp"`
 }
 
-type Eligibility struct {
-	ID                    string     `json:"id"`
-	Account               Account    `json:"user"` // Changed to match subgraph schema
-	Epoch                 Epoch      `json:"epoch"`
-	Collection            Collection `json:"collection"`
-	NFTBalance            string     `json:"nftBalance"`
-	BorrowBalance         string     `json:"borrowBalance"`
-	HoldingDuration       string     `json:"holdingDuration"`
-	IsEligible            bool       `json:"isEligible"`
-	SubsidyReceived       string     `json:"subsidyReceived"`
-	YieldShare            string     `json:"yieldShare"`
-	BonusMultiplier       string     `json:"bonusMultiplier"`
-}
 
 type Epoch struct {
 	ID                            string `json:"id"`
@@ -132,9 +119,6 @@ type AccountsResponse struct {
 
 // UsersResponse is kept for backward compatibility
 
-type EligibilitiesResponse struct {
-	UserEpochEligibilities []Eligibility `json:"userEpochEligibilities"`
-}
 
 // QueryAccounts queries accounts using the new schema
 func (c *Client) QueryAccounts(ctx context.Context) ([]Account, error) {
@@ -165,88 +149,6 @@ func (c *Client) QueryAccounts(ctx context.Context) ([]Account, error) {
 	return response.Accounts, nil
 }
 
-func (c *Client) QueryEligibility(ctx context.Context, epochID string) ([]Eligibility, error) {
-	query := `
-		query GetEligibility($epochId: String!, $first: Int!, $skip: Int!) {
-			userEpochEligibilities(where: { epoch: $epochId }, first: $first, skip: $skip) {
-				id
-				user {
-					id
-					totalSecondsClaimed
-					totalSubsidiesReceived
-					totalYieldEarned
-					totalBorrowVolume
-					totalNFTsOwned
-					totalCollectionsParticipated
-					createdAtBlock
-					createdAtTimestamp
-					updatedAtBlock
-					updatedAtTimestamp
-				}
-				epoch {
-					id
-					epochNumber
-					status
-					startTimestamp
-					endTimestamp
-					processingStartedTimestamp
-					processingCompletedTimestamp
-					totalYieldAvailable
-					totalYieldAllocated
-					totalYieldDistributed
-					remainingYield
-					totalSubsidiesDistributed
-					totalEligibleUsers
-					totalParticipatingCollections
-					processingTimeMs
-					processingGasUsed
-					processingTransactionCount
-					createdAtBlock
-					createdAtTimestamp
-					updatedAtBlock
-					updatedAtTimestamp
-				}
-				collection {
-					id
-					contractAddress
-					name
-					symbol
-					totalSupply
-					collectionType
-					isActive
-					yieldSharePercentage
-					weightFunctionType
-					weightFunctionP1
-					weightFunctionP2
-					minBorrowAmount
-					maxBorrowAmount
-					totalNFTsDeposited
-					updatedAtBlock
-					updatedAtTimestamp
-				}
-				nftBalance
-				borrowBalance
-				holdingDuration
-				isEligible
-				subsidyReceived
-				yieldShare
-				bonusMultiplier
-			}
-		}
-	`
-
-	var response EligibilitiesResponse
-
-	variables := map[string]interface{}{
-		"epochId": epochID,
-	}
-
-	if err := c.ExecutePaginatedQuery(ctx, query, variables, "userEpochEligibilities", &response); err != nil {
-		return nil, fmt.Errorf("failed to query eligibility for epoch %s: %w", epochID, err)
-	}
-
-	return response.UserEpochEligibilities, nil
-}
 
 func (c *Client) executeQuery(ctx context.Context, request GraphQLRequest, response interface{}) error {
 	jsonData, err := json.Marshal(request)

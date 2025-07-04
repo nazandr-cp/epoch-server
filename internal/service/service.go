@@ -14,7 +14,6 @@ import (
 
 type GraphClient interface {
 	QueryAccounts(ctx context.Context) ([]graph.Account, error)
-	QueryEligibility(ctx context.Context, epochID string) ([]graph.Eligibility, error)
 	ExecuteQuery(ctx context.Context, request graph.GraphQLRequest, response interface{}) error
 	ExecutePaginatedQuery(ctx context.Context, queryTemplate string, variables map[string]interface{}, entityField string, response interface{}) error
 }
@@ -44,12 +43,7 @@ func (s *Service) StartEpoch(ctx context.Context, epochID string) error {
 		return fmt.Errorf("failed to query accounts: %w", err)
 	}
 
-	eligibilities, err := s.graphClient.QueryEligibility(ctx, epochID)
-	if err != nil {
-		return fmt.Errorf("failed to query eligibility for epoch %s: %w", epochID, err)
-	}
-
-	s.logger.Logf("INFO found %d accounts and %d eligibilities for epoch %s", len(accounts), len(eligibilities), epochID)
+	s.logger.Logf("INFO found %d accounts for epoch %s", len(accounts), epochID)
 
 	if err := s.contractClient.StartEpoch(ctx, epochID); err != nil {
 		return fmt.Errorf("failed to start epoch %s: %w", epochID, err)
