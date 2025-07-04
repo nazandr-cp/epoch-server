@@ -1,18 +1,34 @@
 package epoch
 
 import (
+	"context"
+	"math/big"
 	"time"
 
 	"github.com/go-pkgz/lgr"
 )
 
+type ContractClient interface {
+	GetCurrentEpochId(ctx context.Context) (*big.Int, error)
+	AllocateYieldToEpoch(ctx context.Context, epochId *big.Int, vaultAddress string) error
+	EndEpochWithSubsidies(ctx context.Context, epochId *big.Int, vaultAddress string, merkleRoot [32]byte, subsidiesDistributed *big.Int) error
+}
+
 type Client struct {
-	logger lgr.L
+	logger         lgr.L
+	contractClient ContractClient
 }
 
 func NewClient(logger lgr.L) *Client {
 	return &Client{
 		logger: logger,
+	}
+}
+
+func NewClientWithContract(logger lgr.L, contractClient ContractClient) *Client {
+	return &Client{
+		logger:         logger,
+		contractClient: contractClient,
 	}
 }
 
@@ -26,7 +42,41 @@ func (c *Client) Current() EpochInfo {
 	}
 }
 
+func (c *Client) GetCurrentEpochId(ctx context.Context) (*big.Int, error) {
+	c.logger.Logf("INFO getting current epoch ID")
+	
+	if c.contractClient == nil {
+		c.logger.Logf("WARN contract client not initialized, returning epoch ID 1")
+		return big.NewInt(1), nil
+	}
+	
+	return c.contractClient.GetCurrentEpochId(ctx)
+}
+
 func (c *Client) FinalizeEpoch() error {
 	c.logger.Logf("INFO finalizing epoch")
 	return nil
+}
+
+func (c *Client) AllocateYieldToEpoch(ctx context.Context, epochId *big.Int, vaultAddress string) error {
+	c.logger.Logf("INFO allocating yield to epoch %s for vault %s", epochId.String(), vaultAddress)
+	
+	if c.contractClient == nil {
+		c.logger.Logf("WARN contract client not initialized, skipping allocateYieldToEpoch call")
+		return nil
+	}
+	
+	return c.contractClient.AllocateYieldToEpoch(ctx, epochId, vaultAddress)
+}
+
+func (c *Client) EndEpochWithSubsidies(ctx context.Context, epochId *big.Int, vaultAddress string, merkleRoot [32]byte, subsidiesDistributed *big.Int) error {
+	c.logger.Logf("INFO ending epoch %s with subsidies for vault %s, merkleRoot: %x, subsidies: %s", 
+		epochId.String(), vaultAddress, merkleRoot, subsidiesDistributed.String())
+	
+	if c.contractClient == nil {
+		c.logger.Logf("WARN contract client not initialized, skipping endEpochWithSubsidies call")
+		return nil
+	}
+	
+	return c.contractClient.EndEpochWithSubsidies(ctx, epochId, vaultAddress, merkleRoot, subsidiesDistributed)
 }

@@ -30,7 +30,10 @@ type Account struct {
 
 type EpochManagerClient interface {
 	Current() epoch.EpochInfo
+	GetCurrentEpochId(ctx context.Context) (*big.Int, error)
 	FinalizeEpoch() error
+	AllocateYieldToEpoch(ctx context.Context, epochId *big.Int, vaultAddress string) error
+	EndEpochWithSubsidies(ctx context.Context, epochId *big.Int, vaultAddress string, merkleRoot [32]byte, subsidiesDistributed *big.Int) error
 }
 
 type DebtSubsidizerClient interface {
@@ -113,12 +116,37 @@ func (ld *LazyDistributor) Run(ctx context.Context, vaultId string) error {
 	var rootBytes [32]byte
 	copy(rootBytes[:], merkleRoot[:])
 
+	ld.logger.Logf("INFO updating merkle root for vault %s: %x", vaultId, rootBytes)
 	if err := ld.debtSubsidizerClient.UpdateMerkleRootAndWaitForConfirmation(ctx, vaultId, rootBytes); err != nil {
-		return fmt.Errorf("failed to update merkle root and wait for confirmation: %w", err)
+		ld.logger.Logf("ERROR failed to update merkle root for vault %s: %v", vaultId, err)
+		return fmt.Errorf("failed to call updateMerkleRoot: %w", err)
 	}
 
-	if err := ld.epochManagerClient.FinalizeEpoch(); err != nil {
-		return fmt.Errorf("failed to finalize epoch: %w", err)
+	// Calculate total subsidies distributed
+	totalSubsidies := big.NewInt(0)
+	for _, entry := range entries {
+		totalSubsidies.Add(totalSubsidies, entry.TotalEarned)
+	}
+
+	// Get current epoch ID from the epoch manager
+	epochId, err := ld.epochManagerClient.GetCurrentEpochId(ctx)
+	if err != nil {
+		ld.logger.Logf("ERROR failed to get current epoch ID: %v", err)
+		return fmt.Errorf("failed to get current epoch ID: %w", err)
+	}
+	ld.logger.Logf("INFO using epoch ID %s for subsidy distribution", epochId.String())
+
+	// Allocate yield to epoch before ending it with subsidies
+	ld.logger.Logf("INFO allocating yield to epoch %s for vault %s", epochId.String(), vaultId)
+	if err := ld.epochManagerClient.AllocateYieldToEpoch(ctx, epochId, vaultId); err != nil {
+		ld.logger.Logf("ERROR failed to allocate yield to epoch %s for vault %s: %v", epochId.String(), vaultId, err)
+		return fmt.Errorf("failed to call allocateYieldToEpoch: %w", err)
+	}
+
+	ld.logger.Logf("INFO ending epoch %s with subsidies for vault %s (total subsidies: %s)", epochId.String(), vaultId, totalSubsidies.String())
+	if err := ld.epochManagerClient.EndEpochWithSubsidies(ctx, epochId, vaultId, rootBytes, totalSubsidies); err != nil {
+		ld.logger.Logf("ERROR failed to end epoch %s with subsidies for vault %s: %v", epochId.String(), vaultId, err)
+		return fmt.Errorf("failed to call endEpochWithSubsidies: %w", err)
 	}
 
 	ld.logger.Logf("INFO completed lazy distribution for vault %s with %d entries", vaultId, len(entries))

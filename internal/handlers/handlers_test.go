@@ -14,7 +14,7 @@ import (
 
 type mockService struct {
 	startEpochFunc          func(ctx context.Context, epochID string) error
-	distributeSubsidiesFunc func(ctx context.Context, epochID string) error
+	distributeSubsidiesFunc func(ctx context.Context, vaultID string) error
 }
 
 func (m *mockService) StartEpoch(ctx context.Context, epochID string) error {
@@ -24,9 +24,9 @@ func (m *mockService) StartEpoch(ctx context.Context, epochID string) error {
 	return nil
 }
 
-func (m *mockService) DistributeSubsidies(ctx context.Context, epochID string) error {
+func (m *mockService) DistributeSubsidies(ctx context.Context, vaultID string) error {
 	if m.distributeSubsidiesFunc != nil {
-		return m.distributeSubsidiesFunc(ctx, epochID)
+		return m.distributeSubsidiesFunc(ctx, vaultID)
 	}
 	return nil
 }
@@ -144,7 +144,7 @@ func TestHandler_DistributeSubsidies(t *testing.T) {
 			name:    "successful distribute subsidies",
 			epochID: "epoch1",
 			mockService: &mockService{
-				distributeSubsidiesFunc: func(ctx context.Context, epochID string) error {
+				distributeSubsidiesFunc: func(ctx context.Context, vaultID string) error {
 					return nil
 				},
 			},
@@ -155,7 +155,7 @@ func TestHandler_DistributeSubsidies(t *testing.T) {
 			name:    "service error",
 			epochID: "epoch1",
 			mockService: &mockService{
-				distributeSubsidiesFunc: func(ctx context.Context, epochID string) error {
+				distributeSubsidiesFunc: func(ctx context.Context, vaultID string) error {
 					return errors.New("service error")
 				},
 			},
@@ -169,12 +169,13 @@ func TestHandler_DistributeSubsidies(t *testing.T) {
 			var serviceCalled bool
 			if tt.mockService.distributeSubsidiesFunc != nil {
 				originalFunc := tt.mockService.distributeSubsidiesFunc
-				tt.mockService.distributeSubsidiesFunc = func(ctx context.Context, epochID string) error {
+				tt.mockService.distributeSubsidiesFunc = func(ctx context.Context, vaultID string) error {
 					serviceCalled = true
-					if epochID != tt.epochID {
-						t.Errorf("Expected epochID %s, got %s", tt.epochID, epochID)
+					expectedVaultID := "0x4a4be724f522946296a51d8c82c7c2e8e5a62655"
+					if vaultID != expectedVaultID {
+						t.Errorf("Expected vaultID %s, got %s", expectedVaultID, vaultID)
 					}
-					return originalFunc(ctx, epochID)
+					return originalFunc(ctx, vaultID)
 				}
 			}
 

@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"math/big"
 	"testing"
 
 	"github.com/andrey/epoch-server/internal/clients/graph"
@@ -32,6 +33,9 @@ func (m *mockGraphClient) ExecutePaginatedQuery(ctx context.Context, queryTempla
 type mockContractClient struct {
 	startEpochFunc          func(ctx context.Context, epochID string) error
 	distributeSubsidiesFunc func(ctx context.Context, epochID string) error
+	getCurrentEpochIdFunc   func(ctx context.Context) (*big.Int, error)
+	allocateYieldToEpochFunc func(ctx context.Context, epochId *big.Int, vaultAddress string) error
+	endEpochWithSubsidiesFunc func(ctx context.Context, epochId *big.Int, vaultAddress string, merkleRoot [32]byte, subsidiesDistributed *big.Int) error
 }
 
 func (m *mockContractClient) StartEpoch(ctx context.Context, epochID string) error {
@@ -44,6 +48,28 @@ func (m *mockContractClient) StartEpoch(ctx context.Context, epochID string) err
 func (m *mockContractClient) DistributeSubsidies(ctx context.Context, epochID string) error {
 	if m.distributeSubsidiesFunc != nil {
 		return m.distributeSubsidiesFunc(ctx, epochID)
+	}
+	return nil
+}
+
+func (m *mockContractClient) GetCurrentEpochId(ctx context.Context) (*big.Int, error) {
+	if m.getCurrentEpochIdFunc != nil {
+		return m.getCurrentEpochIdFunc(ctx)
+	}
+	// Default to returning epoch ID 1 for tests
+	return big.NewInt(1), nil
+}
+
+func (m *mockContractClient) AllocateYieldToEpoch(ctx context.Context, epochId *big.Int, vaultAddress string) error {
+	if m.allocateYieldToEpochFunc != nil {
+		return m.allocateYieldToEpochFunc(ctx, epochId, vaultAddress)
+	}
+	return nil
+}
+
+func (m *mockContractClient) EndEpochWithSubsidies(ctx context.Context, epochId *big.Int, vaultAddress string, merkleRoot [32]byte, subsidiesDistributed *big.Int) error {
+	if m.endEpochWithSubsidiesFunc != nil {
+		return m.endEpochWithSubsidiesFunc(ctx, epochId, vaultAddress, merkleRoot, subsidiesDistributed)
 	}
 	return nil
 }
@@ -73,6 +99,9 @@ func TestService_StartEpoch(t *testing.T) {
 				startEpochFunc: func(ctx context.Context, epochID string) error {
 					return nil
 				},
+				getCurrentEpochIdFunc: func(ctx context.Context) (*big.Int, error) {
+					return big.NewInt(0), nil // No current epoch
+				},
 			},
 			wantErr:                    false,
 			expectedQueryAccountsCalls: 1,
@@ -90,10 +119,35 @@ func TestService_StartEpoch(t *testing.T) {
 				startEpochFunc: func(ctx context.Context, epochID string) error {
 					return nil
 				},
+				getCurrentEpochIdFunc: func(ctx context.Context) (*big.Int, error) {
+					return big.NewInt(0), nil // No current epoch
+				},
 			},
 			wantErr:                    true,
 			expectedQueryAccountsCalls: 1,
 			expectedStartEpochCalls:    0,
+		},
+		{
+			name:    "epoch still active error",
+			epochID: "epoch2",
+			mockGraphClient: &mockGraphClient{
+				queryAccountsFunc: func(ctx context.Context) ([]graph.Account, error) {
+					return []graph.Account{
+						{ID: "user1", TotalSecondsClaimed: "100"},
+					}, nil
+				},
+			},
+			mockContractClient: &mockContractClient{
+				startEpochFunc: func(ctx context.Context, epochID string) error {
+					return errors.New("execution reverted: EpochManager__EpochStillActive")
+				},
+				getCurrentEpochIdFunc: func(ctx context.Context) (*big.Int, error) {
+					return big.NewInt(1), nil // Current epoch 1 is active
+				},
+			},
+			wantErr:                    true,
+			expectedQueryAccountsCalls: 1,
+			expectedStartEpochCalls:    1,
 		},
 	}
 

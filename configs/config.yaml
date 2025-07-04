@@ -10,7 +10,7 @@ database:
   connection_string: ""
 
 logging:
-  level: "info"
+  level: "debug"
   format: "json"
   output: "stdout"
 
