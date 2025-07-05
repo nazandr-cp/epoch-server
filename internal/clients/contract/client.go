@@ -197,6 +197,66 @@ func (c *Client) GetCurrentEpochId(ctx context.Context) (*big.Int, error) {
 	return epochId, nil
 }
 
+func (c *Client) UpdateExchangeRate(ctx context.Context, lendingManagerAddress string) error {
+	c.logger.Logf("INFO updating exchange rate for LendingManager %s", lendingManagerAddress)
+	
+	if c.ethClient == nil || c.privateKey == nil {
+		c.logger.Logf("ERROR Ethereum client not initialized")
+		return fmt.Errorf("ethereum client not initialized")
+	}
+
+	// Get chain ID for signing
+	chainID, err := c.ethClient.ChainID(ctx)
+	if err != nil {
+		c.logger.Logf("ERROR failed to get chain ID: %v", err)
+		return err
+	}
+
+	// Create transaction options with signer
+	gasPrice, _ := new(big.Int).SetString(c.ethConfig.GasPrice, 10)
+	opts, err := bind.NewKeyedTransactorWithChainID(c.privateKey, chainID)
+	if err != nil {
+		c.logger.Logf("ERROR failed to create transactor: %v", err)
+		return err
+	}
+	opts.GasLimit = c.ethConfig.GasLimit
+	opts.GasPrice = gasPrice
+	opts.Context = ctx
+
+	// Create LendingManager contract instance and call updateExchangeRate function
+	lendingManagerAddr := common.HexToAddress(lendingManagerAddress)
+	
+	// Create the function call data for updateExchangeRate()
+	methodID := crypto.Keccak256([]byte("updateExchangeRate()"))[:4]
+	data := methodID
+
+	// Create contract instance for LendingManager
+	contractInstance := c.epochManager.Instance(c.ethClient, lendingManagerAddr)
+	tx, err := contractInstance.RawTransact(opts, data)
+	
+	if err != nil {
+		c.logger.Logf("ERROR failed to call updateExchangeRate: %v", err)
+		return fmt.Errorf("failed to call updateExchangeRate: %w", err)
+	}
+
+	c.logger.Logf("INFO updateExchangeRate transaction sent: %s", tx.Hash().Hex())
+	
+	// Wait for transaction to be mined and check if it was successful
+	receipt, err := bind.WaitMined(ctx, c.ethClient, tx)
+	if err != nil {
+		c.logger.Logf("ERROR failed to wait for updateExchangeRate transaction: %v", err)
+		return fmt.Errorf("failed to wait for updateExchangeRate transaction: %w", err)
+	}
+	
+	if receipt.Status == 0 {
+		c.logger.Logf("ERROR updateExchangeRate transaction failed: %s", tx.Hash().Hex())
+		return fmt.Errorf("updateExchangeRate transaction failed with hash %s", tx.Hash().Hex())
+	}
+	
+	c.logger.Logf("INFO updateExchangeRate transaction successful: %s", tx.Hash().Hex())
+	return nil
+}
+
 func (c *Client) AllocateYieldToEpoch(ctx context.Context, epochId *big.Int, vaultAddress string) error {
 	c.logger.Logf("INFO allocating yield to epoch %s for vault %s", epochId.String(), vaultAddress)
 	

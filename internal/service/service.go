@@ -32,6 +32,7 @@ type ContractClient interface {
 	StartEpoch(ctx context.Context, epochID string) error
 	DistributeSubsidies(ctx context.Context, epochID string) error
 	GetCurrentEpochId(ctx context.Context) (*big.Int, error)
+	UpdateExchangeRate(ctx context.Context, lendingManagerAddress string) error
 	AllocateYieldToEpoch(ctx context.Context, epochId *big.Int, vaultAddress string) error
 	EndEpochWithSubsidies(ctx context.Context, epochId *big.Int, vaultAddress string, merkleRoot [32]byte, subsidiesDistributed *big.Int) error
 }

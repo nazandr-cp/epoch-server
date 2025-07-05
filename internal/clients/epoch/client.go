@@ -10,6 +10,7 @@ import (
 
 type ContractClient interface {
 	GetCurrentEpochId(ctx context.Context) (*big.Int, error)
+	UpdateExchangeRate(ctx context.Context, lendingManagerAddress string) error
 	AllocateYieldToEpoch(ctx context.Context, epochId *big.Int, vaultAddress string) error
 	EndEpochWithSubsidies(ctx context.Context, epochId *big.Int, vaultAddress string, merkleRoot [32]byte, subsidiesDistributed *big.Int) error
 }
@@ -56,6 +57,17 @@ func (c *Client) GetCurrentEpochId(ctx context.Context) (*big.Int, error) {
 func (c *Client) FinalizeEpoch() error {
 	c.logger.Logf("INFO finalizing epoch")
 	return nil
+}
+
+func (c *Client) UpdateExchangeRate(ctx context.Context, lendingManagerAddress string) error {
+	c.logger.Logf("INFO updating exchange rate for LendingManager %s", lendingManagerAddress)
+	
+	if c.contractClient == nil {
+		c.logger.Logf("WARN contract client not initialized, skipping updateExchangeRate call")
+		return nil
+	}
+	
+	return c.contractClient.UpdateExchangeRate(ctx, lendingManagerAddress)
 }
 
 func (c *Client) AllocateYieldToEpoch(ctx context.Context, epochId *big.Int, vaultAddress string) error {

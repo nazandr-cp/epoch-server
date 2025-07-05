@@ -32,6 +32,7 @@ type EpochManagerClient interface {
 	Current() epoch.EpochInfo
 	GetCurrentEpochId(ctx context.Context) (*big.Int, error)
 	FinalizeEpoch() error
+	UpdateExchangeRate(ctx context.Context, lendingManagerAddress string) error
 	AllocateYieldToEpoch(ctx context.Context, epochId *big.Int, vaultAddress string) error
 	EndEpochWithSubsidies(ctx context.Context, epochId *big.Int, vaultAddress string, merkleRoot [32]byte, subsidiesDistributed *big.Int) error
 }
@@ -135,6 +136,14 @@ func (ld *LazyDistributor) Run(ctx context.Context, vaultId string) error {
 		return fmt.Errorf("failed to get current epoch ID: %w", err)
 	}
 	ld.logger.Logf("INFO using epoch ID %s for subsidy distribution", epochId.String())
+
+	// Update exchange rate to ensure we have the latest yield calculations
+	lendingManagerAddress := "0x64Bd8C3294956E039EDf1a4058b6588de3731248"
+	ld.logger.Logf("INFO updating exchange rate for LendingManager %s", lendingManagerAddress)
+	if err := ld.epochManagerClient.UpdateExchangeRate(ctx, lendingManagerAddress); err != nil {
+		ld.logger.Logf("ERROR failed to update exchange rate for LendingManager %s: %v", lendingManagerAddress, err)
+		return fmt.Errorf("failed to call updateExchangeRate: %w", err)
+	}
 
 	// Allocate yield to epoch before ending it with subsidies
 	ld.logger.Logf("INFO allocating yield to epoch %s for vault %s", epochId.String(), vaultId)

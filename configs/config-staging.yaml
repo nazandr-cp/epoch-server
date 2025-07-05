@@ -1,4 +1,4 @@
-# Configuration for epoch-server (local environment)
+# Configuration for epoch-server (staging environment)
 # Generated automatically from deployment config
 # DO NOT EDIT MANUALLY - Use deployment-config/tools/generate-go-config.js
 
@@ -16,7 +16,7 @@ logging:
 # Ethereum client configuration
 ethereum:
   rpc_url: "https://apechain-curtis.g.alchemy.com/v2/ARHRws7GPIN5-9uuAui0w0jXgNYNQZmd"
-  private_key: "0xf2d4fd965095bf43a13dbb4f13565cc55e08bbf68449c107c6ddcb4d08f194e0"
+  private_key: ""
   gas_limit: 500000
   gas_price: 20000000000
 
@@ -35,15 +35,14 @@ scheduler:
 
 # Contract addresses for the deployed system
 contracts:
-  comptroller: 0x7E81fAaF1132A17DCc0C76b1280E0C0e598D5635
-  epoch_manager: 0xA75103E59ceD5C25d871a870A1584FF6772e343C
-  debt_subsidizer: 0x5Ad21B0892334fafb7A712661d21aAc3e52F923e
-  lending_manager: 0x64Bd8C3294956E039EDf1a4058b6588de3731248
-  collection_registry: 0xfBBD2Da1E36354C39D4849a1Ba6934DD4f8aD5Ff
-  collections_vault: 0xf82C7D08E65B74bf926552726305ff9ff0b0f700
+  epoch_manager: 0x5b6dd10dd0fa3454a2749dec1dcbc9e0983620da
+  debt_subsidizer: 0xc5b63cddb5e331a2f9c192cfd7de28677ca41cdc
+  lending_manager: 0xb493bee4c9e0c7d0ec57c38751c9a1c08fafe434
+  collection_registry: 0xf9ff756360fd6aea39db9ab2e998235dc1f6322f
+  collections_vault: 0x4a4be724f522946296a51d8c82c7c2e8e5a62655
 
 # Feature flags for development and testing
 features:
-  dry_run: true
+  dry_run: false
   enable_metrics: true
   debug_mode: true
