@@ -1,78 +1,84 @@
 package config
 
 import (
-	"os"
 	"time"
 
-	"gopkg.in/yaml.v3"
+	"github.com/jessevdk/go-flags"
 )
 
 type Config struct {
+	// Server configuration
 	Server struct {
-		Host string `yaml:"host"`
-		Port int    `yaml:"port"`
-	} `yaml:"server"`
+		Host string `long:"server-host" env:"SERVER_HOST" default:"0.0.0.0" description:"Server host"`
+		Port int    `long:"server-port" env:"SERVER_PORT" default:"8080" description:"Server port"`
+	} `group:"Server Options" namespace:"server"`
 
+	// Database configuration
 	Database struct {
-		Type             string `yaml:"type"`
-		ConnectionString string `yaml:"connection_string"`
-	} `yaml:"database"`
+		Type             string `long:"database-type" env:"DATABASE_TYPE" default:"memory" description:"Database type"`
+		ConnectionString string `long:"database-connection-string" env:"DATABASE_CONNECTION_STRING" default:"" description:"Database connection string"`
+	} `group:"Database Options" namespace:"database"`
 
+	// Logging configuration
 	Logging struct {
-		Level  string `yaml:"level"`
-		Format string `yaml:"format"`
-		Output string `yaml:"output"`
-	} `yaml:"logging"`
+		Level  string `long:"log-level" env:"LOG_LEVEL" default:"debug" description:"Log level"`
+		Format string `long:"log-format" env:"LOG_FORMAT" default:"json" description:"Log format"`
+		Output string `long:"log-output" env:"LOG_OUTPUT" default:"stdout" description:"Log output"`
+	} `group:"Logging Options" namespace:"logging"`
 
+	// Ethereum configuration
 	Ethereum struct {
-		RPCURL     string `yaml:"rpc_url"`
-		PrivateKey string `yaml:"private_key"`
-		GasLimit   uint64 `yaml:"gas_limit"`
-		GasPrice   string `yaml:"gas_price"`
-	} `yaml:"ethereum"`
+		RPCURL     string `long:"rpc-url" env:"RPC_URL" required:"true" description:"Ethereum RPC URL"`
+		PrivateKey string `long:"private-key" env:"PRIVATE_KEY" required:"true" description:"Ethereum private key"`
+		Sender     string `long:"sender" env:"SENDER" description:"Sender address"`
+		GasLimit   uint64 `long:"gas-limit" env:"GAS_LIMIT" default:"500000" description:"Gas limit"`
+		GasPrice   string `long:"gas-price" env:"GAS_PRICE" default:"20000000000" description:"Gas price"`
+	} `group:"Ethereum Options" namespace:"ethereum"`
 
+	// Subgraph configuration
 	Subgraph struct {
-		Endpoint       string        `yaml:"endpoint"`
-		Timeout        time.Duration `yaml:"timeout"`
-		MaxRetries     int           `yaml:"max_retries"`
-		PaginationSize int           `yaml:"pagination_size"`
-	} `yaml:"subgraph"`
+		Endpoint       string        `long:"subgraph-endpoint" env:"SUBGRAPH_ENDPOINT" required:"true" description:"Subgraph endpoint"`
+		Timeout        time.Duration `long:"subgraph-timeout" env:"SUBGRAPH_TIMEOUT" default:"30s" description:"Subgraph timeout"`
+		MaxRetries     int           `long:"subgraph-max-retries" env:"SUBGRAPH_MAX_RETRIES" default:"3" description:"Subgraph max retries"`
+		PaginationSize int           `long:"subgraph-pagination-size" env:"SUBGRAPH_PAGINATION_SIZE" default:"1000" description:"Subgraph pagination size"`
+	} `group:"Subgraph Options" namespace:"subgraph"`
 
+	// Scheduler configuration
 	Scheduler struct {
-		Interval time.Duration `yaml:"interval"`
-		Enabled  bool          `yaml:"enabled"`
-		Timezone string        `yaml:"timezone"`
-	} `yaml:"scheduler"`
+		Interval time.Duration `long:"scheduler-interval" env:"SCHEDULER_INTERVAL" default:"1h" description:"Scheduler interval"`
+		Enabled  bool          `long:"scheduler-enabled" env:"SCHEDULER_ENABLED" description:"Enable scheduler"`
+		Timezone string        `long:"scheduler-timezone" env:"SCHEDULER_TIMEZONE" default:"UTC" description:"Scheduler timezone"`
+	} `group:"Scheduler Options" namespace:"scheduler"`
 
+	// Contract addresses
 	Contracts struct {
-		Comptroller        string `yaml:"comptroller"`
-		EpochManager       string `yaml:"epoch_manager"`
-		DebtSubsidizer     string `yaml:"debt_subsidizer"`
-		LendingManager     string `yaml:"lending_manager"`
-		CollectionRegistry string `yaml:"collection_registry"`
-	} `yaml:"contracts"`
+		Comptroller        string `long:"comptroller-address" env:"COMPTROLLER_ADDRESS" required:"true" description:"Comptroller contract address"`
+		EpochManager       string `long:"epoch-manager-address" env:"EPOCH_MANAGER_ADDRESS" required:"true" description:"Epoch manager contract address"`
+		DebtSubsidizer     string `long:"debt-subsidizer-address" env:"DEBT_SUBSIDIZER_PROXY_ADDRESS" required:"true" description:"Debt subsidizer contract address"`
+		LendingManager     string `long:"lending-manager-address" env:"LENDING_MANAGER_ADDRESS" required:"true" description:"Lending manager contract address"`
+		CollectionRegistry string `long:"collection-registry-address" env:"COLLECTION_REGISTRY_ADDRESS" required:"true" description:"Collection registry contract address"`
+		CollectionsVault   string `long:"collections-vault-address" env:"VAULT_ADDRESS" required:"true" description:"Collections vault contract address"`
+		Asset              string `long:"asset-address" env:"ASSET_ADDRESS" description:"Asset contract address"`
+		NFT                string `long:"nft-address" env:"NFT_ADDRESS" description:"NFT contract address"`
+		CToken             string `long:"ctoken-address" env:"CTOKEN_ADDRESS" description:"CToken contract address"`
+	} `group:"Contract Options" namespace:"contracts"`
 
+	// Feature flags
 	Features struct {
-		DryRun        bool `yaml:"dry_run"`
-		EnableMetrics bool `yaml:"enable_metrics"`
-		DebugMode     bool `yaml:"debug_mode"`
-	} `yaml:"features"`
+		DryRun        bool `long:"dry-run" env:"DRY_RUN" description:"Enable dry run mode"`
+		EnableMetrics bool `long:"enable-metrics" env:"ENABLE_METRICS" description:"Enable metrics"`
+		DebugMode     bool `long:"debug-mode" env:"DEBUG_MODE" description:"Enable debug mode"`
+	} `group:"Feature Options" namespace:"features"`
 }
 
-func Load(path string) (*Config, error) {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return nil, err
-	}
-
+func Load() (*Config, error) {
 	var cfg Config
-	if err := yaml.Unmarshal(data, &cfg); err != nil {
+	
+	parser := flags.NewParser(&cfg, flags.Default)
+	
+	// Parse only environment variables and ignore command line arguments
+	if _, err := parser.ParseArgs([]string{}); err != nil {
 		return nil, err
-	}
-
-	// Override with environment variables if they exist
-	if privateKey := os.Getenv("ETHEREUM_PRIVATE_KEY"); privateKey != "" {
-		cfg.Ethereum.PrivateKey = privateKey
 	}
 
 	return &cfg, nil

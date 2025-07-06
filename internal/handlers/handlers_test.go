@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/andrey/epoch-server/internal/config"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-pkgz/lgr"
 )
@@ -32,7 +33,8 @@ func (m *mockService) DistributeSubsidies(ctx context.Context, vaultID string) e
 }
 
 func TestHandler_Health(t *testing.T) {
-	handler := NewHandler(nil, lgr.NoOp)
+	cfg := &config.Config{}
+	handler := NewHandler(nil, lgr.NoOp, cfg)
 
 	req := httptest.NewRequest(http.MethodGet, "/health", nil)
 	recorder := httptest.NewRecorder()
@@ -105,9 +107,11 @@ func TestHandler_StartEpoch(t *testing.T) {
 				}
 			}
 
+			cfg := &config.Config{}
 			handler := &Handler{
 				service: tt.mockService,
 				logger:  lgr.NoOp,
+				config:  cfg,
 			}
 
 			router := chi.NewRouter()
@@ -179,9 +183,12 @@ func TestHandler_DistributeSubsidies(t *testing.T) {
 				}
 			}
 
+			cfg := &config.Config{}
+			cfg.Contracts.CollectionsVault = "0x4a4be724f522946296a51d8c82c7c2e8e5a62655"
 			handler := &Handler{
 				service: tt.mockService,
 				logger:  lgr.NoOp,
+				config:  cfg,
 			}
 
 			router := chi.NewRouter()

@@ -11,6 +11,7 @@ import (
 	"github.com/andrey/epoch-server/internal/clients/graph"
 	"github.com/andrey/epoch-server/internal/clients/storage"
 	"github.com/andrey/epoch-server/internal/clients/subsidizer"
+	"github.com/andrey/epoch-server/internal/config"
 	"github.com/go-pkgz/lgr"
 )
 
@@ -41,13 +42,15 @@ type Service struct {
 	graphClient    GraphClient
 	contractClient ContractClient
 	logger         lgr.L
+	config         *config.Config
 }
 
-func NewService(graphClient *graph.Client, contractClient *contract.Client, logger lgr.L) *Service {
+func NewService(graphClient *graph.Client, contractClient *contract.Client, logger lgr.L, cfg *config.Config) *Service {
 	return &Service{
 		graphClient:    graphClient,
 		contractClient: contractClient,
 		logger:         logger,
+		config:         cfg,
 	}
 }
 
@@ -110,6 +113,7 @@ func (s *Service) DistributeSubsidies(ctx context.Context, vaultId string) error
 		subsidizerClient,
 		storageClient,
 		s.logger,
+		s.config,
 	)
 
 	if err := lazyDistributor.Run(ctx, vaultId); err != nil {

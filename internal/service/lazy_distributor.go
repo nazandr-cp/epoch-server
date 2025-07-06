@@ -10,6 +10,7 @@ import (
 
 	"github.com/andrey/epoch-server/internal/clients/epoch"
 	"github.com/andrey/epoch-server/internal/clients/storage"
+	"github.com/andrey/epoch-server/internal/config"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/go-pkgz/lgr"
@@ -52,6 +53,7 @@ type LazyDistributor struct {
 	debtSubsidizerClient DebtSubsidizerClient
 	storageClient        StorageClient
 	logger               lgr.L
+	config               *config.Config
 }
 
 func NewLazyDistributor(
@@ -60,6 +62,7 @@ func NewLazyDistributor(
 	debtSubsidizerClient DebtSubsidizerClient,
 	storageClient StorageClient,
 	logger lgr.L,
+	cfg *config.Config,
 ) *LazyDistributor {
 	return &LazyDistributor{
 		graphClient:          graphClient,
@@ -67,6 +70,7 @@ func NewLazyDistributor(
 		debtSubsidizerClient: debtSubsidizerClient,
 		storageClient:        storageClient,
 		logger:               logger,
+		config:               cfg,
 	}
 }
 
@@ -138,7 +142,7 @@ func (ld *LazyDistributor) Run(ctx context.Context, vaultId string) error {
 	ld.logger.Logf("INFO using epoch ID %s for subsidy distribution", epochId.String())
 
 	// Update exchange rate to ensure we have the latest yield calculations
-	lendingManagerAddress := "0x64Bd8C3294956E039EDf1a4058b6588de3731248"
+	lendingManagerAddress := ld.config.Contracts.LendingManager
 	ld.logger.Logf("INFO updating exchange rate for LendingManager %s", lendingManagerAddress)
 	if err := ld.epochManagerClient.UpdateExchangeRate(ctx, lendingManagerAddress); err != nil {
 		ld.logger.Logf("ERROR failed to update exchange rate for LendingManager %s: %v", lendingManagerAddress, err)

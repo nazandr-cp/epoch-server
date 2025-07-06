@@ -18,7 +18,7 @@ import (
 )
 
 func main() {
-	cfg, err := config.Load("configs/config.yaml")
+	cfg, err := config.Load()
 	if err != nil {
 		log.Fatalf("Failed to load configuration: %v", err)
 	}
@@ -55,8 +55,8 @@ func main() {
 		log.Fatalf("Failed to initialize contract client: %v", err)
 	}
 
-	svc := service.NewService(graphClient, contractClient, logger)
-	handler := handlers.NewHandler(svc, logger)
+	svc := service.NewService(graphClient, contractClient, logger, cfg)
+	handler := handlers.NewHandler(svc, logger, cfg)
 	schedulerInstance := scheduler.NewScheduler(cfg.Scheduler.Interval, svc, logger)
 	go schedulerInstance.Start(ctx)
 

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 
+	"github.com/andrey/epoch-server/internal/config"
 	"github.com/andrey/epoch-server/internal/service"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-pkgz/lgr"
@@ -26,12 +27,14 @@ type ErrorResponse struct {
 type Handler struct {
 	service Service
 	logger  lgr.L
+	config  *config.Config
 }
 
-func NewHandler(service *service.Service, logger lgr.L) *Handler {
+func NewHandler(service *service.Service, logger lgr.L, cfg *config.Config) *Handler {
 	return &Handler{
 		service: service,
 		logger:  logger,
+		config:  cfg,
 	}
 }
 
@@ -63,8 +66,8 @@ func (h *Handler) StartEpoch(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) DistributeSubsidies(w http.ResponseWriter, r *http.Request) {
 	epochID := chi.URLParam(r, "id")
 	
-	// Use the correct vault address from our deployment
-	vaultId := "0xf82C7D08E65B74bf926552726305ff9ff0b0f700"
+	// Use the vault address from configuration
+	vaultId := h.config.Contracts.CollectionsVault
 
 	h.logger.Logf("INFO received distribute subsidies request for epoch %s, vault %s", epochID, vaultId)
 

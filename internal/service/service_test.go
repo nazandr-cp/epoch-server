@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/andrey/epoch-server/internal/clients/graph"
+	"github.com/andrey/epoch-server/internal/config"
 	"github.com/go-pkgz/lgr"
 )
 
@@ -34,6 +35,7 @@ type mockContractClient struct {
 	startEpochFunc          func(ctx context.Context, epochID string) error
 	distributeSubsidiesFunc func(ctx context.Context, epochID string) error
 	getCurrentEpochIdFunc   func(ctx context.Context) (*big.Int, error)
+	updateExchangeRateFunc  func(ctx context.Context, lendingManagerAddress string) error
 	allocateYieldToEpochFunc func(ctx context.Context, epochId *big.Int, vaultAddress string) error
 	endEpochWithSubsidiesFunc func(ctx context.Context, epochId *big.Int, vaultAddress string, merkleRoot [32]byte, subsidiesDistributed *big.Int) error
 }
@@ -63,6 +65,13 @@ func (m *mockContractClient) GetCurrentEpochId(ctx context.Context) (*big.Int, e
 func (m *mockContractClient) AllocateYieldToEpoch(ctx context.Context, epochId *big.Int, vaultAddress string) error {
 	if m.allocateYieldToEpochFunc != nil {
 		return m.allocateYieldToEpochFunc(ctx, epochId, vaultAddress)
+	}
+	return nil
+}
+
+func (m *mockContractClient) UpdateExchangeRate(ctx context.Context, lendingManagerAddress string) error {
+	if m.updateExchangeRateFunc != nil {
+		return m.updateExchangeRateFunc(ctx, lendingManagerAddress)
 	}
 	return nil
 }
@@ -172,10 +181,12 @@ func TestService_StartEpoch(t *testing.T) {
 				}
 			}
 
+			cfg := &config.Config{}
 			service := &Service{
 				graphClient:    tt.mockGraphClient,
 				contractClient: tt.mockContractClient,
 				logger:         lgr.NoOp,
+				config:         cfg,
 			}
 
 			err := service.StartEpoch(context.Background(), tt.epochID)
@@ -213,9 +224,13 @@ func TestService_DistributeSubsidies(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			cfg := &config.Config{}
+			cfg.Contracts.LendingManager = "0x64Bd8C3294956E039EDf1a4058b6588de3731248"
 			service := &Service{
-				graphClient: tt.mockGraphClient,
-				logger:      lgr.NoOp,
+				graphClient:    tt.mockGraphClient,
+				contractClient: &mockContractClient{},
+				logger:         lgr.NoOp,
+				config:         cfg,
 			}
 
 			err := service.DistributeSubsidies(context.Background(), tt.vaultId)

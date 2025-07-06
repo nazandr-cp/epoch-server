@@ -6,11 +6,9 @@ services:
     container_name: epoch-server
     ports:
       - "8088:8080"
-    environment:
-      - ETHEREUM_PRIVATE_KEY=${ETHEREUM_PRIVATE_KEY}
-      - CONFIG_PATH=configs/config.yaml
+    env_file:
+      - .env
     volumes:
-      - ./configs:/app/configs:ro
       - ./logs:/app/logs
     # depends_on:
     #   - postgres
