@@ -6,6 +6,7 @@ import (
 	"math/big"
 	"sort"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/andrey/epoch-server/internal/clients/epoch"
@@ -100,7 +101,7 @@ func (ld *LazyDistributor) Run(ctx context.Context, vaultId string) error {
 		ld.logger.Logf("INFO calculated totalEarned for account %s: %s", subsidy.Account.ID, totalEarned.String())
 
 		entries = append(entries, storage.MerkleEntry{
-			Address:     subsidy.Account.ID,
+			Address:     strings.ToLower(subsidy.Account.ID),
 			TotalEarned: totalEarned,
 		})
 	}
@@ -156,7 +157,6 @@ func (ld *LazyDistributor) Run(ctx context.Context, vaultId string) error {
 		return fmt.Errorf("failed to call allocateYieldToEpoch: %w", err)
 	}
 
-	ld.logger.Logf("INFO ending epoch %s with subsidies for vault %s (total subsidies: %s)", epochId.String(), vaultId, totalSubsidies.String())
 	if err := ld.epochManagerClient.EndEpochWithSubsidies(ctx, epochId, vaultId, rootBytes, totalSubsidies); err != nil {
 		ld.logger.Logf("ERROR failed to end epoch %s with subsidies for vault %s: %v", epochId.String(), vaultId, err)
 		return fmt.Errorf("failed to call endEpochWithSubsidies: %w", err)
@@ -188,7 +188,7 @@ func (ld *LazyDistributor) queryLazySubsidies(ctx context.Context, vaultId strin
 	`
 
 	variables := map[string]interface{}{
-		"vaultId": vaultId,
+		"vaultId": strings.ToLower(vaultId),
 	}
 
 	var response struct {

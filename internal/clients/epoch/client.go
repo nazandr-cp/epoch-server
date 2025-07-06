@@ -82,8 +82,6 @@ func (c *Client) AllocateYieldToEpoch(ctx context.Context, epochId *big.Int, vau
 }
 
 func (c *Client) EndEpochWithSubsidies(ctx context.Context, epochId *big.Int, vaultAddress string, merkleRoot [32]byte, subsidiesDistributed *big.Int) error {
-	c.logger.Logf("INFO ending epoch %s with subsidies for vault %s, merkleRoot: %x, subsidies: %s", 
-		epochId.String(), vaultAddress, merkleRoot, subsidiesDistributed.String())
 	
 	if c.contractClient == nil {
 		c.logger.Logf("WARN contract client not initialized, skipping endEpochWithSubsidies call")

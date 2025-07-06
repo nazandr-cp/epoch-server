@@ -2,6 +2,7 @@ package merkle
 
 import (
 	"math/big"
+	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -34,8 +35,9 @@ func (pg *ProofGenerator) GenerateProof(entries []Entry, targetAddress string, t
 
 	// Find target index
 	targetIndex := -1
+	normalizedTargetAddress := strings.ToLower(targetAddress)
 	for i, entry := range sortedEntries {
-		if entry.Address == targetAddress && entry.TotalEarned.Cmp(targetAmount) == 0 {
+		if strings.ToLower(entry.Address) == normalizedTargetAddress && entry.TotalEarned.Cmp(targetAmount) == 0 {
 			targetIndex = i
 			break
 		}
@@ -83,7 +85,7 @@ func (pg *ProofGenerator) sortEntries(entries []Entry) {
 	for i := 1; i < len(entries); i++ {
 		key := entries[i]
 		j := i - 1
-		for j >= 0 && entries[j].Address > key.Address {
+		for j >= 0 && strings.ToLower(entries[j].Address) > strings.ToLower(key.Address) {
 			entries[j+1] = entries[j]
 			j--
 		}
@@ -93,8 +95,8 @@ func (pg *ProofGenerator) sortEntries(entries []Entry) {
 
 // createLeafHash creates a leaf hash compatible with Solidity's abi.encodePacked(recipient, newTotal)
 func (pg *ProofGenerator) createLeafHash(address string, amount *big.Int) [32]byte {
-	// Convert address string to common.Address
-	addr := common.HexToAddress(address)
+	// Convert address string to common.Address (normalize case first)
+	addr := common.HexToAddress(strings.ToLower(address))
 
 	// Create packed encoding: address (20 bytes) + amount (32 bytes)
 	packed := make([]byte, 0, 52)
