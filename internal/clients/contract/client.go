@@ -97,8 +97,8 @@ func (c *Client) initialize() error {
 	return nil
 }
 
-func (c *Client) StartEpoch(ctx context.Context, epochID string) error {
-	c.logger.Logf("INFO starting epoch %s", epochID)
+func (c *Client) StartEpoch(ctx context.Context) error {
+	c.logger.Logf("INFO starting epoch")
 	
 	if c.ethClient == nil || c.privateKey == nil {
 		c.logger.Logf("ERROR Ethereum client not initialized")

@@ -8,12 +8,11 @@ import (
 
 	"github.com/andrey/epoch-server/internal/config"
 	"github.com/andrey/epoch-server/internal/service"
-	"github.com/go-chi/chi/v5"
 	"github.com/go-pkgz/lgr"
 )
 
 type Service interface {
-	StartEpoch(ctx context.Context, epochID string) error
+	StartEpoch(ctx context.Context) error
 	DistributeSubsidies(ctx context.Context, vaultId string) error
 }
 
@@ -45,12 +44,10 @@ func (h *Handler) Health(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) StartEpoch(w http.ResponseWriter, r *http.Request) {
-	epochID := chi.URLParam(r, "id")
+	h.logger.Logf("INFO received start epoch request")
 
-	h.logger.Logf("INFO received start epoch request for epoch %s", epochID)
-
-	if err := h.service.StartEpoch(r.Context(), epochID); err != nil {
-		h.logger.Logf("ERROR failed to start epoch %s: %v", epochID, err)
+	if err := h.service.StartEpoch(r.Context()); err != nil {
+		h.logger.Logf("ERROR failed to start epoch: %v", err)
 		h.writeErrorResponse(w, err, "Failed to start epoch")
 		return
 	}
@@ -58,21 +55,18 @@ func (h *Handler) StartEpoch(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusAccepted)
 	json.NewEncoder(w).Encode(map[string]string{
 		"status":  "accepted",
-		"epochID": epochID,
 		"message": "Epoch start initiated successfully",
 	})
 }
 
 func (h *Handler) DistributeSubsidies(w http.ResponseWriter, r *http.Request) {
-	epochID := chi.URLParam(r, "id")
-	
 	// Use the vault address from configuration
 	vaultId := h.config.Contracts.CollectionsVault
 
-	h.logger.Logf("INFO received distribute subsidies request for epoch %s, vault %s", epochID, vaultId)
+	h.logger.Logf("INFO received distribute subsidies request for vault %s", vaultId)
 
 	if err := h.service.DistributeSubsidies(r.Context(), vaultId); err != nil {
-		h.logger.Logf("ERROR failed to distribute subsidies for epoch %s, vault %s: %v", epochID, vaultId, err)
+		h.logger.Logf("ERROR failed to distribute subsidies for vault %s: %v", vaultId, err)
 		h.writeErrorResponse(w, err, "Failed to distribute subsidies")
 		return
 	}
@@ -80,7 +74,6 @@ func (h *Handler) DistributeSubsidies(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusAccepted)
 	json.NewEncoder(w).Encode(map[string]string{
 		"status":  "accepted",
-		"epochID": epochID,
 		"vaultID": vaultId,
 		"message": "Subsidy distribution initiated successfully",
 	})

@@ -14,13 +14,13 @@ import (
 )
 
 type mockService struct {
-	startEpochFunc          func(ctx context.Context, epochID string) error
+	startEpochFunc          func(ctx context.Context) error
 	distributeSubsidiesFunc func(ctx context.Context, vaultID string) error
 }
 
-func (m *mockService) StartEpoch(ctx context.Context, epochID string) error {
+func (m *mockService) StartEpoch(ctx context.Context) error {
 	if m.startEpochFunc != nil {
-		return m.startEpochFunc(ctx, epochID)
+		return m.startEpochFunc(ctx)
 	}
 	return nil
 }
@@ -64,16 +64,14 @@ func TestHandler_Health(t *testing.T) {
 func TestHandler_StartEpoch(t *testing.T) {
 	tests := []struct {
 		name               string
-		epochID            string
 		mockService        *mockService
 		expectedStatusCode int
 		wantServiceCall    bool
 	}{
 		{
-			name:    "successful start epoch",
-			epochID: "epoch1",
+			name: "successful start epoch",
 			mockService: &mockService{
-				startEpochFunc: func(ctx context.Context, epochID string) error {
+				startEpochFunc: func(ctx context.Context) error {
 					return nil
 				},
 			},
@@ -81,10 +79,9 @@ func TestHandler_StartEpoch(t *testing.T) {
 			wantServiceCall:    true,
 		},
 		{
-			name:    "service error",
-			epochID: "epoch1",
+			name: "service error",
 			mockService: &mockService{
-				startEpochFunc: func(ctx context.Context, epochID string) error {
+				startEpochFunc: func(ctx context.Context) error {
 					return errors.New("service error")
 				},
 			},
@@ -98,12 +95,9 @@ func TestHandler_StartEpoch(t *testing.T) {
 			var serviceCalled bool
 			if tt.mockService.startEpochFunc != nil {
 				originalFunc := tt.mockService.startEpochFunc
-				tt.mockService.startEpochFunc = func(ctx context.Context, epochID string) error {
+				tt.mockService.startEpochFunc = func(ctx context.Context) error {
 					serviceCalled = true
-					if epochID != tt.epochID {
-						t.Errorf("Expected epochID %s, got %s", tt.epochID, epochID)
-					}
-					return originalFunc(ctx, epochID)
+					return originalFunc(ctx)
 				}
 			}
 
@@ -115,9 +109,9 @@ func TestHandler_StartEpoch(t *testing.T) {
 			}
 
 			router := chi.NewRouter()
-			router.Post("/epochs/{id}/start", handler.StartEpoch)
+			router.Post("/epochs/start", handler.StartEpoch)
 
-			req := httptest.NewRequest(http.MethodPost, "/epochs/"+tt.epochID+"/start", nil)
+			req := httptest.NewRequest(http.MethodPost, "/epochs/start", nil)
 			recorder := httptest.NewRecorder()
 
 			router.ServeHTTP(recorder, req)
@@ -139,14 +133,12 @@ func TestHandler_StartEpoch(t *testing.T) {
 func TestHandler_DistributeSubsidies(t *testing.T) {
 	tests := []struct {
 		name               string
-		epochID            string
 		mockService        *mockService
 		expectedStatusCode int
 		wantServiceCall    bool
 	}{
 		{
-			name:    "successful distribute subsidies",
-			epochID: "epoch1",
+			name: "successful distribute subsidies",
 			mockService: &mockService{
 				distributeSubsidiesFunc: func(ctx context.Context, vaultID string) error {
 					return nil
@@ -156,8 +148,7 @@ func TestHandler_DistributeSubsidies(t *testing.T) {
 			wantServiceCall:    true,
 		},
 		{
-			name:    "service error",
-			epochID: "epoch1",
+			name: "service error",
 			mockService: &mockService{
 				distributeSubsidiesFunc: func(ctx context.Context, vaultID string) error {
 					return errors.New("service error")
@@ -192,9 +183,9 @@ func TestHandler_DistributeSubsidies(t *testing.T) {
 			}
 
 			router := chi.NewRouter()
-			router.Post("/epochs/{id}/distribute", handler.DistributeSubsidies)
+			router.Post("/epochs/distribute", handler.DistributeSubsidies)
 
-			req := httptest.NewRequest(http.MethodPost, "/epochs/"+tt.epochID+"/distribute", nil)
+			req := httptest.NewRequest(http.MethodPost, "/epochs/distribute", nil)
 			recorder := httptest.NewRecorder()
 
 			router.ServeHTTP(recorder, req)

@@ -30,7 +30,7 @@ type GraphClient interface {
 }
 
 type ContractClient interface {
-	StartEpoch(ctx context.Context, epochID string) error
+	StartEpoch(ctx context.Context) error
 	DistributeSubsidies(ctx context.Context, epochID string) error
 	GetCurrentEpochId(ctx context.Context) (*big.Int, error)
 	UpdateExchangeRate(ctx context.Context, lendingManagerAddress string) error
@@ -54,12 +54,7 @@ func NewService(graphClient *graph.Client, contractClient *contract.Client, logg
 	}
 }
 
-func (s *Service) StartEpoch(ctx context.Context, epochID string) error {
-	// Validate input
-	if epochID == "" {
-		return fmt.Errorf("%w: epochID cannot be empty", ErrInvalidInput)
-	}
-
+func (s *Service) StartEpoch(ctx context.Context) error {
 	// Check if there's an active epoch that needs to be completed first
 	currentEpochId, err := s.contractClient.GetCurrentEpochId(ctx)
 	if err != nil {
@@ -76,22 +71,22 @@ func (s *Service) StartEpoch(ctx context.Context, epochID string) error {
 
 	accounts, err := s.graphClient.QueryAccounts(ctx)
 	if err != nil {
-		s.logger.Logf("ERROR failed to query accounts for epoch %s: %v", epochID, err)
+		s.logger.Logf("ERROR failed to query accounts: %v", err)
 		return fmt.Errorf("failed to query accounts: %w", err)
 	}
 
-	s.logger.Logf("INFO found %d accounts for epoch %s", len(accounts), epochID)
+	s.logger.Logf("INFO found %d accounts for starting new epoch", len(accounts))
 
-	if err := s.contractClient.StartEpoch(ctx, epochID); err != nil {
-		s.logger.Logf("ERROR blockchain transaction failed for startEpoch %s: %v", epochID, err)
+	if err := s.contractClient.StartEpoch(ctx); err != nil {
+		s.logger.Logf("ERROR blockchain transaction failed for startEpoch: %v", err)
 		// Check if the error is specifically about epoch still being active
 		if isEpochStillActiveError(err) {
 			return fmt.Errorf("%w: cannot start new epoch - current epoch %s is still active and must be completed first", ErrTransactionFailed, currentEpochId.String())
 		}
-		return fmt.Errorf("%w: failed to start epoch %s: %v", ErrTransactionFailed, epochID, err)
+		return fmt.Errorf("%w: failed to start epoch: %v", ErrTransactionFailed, err)
 	}
 
-	s.logger.Logf("INFO successfully initiated epoch start for epoch %s", epochID)
+	s.logger.Logf("INFO successfully initiated epoch start")
 	return nil
 }
 

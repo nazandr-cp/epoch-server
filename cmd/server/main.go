@@ -57,7 +57,7 @@ func main() {
 
 	svc := service.NewService(graphClient, contractClient, logger, cfg)
 	handler := handlers.NewHandler(svc, logger, cfg)
-	schedulerInstance := scheduler.NewScheduler(cfg.Scheduler.Interval, svc, logger)
+	schedulerInstance := scheduler.NewScheduler(cfg.Scheduler.Interval, svc, logger, cfg)
 	go schedulerInstance.Start(ctx)
 
 	r := chi.NewRouter()
@@ -67,8 +67,8 @@ func main() {
 	r.Use(middleware.RequestID)
 
 	r.Get("/health", handler.Health)
-	r.Post("/epochs/{id}/start", handler.StartEpoch)
-	r.Post("/epochs/{id}/distribute", handler.DistributeSubsidies)
+	r.Post("/epochs/start", handler.StartEpoch)
+	r.Post("/epochs/distribute", handler.DistributeSubsidies)
 
 	addr := fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port)
 	logger.Logf("INFO starting server on %s", addr)

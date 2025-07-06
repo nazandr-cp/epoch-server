@@ -32,7 +32,7 @@ func (m *mockGraphClient) ExecutePaginatedQuery(ctx context.Context, queryTempla
 }
 
 type mockContractClient struct {
-	startEpochFunc          func(ctx context.Context, epochID string) error
+	startEpochFunc          func(ctx context.Context) error
 	distributeSubsidiesFunc func(ctx context.Context, epochID string) error
 	getCurrentEpochIdFunc   func(ctx context.Context) (*big.Int, error)
 	updateExchangeRateFunc  func(ctx context.Context, lendingManagerAddress string) error
@@ -40,9 +40,9 @@ type mockContractClient struct {
 	endEpochWithSubsidiesFunc func(ctx context.Context, epochId *big.Int, vaultAddress string, merkleRoot [32]byte, subsidiesDistributed *big.Int) error
 }
 
-func (m *mockContractClient) StartEpoch(ctx context.Context, epochID string) error {
+func (m *mockContractClient) StartEpoch(ctx context.Context) error {
 	if m.startEpochFunc != nil {
-		return m.startEpochFunc(ctx, epochID)
+		return m.startEpochFunc(ctx)
 	}
 	return nil
 }
@@ -86,7 +86,6 @@ func (m *mockContractClient) EndEpochWithSubsidies(ctx context.Context, epochId 
 func TestService_StartEpoch(t *testing.T) {
 	tests := []struct {
 		name                       string
-		epochID                    string
 		mockGraphClient            *mockGraphClient
 		mockContractClient         *mockContractClient
 		wantErr                    bool
@@ -94,8 +93,7 @@ func TestService_StartEpoch(t *testing.T) {
 		expectedStartEpochCalls    int
 	}{
 		{
-			name:    "successful start epoch",
-			epochID: "epoch1",
+			name: "successful start epoch",
 			mockGraphClient: &mockGraphClient{
 				queryAccountsFunc: func(ctx context.Context) ([]graph.Account, error) {
 					return []graph.Account{
@@ -105,7 +103,7 @@ func TestService_StartEpoch(t *testing.T) {
 				},
 			},
 			mockContractClient: &mockContractClient{
-				startEpochFunc: func(ctx context.Context, epochID string) error {
+				startEpochFunc: func(ctx context.Context) error {
 					return nil
 				},
 				getCurrentEpochIdFunc: func(ctx context.Context) (*big.Int, error) {
@@ -117,15 +115,14 @@ func TestService_StartEpoch(t *testing.T) {
 			expectedStartEpochCalls:    1,
 		},
 		{
-			name:    "query accounts error",
-			epochID: "epoch1",
+			name: "query accounts error",
 			mockGraphClient: &mockGraphClient{
 				queryAccountsFunc: func(ctx context.Context) ([]graph.Account, error) {
 					return nil, errors.New("failed to query accounts")
 				},
 			},
 			mockContractClient: &mockContractClient{
-				startEpochFunc: func(ctx context.Context, epochID string) error {
+				startEpochFunc: func(ctx context.Context) error {
 					return nil
 				},
 				getCurrentEpochIdFunc: func(ctx context.Context) (*big.Int, error) {
@@ -137,8 +134,7 @@ func TestService_StartEpoch(t *testing.T) {
 			expectedStartEpochCalls:    0,
 		},
 		{
-			name:    "epoch still active error",
-			epochID: "epoch2",
+			name: "epoch still active error",
 			mockGraphClient: &mockGraphClient{
 				queryAccountsFunc: func(ctx context.Context) ([]graph.Account, error) {
 					return []graph.Account{
@@ -147,7 +143,7 @@ func TestService_StartEpoch(t *testing.T) {
 				},
 			},
 			mockContractClient: &mockContractClient{
-				startEpochFunc: func(ctx context.Context, epochID string) error {
+				startEpochFunc: func(ctx context.Context) error {
 					return errors.New("execution reverted: EpochManager__EpochStillActive")
 				},
 				getCurrentEpochIdFunc: func(ctx context.Context) (*big.Int, error) {
@@ -175,9 +171,9 @@ func TestService_StartEpoch(t *testing.T) {
 
 			if tt.mockContractClient.startEpochFunc != nil {
 				originalFunc := tt.mockContractClient.startEpochFunc
-				tt.mockContractClient.startEpochFunc = func(ctx context.Context, epochID string) error {
+				tt.mockContractClient.startEpochFunc = func(ctx context.Context) error {
 					startEpochCalls++
-					return originalFunc(ctx, epochID)
+					return originalFunc(ctx)
 				}
 			}
 
@@ -189,7 +185,7 @@ func TestService_StartEpoch(t *testing.T) {
 				config:         cfg,
 			}
 
-			err := service.StartEpoch(context.Background(), tt.epochID)
+			err := service.StartEpoch(context.Background())
 
 			if tt.wantErr && err == nil {
 				t.Errorf("Expected error, got nil")
