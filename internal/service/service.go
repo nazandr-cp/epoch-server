@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"math/big"
 	"net/http"
+	"strconv"
+	"time"
 
 	"github.com/andrey/epoch-server/internal/clients/contract"
 	"github.com/andrey/epoch-server/internal/clients/epoch"
@@ -14,6 +16,7 @@ import (
 	"github.com/andrey/epoch-server/internal/clients/storage"
 	"github.com/andrey/epoch-server/internal/clients/subsidizer"
 	"github.com/andrey/epoch-server/internal/config"
+	"github.com/andrey/epoch-server/internal/utils"
 	"github.com/go-pkgz/lgr"
 	"github.com/go-pkgz/rest"
 )
@@ -127,6 +130,199 @@ func (s *Service) DistributeSubsidies(ctx context.Context, vaultId string) error
 	return nil
 }
 
+func (s *Service) GetUserTotalEarned(ctx context.Context, userAddress, vaultId string) (*UserEarningsResponse, error) {
+	// Validate input
+	if userAddress == "" {
+		return nil, fmt.Errorf("%w: userAddress cannot be empty", ErrInvalidInput)
+	}
+	if vaultId == "" {
+		return nil, fmt.Errorf("%w: vaultId cannot be empty", ErrInvalidInput)
+	}
+
+	// Normalize user address to lowercase
+	userAddress = utils.NormalizeAddress(userAddress)
+
+	s.logger.Logf("INFO getting total earned for user %s in vault %s", userAddress, vaultId)
+
+	// Query user's account subsidy data and latest epoch end timestamp from subgraph
+	query := fmt.Sprintf(`
+		query {
+			accountSubsidies(
+				where: {
+					account: "%s"
+				}
+			) {
+				account {
+					id
+				}
+				secondsAccumulated
+				lastEffectiveValue
+				updatedAtTimestamp
+				collectionParticipation {
+					vault {
+						id
+					}
+				}
+			}
+			epoches(
+				orderBy: epochNumber
+				orderDirection: desc
+				first: 1
+			) {
+				endTimestamp
+			}
+		}
+	`, userAddress)
+
+	variables := map[string]interface{}{}
+
+	var response struct {
+		AccountSubsidies []struct {
+			Account struct {
+				ID string `json:"id"`
+			} `json:"account"`
+			SecondsAccumulated      string `json:"secondsAccumulated"`
+			LastEffectiveValue      string `json:"lastEffectiveValue"`
+			UpdatedAtTimestamp      string `json:"updatedAtTimestamp"`
+			CollectionParticipation struct {
+				Vault struct {
+					ID string `json:"id"`
+				} `json:"vault"`
+			} `json:"collectionParticipation"`
+		} `json:"accountSubsidies"`
+		Epoches []struct {
+			EndTimestamp string `json:"endTimestamp"`
+		} `json:"epoches"`
+	}
+
+	s.logger.Logf("DEBUG executing query: %s", query)
+	
+	// Use a generic response to capture any structure
+	var genericResponse map[string]interface{}
+	if err := s.graphClient.ExecuteQuery(ctx, graph.GraphQLRequest{
+		Query:     query,
+		Variables: variables,
+	}, &genericResponse); err != nil {
+		s.logger.Logf("ERROR GraphQL query failed: %v", err)
+		return nil, fmt.Errorf("failed to query user subsidy data: %w", err)
+	}
+
+	s.logger.Logf("DEBUG received raw response: %+v", genericResponse)
+
+	// Now try to parse it properly
+	if err := s.graphClient.ExecuteQuery(ctx, graph.GraphQLRequest{
+		Query:     query,
+		Variables: variables,
+	}, &response); err != nil {
+		s.logger.Logf("ERROR GraphQL query failed on structured parse: %v", err)
+		return nil, fmt.Errorf("failed to query user subsidy data: %w", err)
+	}
+
+	s.logger.Logf("DEBUG received %d account subsidies from subgraph", len(response.AccountSubsidies))
+	for i, subsidy := range response.AccountSubsidies {
+		s.logger.Logf("DEBUG subsidy %d: account=%s, vault=%s", i, subsidy.Account.ID, subsidy.CollectionParticipation.Vault.ID)
+	}
+
+	// Filter account subsidies by vault
+	var matchingSubsidy *struct {
+		Account struct {
+			ID string `json:"id"`
+		} `json:"account"`
+		SecondsAccumulated      string `json:"secondsAccumulated"`
+		LastEffectiveValue      string `json:"lastEffectiveValue"`
+		UpdatedAtTimestamp      string `json:"updatedAtTimestamp"`
+		CollectionParticipation struct {
+			Vault struct {
+				ID string `json:"id"`
+			} `json:"vault"`
+		} `json:"collectionParticipation"`
+	}
+
+	for _, subsidy := range response.AccountSubsidies {
+		if subsidy.CollectionParticipation.Vault.ID == vaultId {
+			matchingSubsidy = &subsidy
+			break
+		}
+	}
+
+	if matchingSubsidy == nil {
+		return nil, fmt.Errorf("%w: no subsidy data found for user %s in vault %s", ErrNotFound, userAddress, vaultId)
+	}
+
+	// Get epoch end timestamp from the latest epoch
+	var epochEndTime int64
+	if len(response.Epoches) > 0 {
+		epochEndStr := response.Epoches[0].EndTimestamp
+		var err error
+		epochEndTime, err = strconv.ParseInt(epochEndStr, 10, 64)
+		if err != nil {
+			return nil, fmt.Errorf("invalid epoch end timestamp: %s", epochEndStr)
+		}
+		s.logger.Logf("INFO using epoch end timestamp: %d", epochEndTime)
+	} else {
+		// Fallback to current time if no epoch found
+		epochEndTime = time.Now().Unix()
+		s.logger.Logf("WARN no epoch found, using current time: %d", epochEndTime)
+	}
+
+	// Convert to AccountSubsidy format for calculation
+	subsidyForCalc := AccountSubsidy{
+		Account: Account{
+			ID: matchingSubsidy.Account.ID,
+		},
+		SecondsAccumulated: matchingSubsidy.SecondsAccumulated,
+		LastEffectiveValue: matchingSubsidy.LastEffectiveValue,
+		UpdatedAtTimestamp: matchingSubsidy.UpdatedAtTimestamp,
+	}
+
+	// Calculate total earned using the epoch end timestamp
+	totalEarned, err := s.calculateTotalEarned(subsidyForCalc, epochEndTime)
+	if err != nil {
+		return nil, fmt.Errorf("failed to calculate total earned: %w", err)
+	}
+
+	response_data := &UserEarningsResponse{
+		UserAddress:  userAddress,
+		VaultAddress: vaultId,
+		TotalEarned:  totalEarned.String(),
+		CalculatedAt: time.Now().Unix(),
+	}
+
+	s.logger.Logf("INFO calculated total earned for user %s: %s (using epoch end: %d)", userAddress, totalEarned.String(), epochEndTime)
+	return response_data, nil
+}
+
+// calculateTotalEarned replicates the logic from LazyDistributor
+func (s *Service) calculateTotalEarned(subsidy AccountSubsidy, epochEnd int64) (*big.Int, error) {
+	secondsAccumulated, ok := new(big.Int).SetString(subsidy.SecondsAccumulated, 10)
+	if !ok {
+		return nil, fmt.Errorf("invalid secondsAccumulated: %s", subsidy.SecondsAccumulated)
+	}
+
+	lastEffectiveValue, ok := new(big.Int).SetString(subsidy.LastEffectiveValue, 10)
+	if !ok {
+		return nil, fmt.Errorf("invalid lastEffectiveValue: %s", subsidy.LastEffectiveValue)
+	}
+
+	updatedAtTimestamp, err := strconv.ParseInt(subsidy.UpdatedAtTimestamp, 10, 64)
+	if err != nil {
+		return nil, fmt.Errorf("invalid updatedAtTimestamp: %s", subsidy.UpdatedAtTimestamp)
+	}
+
+	deltaT := epochEnd - updatedAtTimestamp
+	extraSeconds := new(big.Int).Mul(big.NewInt(deltaT), lastEffectiveValue)
+	newTotalSeconds := new(big.Int).Add(secondsAccumulated, extraSeconds)
+
+	totalEarned := s.secondsToTokens(newTotalSeconds)
+	return totalEarned, nil
+}
+
+// secondsToTokens replicates the conversion logic from LazyDistributor
+func (s *Service) secondsToTokens(seconds *big.Int) *big.Int {
+	conversionRate := big.NewInt(1000000000000000000) // 1e18
+	return new(big.Int).Div(seconds, conversionRate)
+}
+
 // isTransactionError determines if an error is related to blockchain transaction failures
 func isTransactionError(err error) bool {
 	errStr := err.Error()
@@ -194,6 +390,7 @@ func (s *Service) NewHTTPHandler() http.Handler {
 	mux.HandleFunc("GET /health", s.handleHealth)
 	mux.HandleFunc("POST /epochs/start", s.handleStartEpoch)
 	mux.HandleFunc("POST /epochs/distribute", s.handleDistributeSubsidies)
+	mux.HandleFunc("GET /users/{address}/total-earned", s.handleGetUserTotalEarned)
 	
 	// Apply middlewares using go-pkgz/rest
 	// Chain middlewares manually: outermost -> innermost
@@ -252,11 +449,44 @@ func (s *Service) handleDistributeSubsidies(w http.ResponseWriter, r *http.Reque
 	})
 }
 
+func (s *Service) handleGetUserTotalEarned(w http.ResponseWriter, r *http.Request) {
+	// Extract user address from URL path
+	userAddress := r.PathValue("address")
+	if userAddress == "" {
+		s.writeErrorResponse(w, fmt.Errorf("%w: missing user address in path", ErrInvalidInput), "Missing user address")
+		return
+	}
+
+	// Use the vault address from configuration (normalize to lowercase)
+	vaultId := utils.NormalizeAddress(s.config.Contracts.CollectionsVault)
+
+	s.logger.Logf("INFO received get total earned request for user %s in vault %s", userAddress, vaultId)
+
+	response, err := s.GetUserTotalEarned(r.Context(), userAddress, vaultId)
+	if err != nil {
+		s.logger.Logf("ERROR failed to get total earned for user %s: %v", userAddress, err)
+		s.writeErrorResponse(w, err, "Failed to get user total earned")
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(response)
+}
+
 // ErrorResponse represents the structure of error responses
 type ErrorResponse struct {
 	Error   string `json:"error"`
 	Code    int    `json:"code"`
 	Details string `json:"details,omitempty"`
+}
+
+// UserEarningsResponse represents the response for user total earned query
+type UserEarningsResponse struct {
+	UserAddress   string `json:"userAddress"`
+	VaultAddress  string `json:"vaultAddress"`
+	TotalEarned   string `json:"totalEarned"`
+	CalculatedAt  int64  `json:"calculatedAt"`
 }
 
 // writeErrorResponse writes a structured error response based on the error type

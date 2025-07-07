@@ -62,20 +62,13 @@ type Config struct {
 		NFT                string `long:"nft-address" env:"NFT_ADDRESS" description:"NFT contract address"`
 		CToken             string `long:"ctoken-address" env:"CTOKEN_ADDRESS" description:"CToken contract address"`
 	} `group:"Contract Options" namespace:"contracts"`
-
-	// Feature flags
-	Features struct {
-		DryRun        bool `long:"dry-run" env:"DRY_RUN" description:"Enable dry run mode"`
-		EnableMetrics bool `long:"enable-metrics" env:"ENABLE_METRICS" description:"Enable metrics"`
-		DebugMode     bool `long:"debug-mode" env:"DEBUG_MODE" description:"Enable debug mode"`
-	} `group:"Feature Options" namespace:"features"`
 }
 
 func Load() (*Config, error) {
 	var cfg Config
-	
+
 	parser := flags.NewParser(&cfg, flags.Default)
-	
+
 	// Parse only environment variables and ignore command line arguments
 	if _, err := parser.ParseArgs([]string{}); err != nil {
 		return nil, err

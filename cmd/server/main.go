@@ -20,7 +20,12 @@ func main() {
 		log.Fatalf("Failed to load configuration: %v", err)
 	}
 
-	logger := internalLog.New(cfg.Logging.Level)
+	logConfig := internalLog.Config{
+		Level:  cfg.Logging.Level,
+		Format: cfg.Logging.Format,
+		Output: cfg.Logging.Output,
+	}
+	logger := internalLog.NewWithConfig(logConfig)
 
 	graphClient := graph.NewClient(cfg.Subgraph.Endpoint)
 
