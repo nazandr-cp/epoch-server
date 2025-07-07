@@ -9,12 +9,9 @@ import (
 	"github.com/andrey/epoch-server/internal/clients/contract"
 	"github.com/andrey/epoch-server/internal/clients/graph"
 	"github.com/andrey/epoch-server/internal/config"
-	"github.com/andrey/epoch-server/internal/handlers"
 	internalLog "github.com/andrey/epoch-server/internal/log"
 	"github.com/andrey/epoch-server/internal/scheduler"
 	"github.com/andrey/epoch-server/internal/service"
-	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
 )
 
 func main() {
@@ -56,24 +53,16 @@ func main() {
 	}
 
 	svc := service.NewService(graphClient, contractClient, logger, cfg)
-	handler := handlers.NewHandler(svc, logger, cfg)
 	schedulerInstance := scheduler.NewScheduler(cfg.Scheduler.Interval, svc, logger, cfg)
 	go schedulerInstance.Start(ctx)
 
-	r := chi.NewRouter()
-
-	r.Use(middleware.Logger)
-	r.Use(middleware.Recoverer)
-	r.Use(middleware.RequestID)
-
-	r.Get("/health", handler.Health)
-	r.Post("/epochs/start", handler.StartEpoch)
-	r.Post("/epochs/distribute", handler.DistributeSubsidies)
+	// Get HTTP handler from service with all routes and middlewares configured
+	httpHandler := svc.NewHTTPHandler()
 
 	addr := fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port)
 	logger.Logf("INFO starting server on %s", addr)
 
-	if err := http.ListenAndServe(addr, r); err != nil {
+	if err := http.ListenAndServe(addr, httpHandler); err != nil {
 		logger.Logf("ERROR server failed to start: %v", err)
 	}
 }

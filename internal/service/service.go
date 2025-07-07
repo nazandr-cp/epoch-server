@@ -2,9 +2,11 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math/big"
+	"net/http"
 
 	"github.com/andrey/epoch-server/internal/clients/contract"
 	"github.com/andrey/epoch-server/internal/clients/epoch"
@@ -13,6 +15,7 @@ import (
 	"github.com/andrey/epoch-server/internal/clients/subsidizer"
 	"github.com/andrey/epoch-server/internal/config"
 	"github.com/go-pkgz/lgr"
+	"github.com/go-pkgz/rest"
 )
 
 // Predefined error types for different failure scenarios
@@ -180,4 +183,108 @@ func contains(s, substr string) bool {
 		}
 	}
 	return false
+}
+
+// NewHTTPHandler creates and configures the HTTP handler with routes and middlewares
+func (s *Service) NewHTTPHandler() http.Handler {
+	// Create new ServeMux with Go 1.22+ routing patterns
+	mux := http.NewServeMux()
+	
+	// Register routes using modern Go routing patterns
+	mux.HandleFunc("GET /health", s.handleHealth)
+	mux.HandleFunc("POST /epochs/start", s.handleStartEpoch)
+	mux.HandleFunc("POST /epochs/distribute", s.handleDistributeSubsidies)
+	
+	// Apply middlewares using go-pkgz/rest
+	// Chain middlewares manually: outermost -> innermost
+	var handler http.Handler = mux
+	
+	// Apply middlewares in reverse order (last applied = outermost)
+	handler = rest.Ping(handler)
+	handler = rest.AppInfo("epoch-server", "andrey", "1.0.0")(handler)
+	handler = rest.Recoverer(s.logger)(handler)
+	handler = rest.RealIP(handler)
+	
+	return handler
+}
+
+// HTTP Handler methods
+
+func (s *Service) handleHealth(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+}
+
+func (s *Service) handleStartEpoch(w http.ResponseWriter, r *http.Request) {
+	s.logger.Logf("INFO received start epoch request")
+
+	if err := s.StartEpoch(r.Context()); err != nil {
+		s.logger.Logf("ERROR failed to start epoch: %v", err)
+		s.writeErrorResponse(w, err, "Failed to start epoch")
+		return
+	}
+
+	w.WriteHeader(http.StatusAccepted)
+	json.NewEncoder(w).Encode(map[string]string{
+		"status":  "accepted",
+		"message": "Epoch start initiated successfully",
+	})
+}
+
+func (s *Service) handleDistributeSubsidies(w http.ResponseWriter, r *http.Request) {
+	// Use the vault address from configuration
+	vaultId := s.config.Contracts.CollectionsVault
+
+	s.logger.Logf("INFO received distribute subsidies request for vault %s", vaultId)
+
+	if err := s.DistributeSubsidies(r.Context(), vaultId); err != nil {
+		s.logger.Logf("ERROR failed to distribute subsidies for vault %s: %v", vaultId, err)
+		s.writeErrorResponse(w, err, "Failed to distribute subsidies")
+		return
+	}
+
+	w.WriteHeader(http.StatusAccepted)
+	json.NewEncoder(w).Encode(map[string]string{
+		"status":  "accepted",
+		"vaultID": vaultId,
+		"message": "Subsidy distribution initiated successfully",
+	})
+}
+
+// ErrorResponse represents the structure of error responses
+type ErrorResponse struct {
+	Error   string `json:"error"`
+	Code    int    `json:"code"`
+	Details string `json:"details,omitempty"`
+}
+
+// writeErrorResponse writes a structured error response based on the error type
+func (s *Service) writeErrorResponse(w http.ResponseWriter, err error, message string) {
+	w.Header().Set("Content-Type", "application/json")
+	
+	var errResponse ErrorResponse
+	errResponse.Error = message
+	errResponse.Details = err.Error()
+
+	// Determine appropriate HTTP status code based on error type
+	if errors.Is(err, ErrTransactionFailed) {
+		errResponse.Code = http.StatusBadGateway
+		w.WriteHeader(http.StatusBadGateway)
+	} else if errors.Is(err, ErrInvalidInput) {
+		errResponse.Code = http.StatusBadRequest
+		w.WriteHeader(http.StatusBadRequest)
+	} else if errors.Is(err, ErrNotFound) {
+		errResponse.Code = http.StatusNotFound
+		w.WriteHeader(http.StatusNotFound)
+	} else if errors.Is(err, ErrTimeout) {
+		errResponse.Code = http.StatusRequestTimeout
+		w.WriteHeader(http.StatusRequestTimeout)
+	} else {
+		// Default to internal server error
+		errResponse.Code = http.StatusInternalServerError
+		w.WriteHeader(http.StatusInternalServerError)
+	}
+
+	json.NewEncoder(w).Encode(errResponse)
 }

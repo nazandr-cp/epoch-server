@@ -9,7 +9,6 @@ import (
 	"testing"
 
 	"github.com/andrey/epoch-server/internal/config"
-	"github.com/go-chi/chi/v5"
 	"github.com/go-pkgz/lgr"
 )
 
@@ -108,13 +107,13 @@ func TestHandler_StartEpoch(t *testing.T) {
 				config:  cfg,
 			}
 
-			router := chi.NewRouter()
-			router.Post("/epochs/start", handler.StartEpoch)
+			mux := http.NewServeMux()
+			mux.HandleFunc("POST /epochs/start", handler.StartEpoch)
 
 			req := httptest.NewRequest(http.MethodPost, "/epochs/start", nil)
 			recorder := httptest.NewRecorder()
 
-			router.ServeHTTP(recorder, req)
+			mux.ServeHTTP(recorder, req)
 
 			if recorder.Code != tt.expectedStatusCode {
 				t.Errorf("Expected status code %d, got %d", tt.expectedStatusCode, recorder.Code)
@@ -182,13 +181,13 @@ func TestHandler_DistributeSubsidies(t *testing.T) {
 				config:  cfg,
 			}
 
-			router := chi.NewRouter()
-			router.Post("/epochs/distribute", handler.DistributeSubsidies)
+			mux := http.NewServeMux()
+			mux.HandleFunc("POST /epochs/distribute", handler.DistributeSubsidies)
 
 			req := httptest.NewRequest(http.MethodPost, "/epochs/distribute", nil)
 			recorder := httptest.NewRecorder()
 
-			router.ServeHTTP(recorder, req)
+			mux.ServeHTTP(recorder, req)
 
 			if recorder.Code != tt.expectedStatusCode {
 				t.Errorf("Expected status code %d, got %d", tt.expectedStatusCode, recorder.Code)

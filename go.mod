@@ -4,8 +4,8 @@ go 1.24.4
 
 require (
 	github.com/ethereum/go-ethereum v1.16.0
-	github.com/go-chi/chi/v5 v5.2.2
 	github.com/go-pkgz/lgr v0.12.1
+	github.com/go-pkgz/rest v1.20.3
 	github.com/jessevdk/go-flags v1.6.1
 )
 
