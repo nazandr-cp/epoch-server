@@ -1,15 +1,24 @@
 package merkle
 
 import (
+	"context"
+	"fmt"
 	"math/big"
 	"strings"
 
+	"github.com/andrey/epoch-server/internal/clients/graph"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/go-pkgz/lgr"
 )
 
 // ProofGenerator generates Merkle proofs compatible with OpenZeppelin's MerkleProof library
-type ProofGenerator struct{}
+// This is the unified merkle tree implementation used across all services
+type ProofGenerator struct {
+	calculator       *Calculator
+	timestampManager *TimestampManager
+	logger           lgr.L
+}
 
 // Entry represents a leaf entry in the Merkle tree
 type Entry struct {
@@ -19,7 +28,18 @@ type Entry struct {
 
 // NewProofGenerator creates a new proof generator
 func NewProofGenerator() *ProofGenerator {
-	return &ProofGenerator{}
+	return &ProofGenerator{
+		calculator: NewCalculator(),
+	}
+}
+
+// NewProofGeneratorWithDependencies creates a new proof generator with dependencies
+func NewProofGeneratorWithDependencies(graphClient GraphClient, logger lgr.L) *ProofGenerator {
+	return &ProofGenerator{
+		calculator:       NewCalculator(),
+		timestampManager: NewTimestampManager(graphClient, logger),
+		logger:           logger,
+	}
 }
 
 // GenerateProof generates a Merkle proof for a specific entry
@@ -81,11 +101,14 @@ func (pg *ProofGenerator) BuildMerkleRoot(entries []Entry) [32]byte {
 }
 
 // sortEntries sorts entries by address to ensure deterministic ordering
+// Uses case-sensitive comparison to match lazy_distributor sorting
 func (pg *ProofGenerator) sortEntries(entries []Entry) {
 	for i := 1; i < len(entries); i++ {
 		key := entries[i]
 		j := i - 1
-		for j >= 0 && strings.ToLower(entries[j].Address) > strings.ToLower(key.Address) {
+		// Normalize addresses to lowercase for consistent comparison
+		keyAddr := strings.ToLower(key.Address)
+		for j >= 0 && strings.ToLower(entries[j].Address) > keyAddr {
 			entries[j+1] = entries[j]
 			j--
 		}
@@ -96,7 +119,8 @@ func (pg *ProofGenerator) sortEntries(entries []Entry) {
 // createLeafHash creates a leaf hash compatible with Solidity's abi.encodePacked(recipient, newTotal)
 func (pg *ProofGenerator) createLeafHash(address string, amount *big.Int) [32]byte {
 	// Convert address string to common.Address (normalize case first)
-	addr := common.HexToAddress(strings.ToLower(address))
+	// Use checksum format to ensure consistency with contract expectations
+	addr := common.HexToAddress(address)
 
 	// Create packed encoding: address (20 bytes) + amount (32 bytes)
 	packed := make([]byte, 0, 52)
@@ -209,4 +233,86 @@ func (pg *ProofGenerator) isLeftSmaller(left, right [32]byte) bool {
 		}
 	}
 	return false // Equal hashes, doesn't matter which comes first
+}
+
+// TreeResult contains the result of merkle tree generation
+type TreeResult struct {
+	Entries    []Entry
+	MerkleRoot [32]byte
+	Timestamp  int64
+}
+
+// GenerateTreeFromSubsidies generates a merkle tree from account subsidies using consistent timestamp
+func (pg *ProofGenerator) GenerateTreeFromSubsidies(ctx context.Context, vaultAddress string, subsidies []graph.AccountSubsidy) (*TreeResult, error) {
+	if pg.timestampManager == nil {
+		return nil, fmt.Errorf("timestamp manager not initialized - use NewProofGeneratorWithDependencies")
+	}
+
+	// Get the consistent timestamp for this vault
+	epochTimestamp, err := pg.timestampManager.GetLatestEpochTimestamp(ctx, vaultAddress)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get epoch timestamp: %w", err)
+	}
+
+	if pg.logger != nil {
+		pg.logger.Logf("INFO generating merkle tree for vault %s using epoch %s processingCompletedTimestamp %d", 
+			vaultAddress, epochTimestamp.EpochNumber, epochTimestamp.ProcessingCompletedTimestamp)
+	}
+
+	// Process subsidies to entries with positive earnings
+	entries, err := pg.calculator.ProcessAccountSubsidies(subsidies, epochTimestamp.ProcessingCompletedTimestamp)
+	if err != nil {
+		return nil, fmt.Errorf("failed to process account subsidies: %w", err)
+	}
+
+	// Generate merkle root
+	merkleRoot := pg.BuildMerkleRoot(entries)
+
+	return &TreeResult{
+		Entries:    entries,
+		MerkleRoot: merkleRoot,
+		Timestamp:  epochTimestamp.ProcessingCompletedTimestamp,
+	}, nil
+}
+
+// GenerateHistoricalTreeFromSubsidies generates a merkle tree from historical account subsidies
+func (pg *ProofGenerator) GenerateHistoricalTreeFromSubsidies(ctx context.Context, epochNumber string, subsidies []graph.AccountSubsidy) (*TreeResult, error) {
+	if pg.timestampManager == nil {
+		return nil, fmt.Errorf("timestamp manager not initialized - use NewProofGeneratorWithDependencies")
+	}
+
+	// Get the historical timestamp for this epoch
+	epochTimestamp, err := pg.timestampManager.GetHistoricalEpochTimestamp(ctx, epochNumber)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get historical epoch timestamp: %w", err)
+	}
+
+	if pg.logger != nil {
+		pg.logger.Logf("INFO generating historical merkle tree for epoch %s using processingCompletedTimestamp %d", 
+			epochNumber, epochTimestamp.ProcessingCompletedTimestamp)
+	}
+
+	// Process subsidies to entries with positive earnings
+	entries, err := pg.calculator.ProcessAccountSubsidies(subsidies, epochTimestamp.ProcessingCompletedTimestamp)
+	if err != nil {
+		return nil, fmt.Errorf("failed to process account subsidies: %w", err)
+	}
+
+	// Generate merkle root
+	merkleRoot := pg.BuildMerkleRoot(entries)
+
+	return &TreeResult{
+		Entries:    entries,
+		MerkleRoot: merkleRoot,
+		Timestamp:  epochTimestamp.ProcessingCompletedTimestamp,
+	}, nil
+}
+
+// BuildMerkleRootFromSubsidies builds a merkle root directly from subsidies (for LazyDistributor)
+func (pg *ProofGenerator) BuildMerkleRootFromSubsidies(ctx context.Context, vaultAddress string, subsidies []graph.AccountSubsidy) ([32]byte, int64, error) {
+	result, err := pg.GenerateTreeFromSubsidies(ctx, vaultAddress, subsidies)
+	if err != nil {
+		return [32]byte{}, 0, err
+	}
+	return result.MerkleRoot, result.Timestamp, nil
 }

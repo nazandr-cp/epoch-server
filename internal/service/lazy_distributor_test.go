@@ -5,10 +5,13 @@ import (
 	"testing"
 
 	"github.com/andrey/epoch-server/internal/clients/storage"
+	"github.com/andrey/epoch-server/internal/merkle"
 )
 
 func TestLazyDistributor_BuildMerkleRoot(t *testing.T) {
-	ld := &LazyDistributor{}
+	ld := &LazyDistributor{
+		proofGenerator: merkle.NewProofGenerator(),
+	}
 
 	tests := []struct {
 		name    string
@@ -35,7 +38,15 @@ func TestLazyDistributor_BuildMerkleRoot(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			root := ld.buildMerkleRoot(tt.entries)
+			// Convert to merkle.Entry format for testing
+			entries := make([]merkle.Entry, len(tt.entries))
+			for i, entry := range tt.entries {
+				entries[i] = merkle.Entry{
+					Address:     entry.Address,
+					TotalEarned: entry.TotalEarned,
+				}
+			}
+			root := ld.proofGenerator.BuildMerkleRoot(entries)
 			if len(tt.entries) == 0 && root != [32]byte{} {
 				t.Error("Empty entries should produce zero root")
 			}

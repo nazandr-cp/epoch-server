@@ -100,6 +100,17 @@ type Collection struct {
 	UpdatedAtTimestamp    string `json:"updatedAtTimestamp"`
 }
 
+type MerkleDistribution struct {
+	ID            string `json:"id"`
+	Epoch         Epoch  `json:"epoch"`
+	Vault         string `json:"vault"`
+	MerkleRoot    string `json:"merkleRoot"`
+	TotalAmount   string `json:"totalAmount"`
+	Timestamp     string `json:"timestamp"`
+	UpdatedAtBlock string `json:"updatedAtBlock"`
+	UpdatedAtTimestamp string `json:"updatedAtTimestamp"`
+}
+
 type GraphQLRequest struct {
 	Query     string                 `json:"query"`
 	Variables map[string]interface{} `json:"variables,omitempty"`
@@ -115,6 +126,21 @@ type GraphQLResponse struct {
 // AccountsResponse represents the response for accounts query (new schema)
 type AccountsResponse struct {
 	Accounts []Account `json:"accounts"`
+}
+
+// AccountSubsidiesResponse represents the response for account subsidies query  
+type AccountSubsidiesResponse struct {
+	AccountSubsidies []AccountSubsidy `json:"accountSubsidies"`
+}
+
+// EpochsResponse represents the response for epochs query
+type EpochsResponse struct {
+	Epochs []Epoch `json:"epochs"`
+}
+
+// MerkleDistributionsResponse represents the response for merkle distributions query
+type MerkleDistributionsResponse struct {
+	MerkleDistributions []MerkleDistribution `json:"merkleDistributions"`
 }
 
 // UsersResponse is kept for backward compatibility
@@ -147,6 +173,44 @@ func (c *Client) QueryAccounts(ctx context.Context) ([]Account, error) {
 	}
 
 	return response.Accounts, nil
+}
+
+// QueryAccountSubsidiesForVault queries all account subsidies for a specific vault to generate merkle proofs
+func (c *Client) QueryAccountSubsidiesForVault(ctx context.Context, vaultAddress string) ([]AccountSubsidy, error) {
+	query := `
+		query GetAccountSubsidies($vaultId: String!, $first: Int!, $skip: Int!) {
+			accountSubsidies(
+				where: { 
+					collectionParticipation_: { vault: $vaultId }
+					secondsAccumulated_gt: "0" 
+				}
+				orderBy: id
+				orderDirection: asc
+				first: $first
+				skip: $skip
+			) {
+				id
+				account { id }
+				secondsAccumulated
+				secondsClaimed
+				lastEffectiveValue
+				updatedAtTimestamp
+				collectionParticipation
+			}
+		}
+	`
+
+	variables := map[string]interface{}{
+		"vaultId": vaultAddress,
+	}
+
+	var response AccountSubsidiesResponse
+
+	if err := c.ExecutePaginatedQuery(ctx, query, variables, "accountSubsidies", &response); err != nil {
+		return nil, fmt.Errorf("failed to query account subsidies for vault %s: %w", vaultAddress, err)
+	}
+
+	return response.AccountSubsidies, nil
 }
 
 
@@ -319,4 +383,177 @@ func (c *Client) HealthCheck(ctx context.Context) error {
 	}
 
 	return fmt.Errorf("subgraph health check failed: unexpected response structure")
+}
+
+// QueryCompletedEpochs queries all completed epochs, ordered by epoch number descending
+func (c *Client) QueryCompletedEpochs(ctx context.Context) ([]Epoch, error) {
+	query := `
+		query GetCompletedEpochs($first: Int!, $skip: Int!) {
+			epochs(
+				where: { 
+					status: "COMPLETED"
+					processingCompletedTimestamp_not: null
+				}
+				orderBy: epochNumber
+				orderDirection: desc
+				first: $first
+				skip: $skip
+			) {
+				id
+				epochNumber
+				status
+				startTimestamp
+				endTimestamp
+				processingCompletedTimestamp
+				totalSubsidiesDistributed
+				totalYieldDistributed
+				updatedAtTimestamp
+			}
+		}
+	`
+
+	var response EpochsResponse
+
+	if err := c.ExecutePaginatedQuery(ctx, query, map[string]interface{}{}, "epochs", &response); err != nil {
+		return nil, fmt.Errorf("failed to query completed epochs: %w", err)
+	}
+
+	return response.Epochs, nil
+}
+
+// QueryEpochByNumber queries a specific epoch by its number
+func (c *Client) QueryEpochByNumber(ctx context.Context, epochNumber string) (*Epoch, error) {
+	query := `
+		query GetEpochByNumber($epochNumber: String!) {
+			epochs(
+				where: { 
+					epochNumber: $epochNumber
+					status: "COMPLETED"
+					processingCompletedTimestamp_not: null
+				}
+				first: 1
+			) {
+				id
+				epochNumber
+				status
+				startTimestamp
+				endTimestamp
+				processingCompletedTimestamp
+				totalSubsidiesDistributed
+				totalYieldDistributed
+				updatedAtTimestamp
+			}
+		}
+	`
+
+	variables := map[string]interface{}{
+		"epochNumber": epochNumber,
+	}
+
+	req := GraphQLRequest{
+		Query:     query,
+		Variables: variables,
+	}
+
+	var response EpochsResponse
+
+	if err := c.executeQuery(ctx, req, &response); err != nil {
+		return nil, fmt.Errorf("failed to query epoch by number %s: %w", epochNumber, err)
+	}
+
+	if len(response.Epochs) == 0 {
+		return nil, fmt.Errorf("epoch %s not found or not completed", epochNumber)
+	}
+
+	return &response.Epochs[0], nil
+}
+
+// QueryMerkleDistributionForEpoch queries the merkle distribution for a specific epoch and vault
+func (c *Client) QueryMerkleDistributionForEpoch(ctx context.Context, epochNumber string, vaultAddress string) (*MerkleDistribution, error) {
+	query := `
+		query GetMerkleDistribution($epochNumber: String!, $vaultAddress: String!) {
+			merkleDistributions(
+				where: { 
+					epoch_: { epochNumber: $epochNumber }
+					vault: $vaultAddress
+				}
+				first: 1
+			) {
+				id
+				vault
+				merkleRoot
+				totalAmount
+				timestamp
+				epoch {
+					id
+					epochNumber
+					processingCompletedTimestamp
+					endTimestamp
+				}
+			}
+		}
+	`
+
+	variables := map[string]interface{}{
+		"epochNumber":  epochNumber,
+		"vaultAddress": vaultAddress,
+	}
+
+	req := GraphQLRequest{
+		Query:     query,
+		Variables: variables,
+	}
+
+	var response MerkleDistributionsResponse
+
+	if err := c.executeQuery(ctx, req, &response); err != nil {
+		return nil, fmt.Errorf("failed to query merkle distribution for epoch %s vault %s: %w", epochNumber, vaultAddress, err)
+	}
+
+	if len(response.MerkleDistributions) == 0 {
+		return nil, fmt.Errorf("merkle distribution not found for epoch %s vault %s", epochNumber, vaultAddress)
+	}
+
+	return &response.MerkleDistributions[0], nil
+}
+
+// QueryAccountSubsidiesForEpoch queries account subsidies using the epoch completion timestamp
+// This ensures we get the same data that was used during epoch processing
+func (c *Client) QueryAccountSubsidiesForEpoch(ctx context.Context, vaultAddress string, epochEndTimestamp string) ([]AccountSubsidy, error) {
+	query := `
+		query GetAccountSubsidiesForEpoch($vaultId: String!, $epochEndTimestamp: String!, $first: Int!, $skip: Int!) {
+			accountSubsidies(
+				where: { 
+					collectionParticipation_: { vault: $vaultId }
+					secondsAccumulated_gt: "0"
+					updatedAtTimestamp_lte: $epochEndTimestamp
+				}
+				orderBy: id
+				orderDirection: asc
+				first: $first
+				skip: $skip
+			) {
+				id
+				account { id }
+				secondsAccumulated
+				secondsClaimed
+				lastEffectiveValue
+				updatedAtTimestamp
+				collectionParticipation
+			}
+		}
+	`
+
+	variables := map[string]interface{}{
+		"vaultId":            vaultAddress,
+		"epochEndTimestamp":  epochEndTimestamp,
+	}
+
+	var response AccountSubsidiesResponse
+
+	if err := c.ExecutePaginatedQuery(ctx, query, variables, "accountSubsidies", &response); err != nil {
+		return nil, fmt.Errorf("failed to query account subsidies for epoch timestamp %s vault %s: %w", epochEndTimestamp, vaultAddress, err)
+	}
+
+	return response.AccountSubsidies, nil
 }

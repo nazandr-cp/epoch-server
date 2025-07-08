@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
 	"math/big"
 	"testing"
 
@@ -22,6 +23,25 @@ func (m *mockGraphClient) QueryAccounts(ctx context.Context) ([]graph.Account, e
 	return nil, nil
 }
 
+func (m *mockGraphClient) QueryAccountSubsidiesForVault(ctx context.Context, vaultAddress string) ([]graph.AccountSubsidy, error) {
+	return nil, nil
+}
+
+func (m *mockGraphClient) QueryCompletedEpochs(ctx context.Context) ([]graph.Epoch, error) {
+	return nil, nil
+}
+
+func (m *mockGraphClient) QueryEpochByNumber(ctx context.Context, epochNumber string) (*graph.Epoch, error) {
+	return nil, fmt.Errorf("epoch %s not found or not completed", epochNumber)
+}
+
+func (m *mockGraphClient) QueryMerkleDistributionForEpoch(ctx context.Context, epochNumber string, vaultAddress string) (*graph.MerkleDistribution, error) {
+	return nil, nil
+}
+
+func (m *mockGraphClient) QueryAccountSubsidiesForEpoch(ctx context.Context, vaultAddress string, epochEndTimestamp string) ([]graph.AccountSubsidy, error) {
+	return nil, nil
+}
 
 func (m *mockGraphClient) ExecuteQuery(ctx context.Context, request graph.GraphQLRequest, response interface{}) error {
 	return nil
@@ -66,6 +86,10 @@ func (m *mockContractClient) AllocateYieldToEpoch(ctx context.Context, epochId *
 	if m.allocateYieldToEpochFunc != nil {
 		return m.allocateYieldToEpochFunc(ctx, epochId, vaultAddress)
 	}
+	return nil
+}
+
+func (m *mockContractClient) AllocateCumulativeYieldToEpoch(ctx context.Context, epochId *big.Int, vaultAddress string, amount *big.Int) error {
 	return nil
 }
 

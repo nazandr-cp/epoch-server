@@ -16,6 +16,7 @@ import (
 	"github.com/andrey/epoch-server/internal/clients/storage"
 	"github.com/andrey/epoch-server/internal/clients/subsidizer"
 	"github.com/andrey/epoch-server/internal/config"
+	"github.com/andrey/epoch-server/internal/merkle"
 	"github.com/andrey/epoch-server/internal/utils"
 	"github.com/go-pkgz/lgr"
 	"github.com/go-pkgz/rest"
@@ -31,6 +32,11 @@ var (
 
 type GraphClient interface {
 	QueryAccounts(ctx context.Context) ([]graph.Account, error)
+	QueryAccountSubsidiesForVault(ctx context.Context, vaultAddress string) ([]graph.AccountSubsidy, error)
+	QueryCompletedEpochs(ctx context.Context) ([]graph.Epoch, error)
+	QueryEpochByNumber(ctx context.Context, epochNumber string) (*graph.Epoch, error)
+	QueryMerkleDistributionForEpoch(ctx context.Context, epochNumber string, vaultAddress string) (*graph.MerkleDistribution, error)
+	QueryAccountSubsidiesForEpoch(ctx context.Context, vaultAddress string, epochEndTimestamp string) ([]graph.AccountSubsidy, error)
 	ExecuteQuery(ctx context.Context, request graph.GraphQLRequest, response interface{}) error
 	ExecutePaginatedQuery(ctx context.Context, queryTemplate string, variables map[string]interface{}, entityField string, response interface{}) error
 }
@@ -41,20 +47,27 @@ type ContractClient interface {
 	GetCurrentEpochId(ctx context.Context) (*big.Int, error)
 	UpdateExchangeRate(ctx context.Context, lendingManagerAddress string) error
 	AllocateYieldToEpoch(ctx context.Context, epochId *big.Int, vaultAddress string) error
+	AllocateCumulativeYieldToEpoch(ctx context.Context, epochId *big.Int, vaultAddress string, amount *big.Int) error
 	EndEpochWithSubsidies(ctx context.Context, epochId *big.Int, vaultAddress string, merkleRoot [32]byte, subsidiesDistributed *big.Int) error
 }
 
 type Service struct {
-	graphClient    GraphClient
-	contractClient ContractClient
-	logger         lgr.L
-	config         *config.Config
+	graphClient       GraphClient
+	contractClient    ContractClient
+	merkleService     *merkle.MerkleProofService
+	calculator        *merkle.Calculator
+	logger            lgr.L
+	config            *config.Config
 }
 
 func NewService(graphClient *graph.Client, contractClient *contract.Client, logger lgr.L, cfg *config.Config) *Service {
+	merkleService := merkle.NewMerkleProofService(graphClient, logger)
+	
 	return &Service{
 		graphClient:    graphClient,
 		contractClient: contractClient,
+		merkleService:  merkleService,
+		calculator:     merkle.NewCalculator(),
 		logger:         logger,
 		config:         cfg,
 	}
@@ -105,7 +118,21 @@ func (s *Service) DistributeSubsidies(ctx context.Context, vaultId string) error
 	s.logger.Logf("INFO starting subsidy distribution for vault %s", vaultId)
 
 	epochClient := epoch.NewClientWithContract(s.logger, s.contractClient)
-	subsidizerClient := subsidizer.NewClient(s.logger)
+	
+	// Create real subsidizer client with blockchain configuration
+	ethConfig := subsidizer.EthereumConfig{
+		RPCURL:     s.config.Ethereum.RPCURL,
+		PrivateKey: s.config.Ethereum.PrivateKey,
+		GasLimit:   s.config.Ethereum.GasLimit,
+		GasPrice:   s.config.Ethereum.GasPrice,
+	}
+	
+	subsidizerClient, err := subsidizer.NewClientWithConfig(s.logger, ethConfig, s.config.Contracts.DebtSubsidizer)
+	if err != nil {
+		s.logger.Logf("WARN failed to create real subsidizer client, falling back to mock: %v", err)
+		subsidizerClient = subsidizer.NewClient(s.logger)
+	}
+	
 	storageClient := storage.NewClient(s.logger)
 
 	lazyDistributor := NewLazyDistributor(
@@ -265,9 +292,9 @@ func (s *Service) GetUserTotalEarned(ctx context.Context, userAddress, vaultId s
 		s.logger.Logf("WARN no epoch found, using current time: %d", epochEndTime)
 	}
 
-	// Convert to AccountSubsidy format for calculation
-	subsidyForCalc := AccountSubsidy{
-		Account: Account{
+	// Convert to graph.AccountSubsidy format for calculation
+	subsidyForCalc := graph.AccountSubsidy{
+		Account: graph.Account{
 			ID: matchingSubsidy.Account.ID,
 		},
 		SecondsAccumulated: matchingSubsidy.SecondsAccumulated,
@@ -275,8 +302,8 @@ func (s *Service) GetUserTotalEarned(ctx context.Context, userAddress, vaultId s
 		UpdatedAtTimestamp: matchingSubsidy.UpdatedAtTimestamp,
 	}
 
-	// Calculate total earned using the epoch end timestamp
-	totalEarned, err := s.calculateTotalEarned(subsidyForCalc, epochEndTime)
+	// Calculate total earned using the unified calculator
+	totalEarned, err := s.calculator.CalculateTotalEarned(subsidyForCalc, epochEndTime)
 	if err != nil {
 		return nil, fmt.Errorf("failed to calculate total earned: %w", err)
 	}
@@ -292,36 +319,6 @@ func (s *Service) GetUserTotalEarned(ctx context.Context, userAddress, vaultId s
 	return response_data, nil
 }
 
-// calculateTotalEarned replicates the logic from LazyDistributor
-func (s *Service) calculateTotalEarned(subsidy AccountSubsidy, epochEnd int64) (*big.Int, error) {
-	secondsAccumulated, ok := new(big.Int).SetString(subsidy.SecondsAccumulated, 10)
-	if !ok {
-		return nil, fmt.Errorf("invalid secondsAccumulated: %s", subsidy.SecondsAccumulated)
-	}
-
-	lastEffectiveValue, ok := new(big.Int).SetString(subsidy.LastEffectiveValue, 10)
-	if !ok {
-		return nil, fmt.Errorf("invalid lastEffectiveValue: %s", subsidy.LastEffectiveValue)
-	}
-
-	updatedAtTimestamp, err := strconv.ParseInt(subsidy.UpdatedAtTimestamp, 10, 64)
-	if err != nil {
-		return nil, fmt.Errorf("invalid updatedAtTimestamp: %s", subsidy.UpdatedAtTimestamp)
-	}
-
-	deltaT := epochEnd - updatedAtTimestamp
-	extraSeconds := new(big.Int).Mul(big.NewInt(deltaT), lastEffectiveValue)
-	newTotalSeconds := new(big.Int).Add(secondsAccumulated, extraSeconds)
-
-	totalEarned := s.secondsToTokens(newTotalSeconds)
-	return totalEarned, nil
-}
-
-// secondsToTokens replicates the conversion logic from LazyDistributor
-func (s *Service) secondsToTokens(seconds *big.Int) *big.Int {
-	conversionRate := big.NewInt(1000000000000000000) // 1e18
-	return new(big.Int).Div(seconds, conversionRate)
-}
 
 // isTransactionError determines if an error is related to blockchain transaction failures
 func isTransactionError(err error) bool {
@@ -391,6 +388,8 @@ func (s *Service) NewHTTPHandler() http.Handler {
 	mux.HandleFunc("POST /epochs/start", s.handleStartEpoch)
 	mux.HandleFunc("POST /epochs/distribute", s.handleDistributeSubsidies)
 	mux.HandleFunc("GET /users/{address}/total-earned", s.handleGetUserTotalEarned)
+	mux.HandleFunc("GET /users/{address}/merkle-proof", s.handleGetUserMerkleProof)
+	mux.HandleFunc("GET /users/{address}/merkle-proof/epoch/{epochNumber}", s.handleGetUserHistoricalMerkleProof)
 	
 	// Apply middlewares using go-pkgz/rest
 	// Chain middlewares manually: outermost -> innermost
@@ -474,6 +473,35 @@ func (s *Service) handleGetUserTotalEarned(w http.ResponseWriter, r *http.Reques
 	json.NewEncoder(w).Encode(response)
 }
 
+func (s *Service) handleGetUserMerkleProof(w http.ResponseWriter, r *http.Request) {
+	// Extract user address from URL path
+	userAddress := r.PathValue("address")
+	if userAddress == "" {
+		s.writeErrorResponse(w, fmt.Errorf("%w: missing user address in path", ErrInvalidInput), "Missing user address")
+		return
+	}
+
+	// Get vault address from query parameter or use default from config
+	vaultAddress := r.URL.Query().Get("vault")
+	if vaultAddress == "" {
+		vaultAddress = s.config.Contracts.CollectionsVault
+	}
+	vaultAddress = utils.NormalizeAddress(vaultAddress)
+
+	s.logger.Logf("INFO received merkle proof request for user %s in vault %s", userAddress, vaultAddress)
+
+	response, err := s.merkleService.GenerateUserMerkleProof(r.Context(), userAddress, vaultAddress)
+	if err != nil {
+		s.logger.Logf("ERROR failed to generate merkle proof for user %s: %v", userAddress, err)
+		s.writeErrorResponse(w, err, "Failed to generate merkle proof")
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(response)
+}
+
 // ErrorResponse represents the structure of error responses
 type ErrorResponse struct {
 	Error   string `json:"error"`
@@ -517,4 +545,40 @@ func (s *Service) writeErrorResponse(w http.ResponseWriter, err error, message s
 	}
 
 	json.NewEncoder(w).Encode(errResponse)
+}
+
+func (s *Service) handleGetUserHistoricalMerkleProof(w http.ResponseWriter, r *http.Request) {
+	// Extract user address and epoch number from URL path
+	userAddress := r.PathValue("address")
+	epochNumber := r.PathValue("epochNumber")
+	
+	if userAddress == "" {
+		s.writeErrorResponse(w, fmt.Errorf("%w: missing user address in path", ErrInvalidInput), "Missing user address")
+		return
+	}
+	
+	if epochNumber == "" {
+		s.writeErrorResponse(w, fmt.Errorf("%w: missing epoch number in path", ErrInvalidInput), "Missing epoch number")
+		return
+	}
+
+	// Get vault address from query parameter or use default from config
+	vaultAddress := r.URL.Query().Get("vault")
+	if vaultAddress == "" {
+		vaultAddress = s.config.Contracts.CollectionsVault
+	}
+	vaultAddress = utils.NormalizeAddress(vaultAddress)
+
+	s.logger.Logf("INFO received historical merkle proof request for user %s in vault %s for epoch %s", userAddress, vaultAddress, epochNumber)
+
+	response, err := s.merkleService.GenerateHistoricalMerkleProof(r.Context(), userAddress, vaultAddress, epochNumber)
+	if err != nil {
+		s.logger.Logf("ERROR failed to generate historical merkle proof for user %s epoch %s: %v", userAddress, epochNumber, err)
+		s.writeErrorResponse(w, err, "Failed to generate historical merkle proof")
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(response)
 }
