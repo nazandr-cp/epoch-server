@@ -15,9 +15,9 @@ import (
 // ProofGenerator generates Merkle proofs compatible with OpenZeppelin's MerkleProof library
 // This is the unified merkle tree implementation used across all services
 type ProofGenerator struct {
-	calculator       *Calculator
-	timestampManager *TimestampManager
-	logger           lgr.L
+	calculator         *Calculator
+	epochBlockManager  *EpochBlockManager
+	logger             lgr.L
 }
 
 // Entry represents a leaf entry in the Merkle tree
@@ -36,9 +36,9 @@ func NewProofGenerator() *ProofGenerator {
 // NewProofGeneratorWithDependencies creates a new proof generator with dependencies
 func NewProofGeneratorWithDependencies(graphClient GraphClient, logger lgr.L) *ProofGenerator {
 	return &ProofGenerator{
-		calculator:       NewCalculator(),
-		timestampManager: NewTimestampManager(graphClient, logger),
-		logger:           logger,
+		calculator:         NewCalculator(),
+		epochBlockManager:  NewEpochBlockManager(graphClient, logger),
+		logger:             logger,
 	}
 }
 
@@ -237,19 +237,20 @@ func (pg *ProofGenerator) isLeftSmaller(left, right [32]byte) bool {
 
 // TreeResult contains the result of merkle tree generation
 type TreeResult struct {
-	Entries    []Entry
-	MerkleRoot [32]byte
-	Timestamp  int64
+	Entries     []Entry
+	MerkleRoot  [32]byte
+	Timestamp   int64
+	BlockNumber int64 // Block number used for data consistency
 }
 
 // GenerateTreeFromSubsidies generates a merkle tree from account subsidies using consistent timestamp
 func (pg *ProofGenerator) GenerateTreeFromSubsidies(ctx context.Context, vaultAddress string, subsidies []graph.AccountSubsidy) (*TreeResult, error) {
-	if pg.timestampManager == nil {
-		return nil, fmt.Errorf("timestamp manager not initialized - use NewProofGeneratorWithDependencies")
+	if pg.epochBlockManager == nil {
+		return nil, fmt.Errorf("epoch block manager not initialized - use NewProofGeneratorWithDependencies")
 	}
 
 	// Get the consistent timestamp for this vault
-	epochTimestamp, err := pg.timestampManager.GetLatestEpochTimestamp(ctx, vaultAddress)
+	epochTimestamp, err := pg.epochBlockManager.GetLatestEpochTimestamp(ctx, vaultAddress)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get epoch timestamp: %w", err)
 	}
@@ -269,20 +270,62 @@ func (pg *ProofGenerator) GenerateTreeFromSubsidies(ctx context.Context, vaultAd
 	merkleRoot := pg.BuildMerkleRoot(entries)
 
 	return &TreeResult{
+		Entries:     entries,
+		MerkleRoot:  merkleRoot,
+		Timestamp:   epochTimestamp.ProcessingCompletedTimestamp,
+		BlockNumber: epochTimestamp.UpdatedAtBlock, // Use updated block for completed epochs
+	}, nil
+}
+
+// GenerateTreeFromSubsidiesAtBlock generates a merkle tree from account subsidies using a specific epoch block info
+// This is the critical method for ensuring block consistency between epoch processing and proof generation
+func (pg *ProofGenerator) GenerateTreeFromSubsidiesAtBlock(ctx context.Context, vaultAddress string, subsidies []graph.AccountSubsidy, epochInfo *EpochTimestamp) (*TreeResult, error) {
+	if epochInfo == nil {
+		return nil, fmt.Errorf("epochInfo cannot be nil")
+	}
+
+	if pg.logger != nil {
+		pg.logger.Logf("INFO generating merkle tree for vault %s using epoch %s at block %d with timestamp %d", 
+			vaultAddress, epochInfo.EpochNumber, epochInfo.CreatedAtBlock, epochInfo.ProcessingCompletedTimestamp)
+	}
+
+	// Use the processing completed timestamp or fallback to end timestamp if not available
+	var calculationTimestamp int64
+	if epochInfo.ProcessingCompletedTimestamp > 0 {
+		calculationTimestamp = epochInfo.ProcessingCompletedTimestamp
+	} else {
+		calculationTimestamp = epochInfo.EndTimestamp
+		if pg.logger != nil {
+			pg.logger.Logf("WARN using endTimestamp %d as fallback for epoch %s calculations", 
+				calculationTimestamp, epochInfo.EpochNumber)
+		}
+	}
+
+	// Process subsidies to entries with positive earnings
+	entries, err := pg.calculator.ProcessAccountSubsidies(subsidies, calculationTimestamp)
+	if err != nil {
+		return nil, fmt.Errorf("failed to process account subsidies: %w", err)
+	}
+
+	// Generate merkle root
+	merkleRoot := pg.BuildMerkleRoot(entries)
+
+	return &TreeResult{
 		Entries:    entries,
 		MerkleRoot: merkleRoot,
-		Timestamp:  epochTimestamp.ProcessingCompletedTimestamp,
+		Timestamp:  calculationTimestamp,
+		BlockNumber: epochInfo.CreatedAtBlock, // Include block number for reference
 	}, nil
 }
 
 // GenerateHistoricalTreeFromSubsidies generates a merkle tree from historical account subsidies
 func (pg *ProofGenerator) GenerateHistoricalTreeFromSubsidies(ctx context.Context, epochNumber string, subsidies []graph.AccountSubsidy) (*TreeResult, error) {
-	if pg.timestampManager == nil {
-		return nil, fmt.Errorf("timestamp manager not initialized - use NewProofGeneratorWithDependencies")
+	if pg.epochBlockManager == nil {
+		return nil, fmt.Errorf("epoch block manager not initialized - use NewProofGeneratorWithDependencies")
 	}
 
 	// Get the historical timestamp for this epoch
-	epochTimestamp, err := pg.timestampManager.GetHistoricalEpochTimestamp(ctx, epochNumber)
+	epochTimestamp, err := pg.epochBlockManager.GetHistoricalEpochTimestamp(ctx, epochNumber)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get historical epoch timestamp: %w", err)
 	}
@@ -302,9 +345,10 @@ func (pg *ProofGenerator) GenerateHistoricalTreeFromSubsidies(ctx context.Contex
 	merkleRoot := pg.BuildMerkleRoot(entries)
 
 	return &TreeResult{
-		Entries:    entries,
-		MerkleRoot: merkleRoot,
-		Timestamp:  epochTimestamp.ProcessingCompletedTimestamp,
+		Entries:     entries,
+		MerkleRoot:  merkleRoot,
+		Timestamp:   epochTimestamp.ProcessingCompletedTimestamp,
+		BlockNumber: epochTimestamp.UpdatedAtBlock, // Use updated block for completed epochs
 	}, nil
 }
 

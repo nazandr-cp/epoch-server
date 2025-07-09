@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strconv"
 
 	"github.com/andrey/epoch-server/internal/config"
 	"github.com/andrey/epoch-server/internal/service"
@@ -14,6 +15,7 @@ import (
 type Service interface {
 	StartEpoch(ctx context.Context) error
 	DistributeSubsidies(ctx context.Context, vaultId string) error
+	ForceEndEpoch(ctx context.Context, epochId uint64, vaultId string) error
 }
 
 // ErrorResponse represents the structure of error responses
@@ -76,6 +78,42 @@ func (h *Handler) DistributeSubsidies(w http.ResponseWriter, r *http.Request) {
 		"status":  "accepted",
 		"vaultID": vaultId,
 		"message": "Subsidy distribution initiated successfully",
+	})
+}
+
+func (h *Handler) ForceEndEpoch(w http.ResponseWriter, r *http.Request) {
+	// Parse epoch ID from query parameter
+	epochIdStr := r.URL.Query().Get("epochId")
+	if epochIdStr == "" {
+		h.logger.Logf("ERROR missing epochId parameter")
+		h.writeErrorResponse(w, service.ErrInvalidInput, "epochId parameter is required")
+		return
+	}
+
+	epochId, err := strconv.ParseUint(epochIdStr, 10, 64)
+	if err != nil {
+		h.logger.Logf("ERROR invalid epochId parameter: %v", err)
+		h.writeErrorResponse(w, service.ErrInvalidInput, "invalid epochId parameter")
+		return
+	}
+
+	// Use the vault address from configuration
+	vaultId := h.config.Contracts.CollectionsVault
+
+	h.logger.Logf("INFO received force end epoch request for epoch %d, vault %s", epochId, vaultId)
+
+	if err := h.service.ForceEndEpoch(r.Context(), epochId, vaultId); err != nil {
+		h.logger.Logf("ERROR failed to force end epoch %d for vault %s: %v", epochId, vaultId, err)
+		h.writeErrorResponse(w, err, "Failed to force end epoch")
+		return
+	}
+
+	w.WriteHeader(http.StatusAccepted)
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"status":  "accepted",
+		"epochId": epochId,
+		"vaultID": vaultId,
+		"message": "Force end epoch initiated successfully",
 	})
 }
 

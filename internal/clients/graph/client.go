@@ -114,6 +114,13 @@ type MerkleDistribution struct {
 type GraphQLRequest struct {
 	Query     string                 `json:"query"`
 	Variables map[string]interface{} `json:"variables,omitempty"`
+	Block     *BlockParameter        `json:"block,omitempty"`
+}
+
+// BlockParameter represents a block constraint for GraphQL queries
+type BlockParameter struct {
+	Number *int64  `json:"number,omitempty"`
+	Hash   *string `json:"hash,omitempty"`
 }
 
 type GraphQLResponse struct {
@@ -135,7 +142,7 @@ type AccountSubsidiesResponse struct {
 
 // EpochsResponse represents the response for epochs query
 type EpochsResponse struct {
-	Epochs []Epoch `json:"epochs"`
+	Epochs []Epoch `json:"epoches"`
 }
 
 // MerkleDistributionsResponse represents the response for merkle distributions query
@@ -345,6 +352,104 @@ func (c *Client) ExecutePaginatedQuery(ctx context.Context, queryTemplate string
 	return nil
 }
 
+// ExecutePaginatedQueryAtBlock executes a GraphQL query with pagination at a specific block
+func (c *Client) ExecutePaginatedQueryAtBlock(ctx context.Context, queryTemplate string, variables map[string]interface{}, entityField string, blockNumber int64, response interface{}) error {
+	const pageSize = 1000
+	var allResults []json.RawMessage
+	skip := 0
+
+	for {
+		// Add pagination variables
+		paginatedVars := make(map[string]interface{})
+		for k, v := range variables {
+			paginatedVars[k] = v
+		}
+		paginatedVars["first"] = pageSize
+		paginatedVars["skip"] = skip
+
+		req := GraphQLRequest{
+			Query:     queryTemplate,
+			Variables: paginatedVars,
+			Block: &BlockParameter{
+				Number: &blockNumber,
+			},
+		}
+
+		var data map[string]json.RawMessage
+
+		if err := c.executeQuery(ctx, req, &data); err != nil {
+			return fmt.Errorf("failed to execute paginated query at block %d skip %d: %w", blockNumber, skip, err)
+		}
+
+		entitiesRaw, ok := data[entityField]
+		if !ok {
+			return fmt.Errorf("missing %s field in response", entityField)
+		}
+
+		// Parse entities as array
+		var entities []json.RawMessage
+		if err := json.Unmarshal(entitiesRaw, &entities); err != nil {
+			return fmt.Errorf("failed to parse %s array: %w", entityField, err)
+		}
+
+		// If this page is empty, we've reached the end
+		if len(entities) == 0 {
+			break
+		}
+
+		allResults = append(allResults, entities...)
+
+		// If this page has fewer results than pageSize, we've reached the end
+		if len(entities) < pageSize {
+			break
+		}
+
+		skip += pageSize
+	}
+
+	// Reconstruct the full response with nested data field to match GraphQL standard
+	allEntitiesJson, err := json.Marshal(allResults)
+	if err != nil {
+		return fmt.Errorf("failed to marshal accumulated results: %w", err)
+	}
+
+	dataField := map[string]json.RawMessage{
+		entityField: allEntitiesJson,
+	}
+	
+	dataFieldJson, err := json.Marshal(dataField)
+	if err != nil {
+		return fmt.Errorf("failed to marshal data field: %w", err)
+	}
+
+	fullResponse := map[string]json.RawMessage{
+		"data": dataFieldJson,
+	}
+
+	fullResponseJson, err := json.Marshal(fullResponse)
+	if err != nil {
+		return fmt.Errorf("failed to marshal full response: %w", err)
+	}
+
+	if err := json.Unmarshal(fullResponseJson, response); err != nil {
+		return fmt.Errorf("failed to unmarshal into response type: %w", err)
+	}
+
+	return nil
+}
+
+// ExecuteQueryAtBlock executes a GraphQL query at a specific block
+func (c *Client) ExecuteQueryAtBlock(ctx context.Context, query string, variables map[string]interface{}, blockNumber int64, response interface{}) error {
+	req := GraphQLRequest{
+		Query:     query,
+		Variables: variables,
+		Block: &BlockParameter{
+			Number: &blockNumber,
+		},
+	}
+	return c.executeQuery(ctx, req, response)
+}
+
 // HealthCheck performs a basic connectivity check to verify the subgraph is accessible
 // It executes a simple introspection query to validate the GraphQL endpoint is responding
 func (c *Client) HealthCheck(ctx context.Context) error {
@@ -389,7 +494,7 @@ func (c *Client) HealthCheck(ctx context.Context) error {
 func (c *Client) QueryCompletedEpochs(ctx context.Context) ([]Epoch, error) {
 	query := `
 		query GetCompletedEpochs($first: Int!, $skip: Int!) {
-			epochs(
+			epoches(
 				where: { 
 					status: "COMPLETED"
 					processingCompletedTimestamp_not: null
@@ -414,7 +519,7 @@ func (c *Client) QueryCompletedEpochs(ctx context.Context) ([]Epoch, error) {
 
 	var response EpochsResponse
 
-	if err := c.ExecutePaginatedQuery(ctx, query, map[string]interface{}{}, "epochs", &response); err != nil {
+	if err := c.ExecutePaginatedQuery(ctx, query, map[string]interface{}{}, "epoches", &response); err != nil {
 		return nil, fmt.Errorf("failed to query completed epochs: %w", err)
 	}
 
@@ -425,7 +530,7 @@ func (c *Client) QueryCompletedEpochs(ctx context.Context) ([]Epoch, error) {
 func (c *Client) QueryEpochByNumber(ctx context.Context, epochNumber string) (*Epoch, error) {
 	query := `
 		query GetEpochByNumber($epochNumber: String!) {
-			epochs(
+			epoches(
 				where: { 
 					epochNumber: $epochNumber
 					status: "COMPLETED"
@@ -463,6 +568,97 @@ func (c *Client) QueryEpochByNumber(ctx context.Context, epochNumber string) (*E
 
 	if len(response.Epochs) == 0 {
 		return nil, fmt.Errorf("epoch %s not found or not completed", epochNumber)
+	}
+
+	return &response.Epochs[0], nil
+}
+
+// QueryCurrentActiveEpoch queries the current active epoch to get its creation block
+func (c *Client) QueryCurrentActiveEpoch(ctx context.Context) (*Epoch, error) {
+	query := `
+		query GetCurrentActiveEpoch {
+			epoches(
+				where: { 
+					status: "ACTIVE"
+				}
+				orderBy: epochNumber
+				orderDirection: desc
+				first: 1
+			) {
+				id
+				epochNumber
+				status
+				startTimestamp
+				endTimestamp
+				processingCompletedTimestamp
+				createdAtBlock
+				createdAtTimestamp
+				updatedAtBlock
+				updatedAtTimestamp
+			}
+		}
+	`
+
+	req := GraphQLRequest{
+		Query: query,
+	}
+
+	var response EpochsResponse
+
+	if err := c.executeQuery(ctx, req, &response); err != nil {
+		return nil, fmt.Errorf("failed to query current active epoch: %w", err)
+	}
+
+	if len(response.Epochs) == 0 {
+		return nil, fmt.Errorf("no active epoch found")
+	}
+
+	return &response.Epochs[0], nil
+}
+
+// QueryEpochWithBlockInfo queries a specific epoch by its number including block information
+func (c *Client) QueryEpochWithBlockInfo(ctx context.Context, epochNumber string) (*Epoch, error) {
+	query := `
+		query GetEpochWithBlockInfo($epochNumber: String!) {
+			epoches(
+				where: { 
+					epochNumber: $epochNumber
+				}
+				first: 1
+			) {
+				id
+				epochNumber
+				status
+				startTimestamp
+				endTimestamp
+				processingCompletedTimestamp
+				totalSubsidiesDistributed
+				totalYieldDistributed
+				createdAtBlock
+				createdAtTimestamp
+				updatedAtBlock
+				updatedAtTimestamp
+			}
+		}
+	`
+
+	variables := map[string]interface{}{
+		"epochNumber": epochNumber,
+	}
+
+	req := GraphQLRequest{
+		Query:     query,
+		Variables: variables,
+	}
+
+	var response EpochsResponse
+
+	if err := c.executeQuery(ctx, req, &response); err != nil {
+		return nil, fmt.Errorf("failed to query epoch with block info %s: %w", epochNumber, err)
+	}
+
+	if len(response.Epochs) == 0 {
+		return nil, fmt.Errorf("epoch %s not found", epochNumber)
 	}
 
 	return &response.Epochs[0], nil
@@ -515,6 +711,46 @@ func (c *Client) QueryMerkleDistributionForEpoch(ctx context.Context, epochNumbe
 	}
 
 	return &response.MerkleDistributions[0], nil
+}
+
+// QueryAccountSubsidiesAtBlock queries all account subsidies for a specific vault at a specific block
+// This ensures block-consistent data for merkle tree generation
+func (c *Client) QueryAccountSubsidiesAtBlock(ctx context.Context, vaultAddress string, blockNumber int64) ([]AccountSubsidy, error) {
+	query := `
+		query GetAccountSubsidiesAtBlock($vaultId: String!, $first: Int!, $skip: Int!) {
+			accountSubsidies(
+				where: { 
+					collectionParticipation_: { vault: $vaultId }
+					secondsAccumulated_gt: "0" 
+				}
+				orderBy: id
+				orderDirection: asc
+				first: $first
+				skip: $skip
+			) {
+				id
+				account { id }
+				secondsAccumulated
+				secondsClaimed
+				lastEffectiveValue
+				updatedAtTimestamp
+				updatedAtBlock
+				collectionParticipation
+			}
+		}
+	`
+
+	variables := map[string]interface{}{
+		"vaultId": vaultAddress,
+	}
+
+	var response AccountSubsidiesResponse
+
+	if err := c.ExecutePaginatedQueryAtBlock(ctx, query, variables, "accountSubsidies", blockNumber, &response); err != nil {
+		return nil, fmt.Errorf("failed to query account subsidies at block %d for vault %s: %w", blockNumber, vaultAddress, err)
+	}
+
+	return response.AccountSubsidies, nil
 }
 
 // QueryAccountSubsidiesForEpoch queries account subsidies using the epoch completion timestamp

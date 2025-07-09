@@ -21,9 +21,40 @@ func (m *MockGraphClient) ExecutePaginatedQuery(ctx context.Context, queryTempla
 	return nil
 }
 
+func (m *MockGraphClient) ExecuteQueryAtBlock(ctx context.Context, query string, variables map[string]interface{}, blockNumber int64, response interface{}) error {
+	// Mock implementation for testing
+	return nil
+}
+
+func (m *MockGraphClient) ExecutePaginatedQueryAtBlock(ctx context.Context, queryTemplate string, variables map[string]interface{}, entityField string, blockNumber int64, response interface{}) error {
+	// Mock implementation for testing
+	return nil
+}
+
 func (m *MockGraphClient) QueryEpochByNumber(ctx context.Context, epochNumber string) (*graph.Epoch, error) {
 	// Mock implementation for testing
 	return &graph.Epoch{}, nil
+}
+
+func (m *MockGraphClient) QueryCurrentActiveEpoch(ctx context.Context) (*graph.Epoch, error) {
+	// Mock implementation for testing
+	return &graph.Epoch{}, nil
+}
+
+func (m *MockGraphClient) QueryEpochWithBlockInfo(ctx context.Context, epochNumber string) (*graph.Epoch, error) {
+	// Mock implementation for testing
+	return &graph.Epoch{
+		EpochNumber:    epochNumber,
+		CreatedAtBlock: "12345",
+		UpdatedAtBlock: "12346",
+		StartTimestamp: "1640995200",
+		EndTimestamp:   "1641081600",
+	}, nil
+}
+
+func (m *MockGraphClient) QueryAccountSubsidiesAtBlock(ctx context.Context, vaultAddress string, blockNumber int64) ([]graph.AccountSubsidy, error) {
+	// Mock implementation for testing
+	return []graph.AccountSubsidy{}, nil
 }
 
 func (m *MockGraphClient) QueryMerkleDistributionForEpoch(ctx context.Context, epochNumber string, vaultAddress string) (*graph.MerkleDistribution, error) {
@@ -36,22 +67,22 @@ func (m *MockGraphClient) QueryAccountSubsidiesForEpoch(ctx context.Context, vau
 	return []graph.AccountSubsidy{}, nil
 }
 
-func TestTimestampManager_NewTimestampManager(t *testing.T) {
+func TestEpochBlockManager_NewEpochBlockManager(t *testing.T) {
 	mockClient := &MockGraphClient{}
 	logger := lgr.NoOp
 
-	tm := NewTimestampManager(mockClient, logger)
+	ebm := NewEpochBlockManager(mockClient, logger)
 	
-	if tm == nil {
-		t.Error("NewTimestampManager returned nil")
+	if ebm == nil {
+		t.Error("NewEpochBlockManager returned nil")
 	}
 	
-	if tm.graphClient == nil {
-		t.Error("TimestampManager graphClient is nil")
+	if ebm.graphClient == nil {
+		t.Error("EpochBlockManager graphClient is nil")
 	}
 	
-	if tm.logger == nil {
-		t.Error("TimestampManager logger is nil")
+	if ebm.logger == nil {
+		t.Error("EpochBlockManager logger is nil")
 	}
 }
 
@@ -77,7 +108,7 @@ func TestProofGenerator_NewProofGeneratorWithDependencies(t *testing.T) {
 		t.Error("ProofGenerator calculator is nil")
 	}
 	
-	if pg.timestampManager == nil {
-		t.Error("ProofGenerator timestampManager is nil")
+	if pg.epochBlockManager == nil {
+		t.Error("ProofGenerator epochBlockManager is nil")
 	}
 }

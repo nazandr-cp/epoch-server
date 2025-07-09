@@ -32,6 +32,7 @@ type DebtSubsidizerClient interface {
 
 type StorageClient interface {
 	SaveSnapshot(ctx context.Context, snapshot storage.MerkleSnapshot) error
+	SaveEpochSnapshot(ctx context.Context, epochNumber *big.Int, snapshot storage.MerkleSnapshot) error
 }
 
 type LazyDistributor struct {
@@ -68,16 +69,26 @@ func NewLazyDistributor(
 func (ld *LazyDistributor) Run(ctx context.Context, vaultId string) error {
 	ld.logger.Logf("INFO starting lazy distribution for vault %s", vaultId)
 
-	// Query account subsidies for the vault
+	// CRITICAL: Get the current active epoch's creation block to ensure consistency
+	epochInfo, err := ld.getActiveEpochBlockInfo(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get active epoch block info: %w", err)
+	}
+
+	ld.logger.Logf("INFO using block-consistent data from epoch %s created at block %d", 
+		epochInfo.EpochNumber, epochInfo.CreatedAtBlock)
+
+	// Query account subsidies for the vault (use current state, not block-specific)
 	subsidies, err := ld.queryAccountSubsidiesForVault(ctx, vaultId)
 	if err != nil {
 		return fmt.Errorf("failed to query account subsidies: %w", err)
 	}
 
-	ld.logger.Logf("INFO found %d account subsidies for vault %s", len(subsidies), vaultId)
+	ld.logger.Logf("INFO found %d account subsidies for vault %s", 
+		len(subsidies), vaultId)
 
-	// Use the unified merkle package directly
-	result, err := ld.proofGenerator.GenerateTreeFromSubsidies(ctx, vaultId, subsidies)
+	// Use the unified merkle package directly with block-consistent data
+	result, err := ld.proofGenerator.GenerateTreeFromSubsidiesAtBlock(ctx, vaultId, subsidies, epochInfo)
 	if err != nil {
 		return fmt.Errorf("failed to generate merkle tree: %w", err)
 	}
@@ -95,15 +106,24 @@ func (ld *LazyDistributor) Run(ctx context.Context, vaultId string) error {
 
 	merkleRoot := result.MerkleRoot
 
+	// Get current epoch ID for storage
+	epochId, err := ld.epochManagerClient.GetCurrentEpochId(ctx)
+	if err != nil {
+		ld.logger.Logf("ERROR failed to get current epoch ID: %v", err)
+		return fmt.Errorf("failed to get current epoch ID: %w", err)
+	}
+
 	snapshot := storage.MerkleSnapshot{
 		Entries:    entries,
 		MerkleRoot: fmt.Sprintf("0x%x", merkleRoot),
 		Timestamp:  result.Timestamp, // Use the consistent timestamp from the merkle tree generation
 		VaultID:    vaultId,
+		BlockNumber: epochInfo.CreatedAtBlock, // Store the block number used for data consistency
 	}
 
-	if err := ld.storageClient.SaveSnapshot(ctx, snapshot); err != nil {
-		return fmt.Errorf("failed to save snapshot: %w", err)
+	// Save snapshot with epoch number
+	if err := ld.storageClient.SaveEpochSnapshot(ctx, epochId, snapshot); err != nil {
+		return fmt.Errorf("failed to save epoch snapshot: %w", err)
 	}
 
 	var rootBytes [32]byte
@@ -121,12 +141,6 @@ func (ld *LazyDistributor) Run(ctx context.Context, vaultId string) error {
 		totalSubsidies.Add(totalSubsidies, entry.TotalEarned)
 	}
 
-	// Get current epoch ID from the epoch manager
-	epochId, err := ld.epochManagerClient.GetCurrentEpochId(ctx)
-	if err != nil {
-		ld.logger.Logf("ERROR failed to get current epoch ID: %v", err)
-		return fmt.Errorf("failed to get current epoch ID: %w", err)
-	}
 	ld.logger.Logf("INFO using epoch ID %s for subsidy distribution", epochId.String())
 
 	// Update exchange rate to ensure we have the latest yield calculations
@@ -150,11 +164,16 @@ func (ld *LazyDistributor) Run(ctx context.Context, vaultId string) error {
 	// For now, we rely on the allocation function's built-in validation
 	ld.logger.Logf("INFO proceeding with allocation of %s tokens for %d users", totalSubsidies.String(), len(entries))
 	
-	// Allocate exact cumulative yield amount needed for all subsidies
-	ld.logger.Logf("INFO allocating cumulative yield %s to epoch %s for vault %s", totalSubsidies.String(), epochId.String(), vaultId)
-	if err := ld.epochManagerClient.AllocateCumulativeYieldToEpoch(ctx, epochId, vaultId, totalSubsidies); err != nil {
-		ld.logger.Logf("ERROR failed to allocate cumulative yield %s to epoch %s for vault %s: %v", totalSubsidies.String(), epochId.String(), vaultId, err)
-		return fmt.Errorf("failed to call allocateCumulativeYieldToEpoch: %w", err)
+	// Check if there are any subsidies to distribute
+	if totalSubsidies.Cmp(big.NewInt(0)) == 0 {
+		ld.logger.Logf("INFO no subsidies to distribute for vault %s, skipping allocation", vaultId)
+	} else {
+		// Allocate exact cumulative yield amount needed for all subsidies
+		ld.logger.Logf("INFO allocating cumulative yield %s to epoch %s for vault %s", totalSubsidies.String(), epochId.String(), vaultId)
+		if err := ld.epochManagerClient.AllocateCumulativeYieldToEpoch(ctx, epochId, vaultId, totalSubsidies); err != nil {
+			ld.logger.Logf("ERROR failed to allocate cumulative yield %s to epoch %s for vault %s: %v", totalSubsidies.String(), epochId.String(), vaultId, err)
+			return fmt.Errorf("failed to call allocateCumulativeYieldToEpoch: %w", err)
+		}
 	}
 
 	if err := ld.epochManagerClient.EndEpochWithSubsidies(ctx, epochId, vaultId, rootBytes, totalSubsidies); err != nil {
@@ -203,5 +222,33 @@ func (ld *LazyDistributor) queryAccountSubsidiesForVault(ctx context.Context, va
 	}
 
 	return response.Data.AccountSubsidies, nil
+}
+
+// getActiveEpochBlockInfo retrieves the current active epoch's block information
+func (ld *LazyDistributor) getActiveEpochBlockInfo(ctx context.Context) (*merkle.EpochTimestamp, error) {
+	// Create an epoch block manager to get epoch block info
+	epochBlockManager := merkle.NewEpochBlockManager(ld.graphClient, ld.logger)
+	
+	// Get the current active epoch's creation block
+	epochInfo, err := epochBlockManager.GetCurrentActiveEpochBlock(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get current active epoch block: %w", err)
+	}
+	
+	return epochInfo, nil
+}
+
+// queryAccountSubsidiesAtBlock queries account subsidies at a specific block number
+func (ld *LazyDistributor) queryAccountSubsidiesAtBlock(ctx context.Context, vaultId string, blockNumber int64) ([]graph.AccountSubsidy, error) {
+	// Use the new block-based query method from the graph client
+	subsidies, err := ld.graphClient.QueryAccountSubsidiesAtBlock(ctx, strings.ToLower(vaultId), blockNumber)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query account subsidies at block %d: %w", blockNumber, err)
+	}
+	
+	ld.logger.Logf("INFO queried %d account subsidies for vault %s at block %d", 
+		len(subsidies), vaultId, blockNumber)
+	
+	return subsidies, nil
 }
 

@@ -33,12 +33,17 @@ var (
 type GraphClient interface {
 	QueryAccounts(ctx context.Context) ([]graph.Account, error)
 	QueryAccountSubsidiesForVault(ctx context.Context, vaultAddress string) ([]graph.AccountSubsidy, error)
+	QueryAccountSubsidiesAtBlock(ctx context.Context, vaultAddress string, blockNumber int64) ([]graph.AccountSubsidy, error)
 	QueryCompletedEpochs(ctx context.Context) ([]graph.Epoch, error)
 	QueryEpochByNumber(ctx context.Context, epochNumber string) (*graph.Epoch, error)
+	QueryCurrentActiveEpoch(ctx context.Context) (*graph.Epoch, error)
+	QueryEpochWithBlockInfo(ctx context.Context, epochNumber string) (*graph.Epoch, error)
 	QueryMerkleDistributionForEpoch(ctx context.Context, epochNumber string, vaultAddress string) (*graph.MerkleDistribution, error)
 	QueryAccountSubsidiesForEpoch(ctx context.Context, vaultAddress string, epochEndTimestamp string) ([]graph.AccountSubsidy, error)
 	ExecuteQuery(ctx context.Context, request graph.GraphQLRequest, response interface{}) error
 	ExecutePaginatedQuery(ctx context.Context, queryTemplate string, variables map[string]interface{}, entityField string, response interface{}) error
+	ExecuteQueryAtBlock(ctx context.Context, query string, variables map[string]interface{}, blockNumber int64, response interface{}) error
+	ExecutePaginatedQueryAtBlock(ctx context.Context, queryTemplate string, variables map[string]interface{}, entityField string, blockNumber int64, response interface{}) error
 }
 
 type ContractClient interface {
@@ -61,7 +66,8 @@ type Service struct {
 }
 
 func NewService(graphClient *graph.Client, contractClient *contract.Client, logger lgr.L, cfg *config.Config) *Service {
-	merkleService := merkle.NewMerkleProofService(graphClient, logger)
+	storageClient := storage.NewClient(logger)
+	merkleService := merkle.NewMerkleProofServiceWithStorage(graphClient, storageClient, logger)
 	
 	return &Service{
 		graphClient:    graphClient,
@@ -155,6 +161,67 @@ func (s *Service) DistributeSubsidies(ctx context.Context, vaultId string) error
 
 	s.logger.Logf("INFO successfully completed subsidy distribution for vault %s", vaultId)
 	return nil
+}
+
+func (s *Service) ForceEndEpoch(ctx context.Context, epochId uint64, vaultId string) error {
+	// Validate input
+	if vaultId == "" {
+		return fmt.Errorf("%w: vaultId cannot be empty", ErrInvalidInput)
+	}
+
+	s.logger.Logf("INFO force ending epoch %d for vault %s", epochId, vaultId)
+
+	epochClient := epoch.NewClientWithContract(s.logger, s.contractClient)
+	
+	// First, check current epoch to avoid trying to end an outdated epoch
+	currentEpochId, err := epochClient.GetCurrentEpochId(ctx)
+	if err != nil {
+		s.logger.Logf("WARN failed to get current epoch ID, proceeding anyway: %v", err)
+	} else {
+		currentEpochInt := currentEpochId.Uint64()
+		if epochId < currentEpochInt {
+			s.logger.Logf("INFO epoch %d is already past (current: %d), considering it completed", epochId, currentEpochInt)
+			return nil
+		}
+		if epochId > currentEpochInt {
+			return fmt.Errorf("%w: cannot force end future epoch %d (current: %d)", ErrInvalidInput, epochId, currentEpochInt)
+		}
+	}
+	
+	// Convert epochId to big.Int
+	epochIdBig := big.NewInt(int64(epochId))
+	
+	// Try multiple strategies for ending the epoch
+	strategies := []struct{
+		name string
+		merkleRoot [32]byte
+		subsidies *big.Int
+	}{
+		{"zero subsidies", [32]byte{}, big.NewInt(0)},
+		{"minimal subsidies", [32]byte{}, big.NewInt(1)},
+		{"empty tree hash", [32]byte{0x56, 0xe8, 0x1f, 0x17, 0x1b, 0xcc, 0x55, 0xa6, 0xff, 0x83, 0x45, 0xe6, 0x92, 0xc0, 0xf8, 0x6e, 0x5b, 0x48, 0xe0, 0x1b, 0x99, 0x6c, 0xad, 0xc0, 0x01, 0x62, 0x2f, 0xb5, 0xe3, 0x63, 0xb4, 0x21}, big.NewInt(0)},
+	}
+	
+	var lastErr error
+	for _, strategy := range strategies {
+		s.logger.Logf("INFO trying strategy '%s' for epoch %d", strategy.name, epochId)
+		
+		if err := epochClient.EndEpochWithSubsidies(ctx, epochIdBig, vaultId, strategy.merkleRoot, strategy.subsidies); err != nil {
+			s.logger.Logf("WARN strategy '%s' failed for epoch %d: %v", strategy.name, epochId, err)
+			lastErr = err
+			continue
+		}
+		
+		s.logger.Logf("INFO successfully force ended epoch %d for vault %s using strategy '%s'", epochId, vaultId, strategy.name)
+		return nil
+	}
+	
+	// If all strategies failed, return the last error
+	s.logger.Logf("ERROR all strategies failed to force end epoch %d for vault %s", epochId, vaultId)
+	if isTransactionError(lastErr) {
+		return fmt.Errorf("%w: failed to force end epoch %d for vault %s: %v", ErrTransactionFailed, epochId, vaultId, lastErr)
+	}
+	return fmt.Errorf("failed to force end epoch %d for vault %s: %w", epochId, vaultId, lastErr)
 }
 
 func (s *Service) GetUserTotalEarned(ctx context.Context, userAddress, vaultId string) (*UserEarningsResponse, error) {
@@ -309,10 +376,11 @@ func (s *Service) GetUserTotalEarned(ctx context.Context, userAddress, vaultId s
 	}
 
 	response_data := &UserEarningsResponse{
-		UserAddress:  userAddress,
-		VaultAddress: vaultId,
-		TotalEarned:  totalEarned.String(),
-		CalculatedAt: time.Now().Unix(),
+		UserAddress:   userAddress,
+		VaultAddress:  vaultId,
+		TotalEarned:   totalEarned.String(),
+		CalculatedAt:  time.Now().Unix(),
+		DataTimestamp: epochEndTime,
 	}
 
 	s.logger.Logf("INFO calculated total earned for user %s: %s (using epoch end: %d)", userAddress, totalEarned.String(), epochEndTime)
@@ -387,6 +455,7 @@ func (s *Service) NewHTTPHandler() http.Handler {
 	mux.HandleFunc("GET /health", s.handleHealth)
 	mux.HandleFunc("POST /epochs/start", s.handleStartEpoch)
 	mux.HandleFunc("POST /epochs/distribute", s.handleDistributeSubsidies)
+	mux.HandleFunc("POST /epochs/force-end", s.handleForceEndEpoch)
 	mux.HandleFunc("GET /users/{address}/total-earned", s.handleGetUserTotalEarned)
 	mux.HandleFunc("GET /users/{address}/merkle-proof", s.handleGetUserMerkleProof)
 	mux.HandleFunc("GET /users/{address}/merkle-proof/epoch/{epochNumber}", s.handleGetUserHistoricalMerkleProof)
@@ -445,6 +514,42 @@ func (s *Service) handleDistributeSubsidies(w http.ResponseWriter, r *http.Reque
 		"status":  "accepted",
 		"vaultID": vaultId,
 		"message": "Subsidy distribution initiated successfully",
+	})
+}
+
+func (s *Service) handleForceEndEpoch(w http.ResponseWriter, r *http.Request) {
+	// Parse epoch ID from query parameter
+	epochIdStr := r.URL.Query().Get("epochId")
+	if epochIdStr == "" {
+		s.logger.Logf("ERROR missing epochId parameter")
+		s.writeErrorResponse(w, fmt.Errorf("%w: epochId parameter is required", ErrInvalidInput), "Missing epochId parameter")
+		return
+	}
+
+	epochId, err := strconv.ParseUint(epochIdStr, 10, 64)
+	if err != nil {
+		s.logger.Logf("ERROR invalid epochId parameter: %v", err)
+		s.writeErrorResponse(w, fmt.Errorf("%w: invalid epochId parameter", ErrInvalidInput), "Invalid epochId parameter")
+		return
+	}
+
+	// Use the vault address from configuration
+	vaultId := s.config.Contracts.CollectionsVault
+
+	s.logger.Logf("INFO received force end epoch request for epoch %d, vault %s", epochId, vaultId)
+
+	if err := s.ForceEndEpoch(r.Context(), epochId, vaultId); err != nil {
+		s.logger.Logf("ERROR failed to force end epoch %d for vault %s: %v", epochId, vaultId, err)
+		s.writeErrorResponse(w, err, "Failed to force end epoch")
+		return
+	}
+
+	w.WriteHeader(http.StatusAccepted)
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"status":  "accepted",
+		"epochId": epochId,
+		"vaultID": vaultId,
+		"message": "Force end epoch initiated successfully",
 	})
 }
 
@@ -515,6 +620,7 @@ type UserEarningsResponse struct {
 	VaultAddress  string `json:"vaultAddress"`
 	TotalEarned   string `json:"totalEarned"`
 	CalculatedAt  int64  `json:"calculatedAt"`
+	DataTimestamp int64  `json:"dataTimestamp"` // Timestamp used for calculations
 }
 
 // writeErrorResponse writes a structured error response based on the error type

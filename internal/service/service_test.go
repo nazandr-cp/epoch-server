@@ -51,6 +51,38 @@ func (m *mockGraphClient) ExecutePaginatedQuery(ctx context.Context, queryTempla
 	return nil
 }
 
+func (m *mockGraphClient) ExecuteQueryAtBlock(ctx context.Context, query string, variables map[string]interface{}, blockNumber int64, response interface{}) error {
+	return nil
+}
+
+func (m *mockGraphClient) ExecutePaginatedQueryAtBlock(ctx context.Context, queryTemplate string, variables map[string]interface{}, entityField string, blockNumber int64, response interface{}) error {
+	return nil
+}
+
+func (m *mockGraphClient) QueryCurrentActiveEpoch(ctx context.Context) (*graph.Epoch, error) {
+	return &graph.Epoch{
+		EpochNumber:    "1",
+		CreatedAtBlock: "12345",
+		UpdatedAtBlock: "12346",
+		StartTimestamp: "1640995200",
+		EndTimestamp:   "1641081600",
+	}, nil
+}
+
+func (m *mockGraphClient) QueryEpochWithBlockInfo(ctx context.Context, epochNumber string) (*graph.Epoch, error) {
+	return &graph.Epoch{
+		EpochNumber:    epochNumber,
+		CreatedAtBlock: "12345",
+		UpdatedAtBlock: "12346",
+		StartTimestamp: "1640995200",
+		EndTimestamp:   "1641081600",
+	}, nil
+}
+
+func (m *mockGraphClient) QueryAccountSubsidiesAtBlock(ctx context.Context, vaultAddress string, blockNumber int64) ([]graph.AccountSubsidy, error) {
+	return nil, nil
+}
+
 type mockContractClient struct {
 	startEpochFunc          func(ctx context.Context) error
 	distributeSubsidiesFunc func(ctx context.Context, epochID string) error
