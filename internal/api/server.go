@@ -46,7 +46,7 @@ func NewServer(
 // SetupRoutes configures all HTTP routes and middleware
 func (s *Server) SetupRoutes() http.Handler {
 	// Create handlers
-	healthHandler := handlers.NewHealthHandler(s.logger)
+	healthHandler := handlers.NewHealthHandler(s.logger, s.checkEpochService, s.checkSubsidyService, s.checkMerkleService)
 	epochHandler := handlers.NewEpochHandler(s.epochService, s.logger, s.config)
 	subsidyHandler := handlers.NewSubsidyHandler(s.subsidyService, s.logger, s.config)
 	merkleHandler := handlers.NewMerkleHandler(s.merkleService, s.logger, s.config)
@@ -56,8 +56,10 @@ func (s *Server) SetupRoutes() http.Handler {
 
 	// Apply global middlewares
 	router.Use(rest.RealIP)
+	router.Use(rest.Trace)                                    // Add request tracing
+	router.Use(rest.SizeLimit(1024 * 1024))                  // 1MB request size limit
 	router.Use(middleware.Auth(s.logger))
-	router.Use(middleware.Logging(s.logger))
+	router.Use(middleware.Logging(s.logger))                 // Keep custom logging middleware
 	router.Use(middleware.Recovery(s.logger))
 	router.Use(rest.AppInfo("epoch-server", "andrey", "1.0.0"))
 	router.Use(rest.Ping)
@@ -93,4 +95,29 @@ func (s *Server) Start() error {
 	s.logger.Logf("INFO starting server on %s", addr)
 
 	return http.ListenAndServe(addr, handler)
+}
+
+// Health check functions for services
+func (s *Server) checkEpochService() error {
+	// Basic health check - could be enhanced with actual service checks
+	if s.epochService == nil {
+		return fmt.Errorf("epoch service not initialized")
+	}
+	return nil
+}
+
+func (s *Server) checkSubsidyService() error {
+	// Basic health check - could be enhanced with actual service checks
+	if s.subsidyService == nil {
+		return fmt.Errorf("subsidy service not initialized")
+	}
+	return nil
+}
+
+func (s *Server) checkMerkleService() error {
+	// Basic health check - could be enhanced with actual service checks
+	if s.merkleService == nil {
+		return fmt.Errorf("merkle service not initialized")
+	}
+	return nil
 }

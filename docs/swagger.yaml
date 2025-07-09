@@ -54,6 +54,10 @@ definitions:
     type: object
   handlers.HealthResponse:
     properties:
+      checks:
+        additionalProperties:
+          type: string
+        type: object
       status:
         example: ok
         type: string
@@ -298,6 +302,10 @@ paths:
       responses:
         "200":
           description: Service is healthy
+          schema:
+            $ref: '#/definitions/handlers.HealthResponse'
+        "503":
+          description: Service is unhealthy
           schema:
             $ref: '#/definitions/handlers.HealthResponse'
       summary: Health check

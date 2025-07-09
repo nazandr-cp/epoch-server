@@ -329,6 +329,12 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/handlers.HealthResponse"
                         }
+                    },
+                    "503": {
+                        "description": "Service is unhealthy",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.HealthResponse"
+                        }
                     }
                 }
             }
@@ -411,6 +417,12 @@ const docTemplate = `{
         "handlers.HealthResponse": {
             "type": "object",
             "properties": {
+                "checks": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
                 "status": {
                     "type": "string",
                     "example": "ok"

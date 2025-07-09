@@ -1,12 +1,12 @@
 package handlers
 
 import (
-	"encoding/json"
 	"net/http"
 
 	"github.com/andrey/epoch-server/internal/infra/config"
 	"github.com/andrey/epoch-server/internal/services/subsidy"
 	"github.com/go-pkgz/lgr"
+	"github.com/go-pkgz/rest"
 )
 
 // SubsidyHandler handles subsidy-related HTTP requests
@@ -50,12 +50,11 @@ func (h *SubsidyHandler) HandleDistributeSubsidies(w http.ResponseWriter, r *htt
 
 	if err := h.subsidyService.DistributeSubsidies(r.Context(), vaultId); err != nil {
 		h.logger.Logf("ERROR failed to distribute subsidies for vault %s: %v", vaultId, err)
-		writeErrorResponse(w, err, "Failed to distribute subsidies")
+		writeErrorResponse(w, r, h.logger, err, "Failed to distribute subsidies")
 		return
 	}
 
-	w.WriteHeader(http.StatusAccepted)
-	json.NewEncoder(w).Encode(DistributeSubsidiesResponse{
+	rest.EncodeJSON(w, http.StatusAccepted, DistributeSubsidiesResponse{
 		Status:  "accepted",
 		VaultID: vaultId,
 		Message: "Subsidy distribution initiated successfully",

@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"encoding/json"
 	"net/http"
 	"strconv"
 
@@ -9,6 +8,7 @@ import (
 	"github.com/andrey/epoch-server/internal/infra/utils"
 	"github.com/andrey/epoch-server/internal/services/epoch"
 	"github.com/go-pkgz/lgr"
+	"github.com/go-pkgz/rest"
 )
 
 // EpochHandler handles epoch-related HTTP requests
@@ -48,12 +48,11 @@ func (h *EpochHandler) HandleStartEpoch(w http.ResponseWriter, r *http.Request) 
 
 	if err := h.epochService.StartEpoch(r.Context()); err != nil {
 		h.logger.Logf("ERROR failed to start epoch: %v", err)
-		writeErrorResponse(w, err, "Failed to start epoch")
+		writeErrorResponse(w, r, h.logger, err, "Failed to start epoch")
 		return
 	}
 
-	w.WriteHeader(http.StatusAccepted)
-	json.NewEncoder(w).Encode(StartEpochResponse{
+	rest.EncodeJSON(w, http.StatusAccepted, StartEpochResponse{
 		Status:  "accepted",
 		Message: "Epoch start initiated successfully",
 	})
@@ -83,14 +82,14 @@ func (h *EpochHandler) HandleForceEndEpoch(w http.ResponseWriter, r *http.Reques
 	epochIdStr := r.URL.Query().Get("epochId")
 	if epochIdStr == "" {
 		h.logger.Logf("ERROR missing epochId parameter")
-		writeErrorResponse(w, epoch.ErrInvalidInput, "epochId parameter is required")
+		writeErrorResponse(w, r, h.logger, epoch.ErrInvalidInput, "epochId parameter is required")
 		return
 	}
 
 	epochId, err := strconv.ParseUint(epochIdStr, 10, 64)
 	if err != nil {
 		h.logger.Logf("ERROR invalid epochId parameter: %v", err)
-		writeErrorResponse(w, epoch.ErrInvalidInput, "invalid epochId parameter")
+		writeErrorResponse(w, r, h.logger, epoch.ErrInvalidInput, "invalid epochId parameter")
 		return
 	}
 
@@ -101,12 +100,11 @@ func (h *EpochHandler) HandleForceEndEpoch(w http.ResponseWriter, r *http.Reques
 
 	if err := h.epochService.ForceEndEpoch(r.Context(), epochId, vaultId); err != nil {
 		h.logger.Logf("ERROR failed to force end epoch %d for vault %s: %v", epochId, vaultId, err)
-		writeErrorResponse(w, err, "Failed to force end epoch")
+		writeErrorResponse(w, r, h.logger, err, "Failed to force end epoch")
 		return
 	}
 
-	w.WriteHeader(http.StatusAccepted)
-	json.NewEncoder(w).Encode(ForceEndEpochResponse{
+	rest.EncodeJSON(w, http.StatusAccepted, ForceEndEpochResponse{
 		Status:  "accepted",
 		EpochId: epochId,
 		VaultID: vaultId,
@@ -130,7 +128,7 @@ func (h *EpochHandler) HandleGetUserTotalEarned(w http.ResponseWriter, r *http.R
 	// Extract user address from URL path
 	userAddress := r.PathValue("address")
 	if userAddress == "" {
-		writeErrorResponse(w, epoch.ErrInvalidInput, "Missing user address")
+		writeErrorResponse(w, r, h.logger, epoch.ErrInvalidInput, "Missing user address")
 		return
 	}
 
@@ -142,11 +140,9 @@ func (h *EpochHandler) HandleGetUserTotalEarned(w http.ResponseWriter, r *http.R
 	response, err := h.epochService.GetUserTotalEarned(r.Context(), userAddress, vaultId)
 	if err != nil {
 		h.logger.Logf("ERROR failed to get total earned for user %s: %v", userAddress, err)
-		writeErrorResponse(w, err, "Failed to get user total earned")
+		writeErrorResponse(w, r, h.logger, err, "Failed to get user total earned")
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(response)
+	rest.RenderJSON(w, response)
 }

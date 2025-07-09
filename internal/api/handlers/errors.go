@@ -1,13 +1,14 @@
 package handlers
 
 import (
-	"encoding/json"
 	"errors"
 	"net/http"
 
 	"github.com/andrey/epoch-server/internal/services/epoch"
 	"github.com/andrey/epoch-server/internal/services/merkle"
 	"github.com/andrey/epoch-server/internal/services/subsidy"
+	"github.com/go-pkgz/lgr"
+	"github.com/go-pkgz/rest"
 )
 
 // ErrorResponse represents the structure of error responses
@@ -18,33 +19,23 @@ type ErrorResponse struct {
 }
 
 // writeErrorResponse writes a structured error response based on the error type
-func writeErrorResponse(w http.ResponseWriter, err error, message string) {
-	w.Header().Set("Content-Type", "application/json")
-	
-	var errResponse ErrorResponse
-	errResponse.Error = message
-	errResponse.Details = err.Error()
-
+func writeErrorResponse(w http.ResponseWriter, r *http.Request, logger lgr.L, err error, message string) {
 	// Determine appropriate HTTP status code based on error type
+	var statusCode int
 	if isTransactionFailedError(err) {
-		errResponse.Code = http.StatusBadGateway
-		w.WriteHeader(http.StatusBadGateway)
+		statusCode = http.StatusBadGateway
 	} else if isInvalidInputError(err) {
-		errResponse.Code = http.StatusBadRequest
-		w.WriteHeader(http.StatusBadRequest)
+		statusCode = http.StatusBadRequest
 	} else if isNotFoundError(err) {
-		errResponse.Code = http.StatusNotFound
-		w.WriteHeader(http.StatusNotFound)
+		statusCode = http.StatusNotFound
 	} else if isTimeoutError(err) {
-		errResponse.Code = http.StatusRequestTimeout
-		w.WriteHeader(http.StatusRequestTimeout)
+		statusCode = http.StatusRequestTimeout
 	} else {
 		// Default to internal server error
-		errResponse.Code = http.StatusInternalServerError
-		w.WriteHeader(http.StatusInternalServerError)
+		statusCode = http.StatusInternalServerError
 	}
 
-	json.NewEncoder(w).Encode(errResponse)
+	rest.SendErrorJSON(w, r, logger, statusCode, err, message)
 }
 
 // Helper functions to check error types across all services

@@ -1,13 +1,13 @@
 package handlers
 
 import (
-	"encoding/json"
 	"net/http"
 
 	"github.com/andrey/epoch-server/internal/infra/config"
 	"github.com/andrey/epoch-server/internal/infra/utils"
 	"github.com/andrey/epoch-server/internal/services/merkle"
 	"github.com/go-pkgz/lgr"
+	"github.com/go-pkgz/rest"
 )
 
 // MerkleHandler handles merkle proof-related HTTP requests
@@ -43,7 +43,7 @@ func (h *MerkleHandler) HandleGetUserMerkleProof(w http.ResponseWriter, r *http.
 	// Extract user address from URL path
 	userAddress := r.PathValue("address")
 	if userAddress == "" {
-		writeErrorResponse(w, merkle.ErrInvalidInput, "Missing user address")
+		writeErrorResponse(w, r, h.logger, merkle.ErrInvalidInput, "Missing user address")
 		return
 	}
 
@@ -59,13 +59,11 @@ func (h *MerkleHandler) HandleGetUserMerkleProof(w http.ResponseWriter, r *http.
 	response, err := h.merkleService.GenerateUserMerkleProof(r.Context(), userAddress, vaultAddress)
 	if err != nil {
 		h.logger.Logf("ERROR failed to generate merkle proof for user %s: %v", userAddress, err)
-		writeErrorResponse(w, err, "Failed to generate merkle proof")
+		writeErrorResponse(w, r, h.logger, err, "Failed to generate merkle proof")
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(response)
+	rest.RenderJSON(w, response)
 }
 
 // HandleGetUserHistoricalMerkleProof handles historical merkle proof requests
@@ -88,12 +86,12 @@ func (h *MerkleHandler) HandleGetUserHistoricalMerkleProof(w http.ResponseWriter
 	epochNumber := r.PathValue("epochNumber")
 	
 	if userAddress == "" {
-		writeErrorResponse(w, merkle.ErrInvalidInput, "Missing user address")
+		writeErrorResponse(w, r, h.logger, merkle.ErrInvalidInput, "Missing user address")
 		return
 	}
 	
 	if epochNumber == "" {
-		writeErrorResponse(w, merkle.ErrInvalidInput, "Missing epoch number")
+		writeErrorResponse(w, r, h.logger, merkle.ErrInvalidInput, "Missing epoch number")
 		return
 	}
 
@@ -109,11 +107,9 @@ func (h *MerkleHandler) HandleGetUserHistoricalMerkleProof(w http.ResponseWriter
 	response, err := h.merkleService.GenerateHistoricalMerkleProof(r.Context(), userAddress, vaultAddress, epochNumber)
 	if err != nil {
 		h.logger.Logf("ERROR failed to generate historical merkle proof for user %s epoch %s: %v", userAddress, epochNumber, err)
-		writeErrorResponse(w, err, "Failed to generate historical merkle proof")
+		writeErrorResponse(w, r, h.logger, err, "Failed to generate historical merkle proof")
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(response)
+	rest.RenderJSON(w, response)
 }
