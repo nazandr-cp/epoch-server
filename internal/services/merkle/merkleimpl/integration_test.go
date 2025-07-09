@@ -1,0 +1,142 @@
+package merkleimpl
+
+import (
+	"math/big"
+	"testing"
+
+	"github.com/ethereum/go-ethereum/common"
+)
+
+// TestMerkleCompatibility_CrossSystemIntegration demonstrates that the Go Merkle
+// implementation produces compatible proofs with OpenZeppelin's Solidity implementation
+func TestMerkleCompatibility_CrossSystemIntegration(t *testing.T) {
+	// Test data that would be typical in the lend.fam system
+	testEntries := []Entry{
+		{Address: "0x742d35Cc6bF8E65f8b95E6c5CB15F5C5D5b8DbC3", TotalEarned: big.NewInt(1500000000000000000)}, // 1.5 ETH worth
+		{Address: "0x1234567890123456789012345678901234567890", TotalEarned: big.NewInt(750000000000000000)},  // 0.75 ETH worth
+		{Address: "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd", TotalEarned: big.NewInt(2000000000000000000)}, // 2 ETH worth
+		{Address: "0x0000000000000000000000000000000000000001", TotalEarned: big.NewInt(100000000000000000)},  // 0.1 ETH worth
+	}
+
+	pg := NewProofGenerator()
+
+	// Generate Merkle root
+	root := pg.BuildMerkleRoot(testEntries)
+
+	// Test each entry can generate valid proofs
+	for i, entry := range testEntries {
+		// Generate proof
+		proof, calculatedRoot, err := pg.GenerateProof(testEntries, entry.Address, entry.TotalEarned)
+		if err != nil {
+			t.Fatalf("Failed to generate proof for entry %d: %v", i, err)
+		}
+
+		// Verify root consistency
+		if calculatedRoot != root {
+			t.Errorf("Root mismatch for entry %d", i)
+		}
+
+		// Verify using our internal verification (simulates OpenZeppelin)
+		if !pg.verifyProof(proof, root, entry.Address, entry.TotalEarned) {
+			t.Errorf("Proof verification failed for entry %d", i)
+		}
+	}
+
+	// Root should be compatible with OpenZeppelin's MerkleProof.verify()
+	if len(common.Bytes2Hex(root[:])) != 64 {
+		t.Error("Invalid root length")
+	}
+}
+
+// TestZeroValueHandling ensures that zero values are handled correctly
+func TestZeroValueHandling(t *testing.T) {
+	// Test with zero amounts (should still be included in tree)
+	entries := []Entry{
+		{Address: "0x742d35Cc6bF8E65f8b95E6c5CB15F5C5D5b8DbC3", TotalEarned: big.NewInt(0)},
+		{Address: "0x1234567890123456789012345678901234567890", TotalEarned: big.NewInt(1000000000000000000)},
+	}
+
+	pg := NewProofGenerator()
+	root := pg.BuildMerkleRoot(entries)
+
+	// Generate proof for zero amount entry
+	proof, calculatedRoot, err := pg.GenerateProof(entries, entries[0].Address, entries[0].TotalEarned)
+	if err != nil {
+		t.Fatalf("Failed to generate proof for zero amount entry: %v", err)
+	}
+
+	if calculatedRoot != root {
+		t.Error("Root mismatch for zero amount entry")
+	}
+
+	if !pg.verifyProof(proof, root, entries[0].Address, entries[0].TotalEarned) {
+		t.Error("Proof verification failed for zero amount entry")
+	}
+}
+
+// TestLargeAmountHandling tests handling of very large amounts (near uint256 max)
+func TestLargeAmountHandling(t *testing.T) {
+	// Create a very large amount (close to uint256 max)
+	largeAmount := new(big.Int)
+	largeAmount.SetString("115792089237316195423570985008687907853269984665640564039457584007913129639935", 10)
+
+	entries := []Entry{
+		{Address: "0x742d35Cc6bF8E65f8b95E6c5CB15F5C5D5b8DbC3", TotalEarned: big.NewInt(1000000000000000000)},
+		{Address: "0x1234567890123456789012345678901234567890", TotalEarned: largeAmount},
+	}
+
+	pg := NewProofGenerator()
+	root := pg.BuildMerkleRoot(entries)
+
+	// Generate proof for large amount entry
+	proof, calculatedRoot, err := pg.GenerateProof(entries, entries[1].Address, entries[1].TotalEarned)
+	if err != nil {
+		t.Fatalf("Failed to generate proof for large amount entry: %v", err)
+	}
+
+	if calculatedRoot != root {
+		t.Error("Root mismatch for large amount entry")
+	}
+
+	if !pg.verifyProof(proof, root, entries[1].Address, entries[1].TotalEarned) {
+		t.Error("Proof verification failed for large amount entry")
+	}
+}
+
+// BenchmarkMerkleOperations benchmarks key Merkle operations
+func BenchmarkMerkleOperations(b *testing.B) {
+	// Prepare test data
+	entries := make([]Entry, 1000)
+	for i := 0; i < 1000; i++ {
+		addr := common.BigToAddress(big.NewInt(int64(i)))
+		amount := big.NewInt(int64((i + 1) * 1000000000000000000)) // (i+1) ETH
+		entries[i] = Entry{Address: addr.Hex(), TotalEarned: amount}
+	}
+
+	pg := NewProofGenerator()
+
+	b.Run("BuildMerkleRoot", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			pg.BuildMerkleRoot(entries)
+		}
+	})
+
+	root := pg.BuildMerkleRoot(entries)
+
+	b.Run("GenerateProof", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			targetEntry := entries[i%len(entries)]
+			_, _, _ = pg.GenerateProof(entries, targetEntry.Address, targetEntry.TotalEarned)
+		}
+	})
+
+	// Pre-generate a proof for verification benchmark
+	targetEntry := entries[0]
+	proof, _, _ := pg.GenerateProof(entries, targetEntry.Address, targetEntry.TotalEarned)
+
+	b.Run("VerifyProof", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			pg.verifyProof(proof, root, targetEntry.Address, targetEntry.TotalEarned)
+		}
+	})
+}

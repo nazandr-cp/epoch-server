@@ -4,47 +4,53 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"net/http"
 
-	"github.com/andrey/epoch-server/internal/clients/contract"
-	"github.com/andrey/epoch-server/internal/clients/graph"
-	"github.com/andrey/epoch-server/internal/config"
-	internalLog "github.com/andrey/epoch-server/internal/log"
-	"github.com/andrey/epoch-server/internal/scheduler"
-	"github.com/andrey/epoch-server/internal/service"
+	"github.com/andrey/epoch-server/internal/api"
+	"github.com/andrey/epoch-server/internal/infra/blockchain"
+	"github.com/andrey/epoch-server/internal/infra/config"
+	"github.com/andrey/epoch-server/internal/infra/logging"
+	"github.com/andrey/epoch-server/internal/infra/storage"
+	"github.com/andrey/epoch-server/internal/infra/subgraph"
+	"github.com/andrey/epoch-server/internal/services/epoch/epochimpl"
+	"github.com/andrey/epoch-server/internal/services/merkle"
+	"github.com/andrey/epoch-server/internal/services/merkle/merkleimpl"
 )
 
 func main() {
+	// Load configuration
 	cfg, err := config.Load()
 	if err != nil {
 		log.Fatalf("Failed to load configuration: %v", err)
 	}
 
-	logConfig := internalLog.Config{
+	// Setup logging
+	logConfig := logging.Config{
 		Level:  cfg.Logging.Level,
 		Format: cfg.Logging.Format,
 		Output: cfg.Logging.Output,
 	}
-	logger := internalLog.NewWithConfig(logConfig)
+	logger := logging.NewWithConfig(logConfig)
 
-	graphClient := graph.NewClient(cfg.Subgraph.Endpoint)
+	// Setup infrastructure components
+	subgraphClient := subgraph.NewClient(cfg.Subgraph.Endpoint)
 
 	// Perform subgraph health check during startup
 	logger.Logf("INFO checking subgraph connectivity at %s", cfg.Subgraph.Endpoint)
 	ctx := context.Background()
-	if err := graphClient.HealthCheck(ctx); err != nil {
+	if err := subgraphClient.HealthCheck(ctx); err != nil {
 		log.Fatalf("Failed to connect to subgraph: %v", err)
 	}
 	logger.Logf("INFO subgraph health check passed")
 
-	ethConfig := contract.EthereumConfig{
+	// Setup blockchain clients
+	ethConfig := blockchain.EthereumConfig{
 		RPCURL:     cfg.Ethereum.RPCURL,
 		PrivateKey: cfg.Ethereum.PrivateKey,
 		GasLimit:   cfg.Ethereum.GasLimit,
 		GasPrice:   cfg.Ethereum.GasPrice,
 	}
 
-	contractAddresses := contract.ContractAddresses{
+	contractAddresses := blockchain.ContractAddresses{
 		Comptroller:        cfg.Contracts.Comptroller,
 		EpochManager:       cfg.Contracts.EpochManager,
 		DebtSubsidizer:     cfg.Contracts.DebtSubsidizer,
@@ -52,22 +58,56 @@ func main() {
 		CollectionRegistry: cfg.Contracts.CollectionRegistry,
 	}
 
-	contractClient, err := contract.NewClientWithConfig(logger, ethConfig, contractAddresses)
+	contractClient, err := blockchain.NewClientWithConfig(logger, ethConfig, contractAddresses)
 	if err != nil {
 		log.Fatalf("Failed to initialize contract client: %v", err)
 	}
 
-	svc := service.NewService(graphClient, contractClient, logger, cfg)
-	schedulerInstance := scheduler.NewScheduler(cfg.Scheduler.Interval, svc, logger, cfg)
-	go schedulerInstance.Start(ctx)
+	// Setup storage
+	_ = storage.NewClient(logger)
 
-	// Get HTTP handler from service with all routes and middlewares configured
-	httpHandler := svc.NewHTTPHandler()
+	// Setup merkle service dependencies
+	calculator := merkleimpl.NewCalculator()
 
-	addr := fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port)
-	logger.Logf("INFO starting server on %s", addr)
+	// Setup services
+	epochService := epochimpl.New(contractClient, subgraphClient, calculator, logger, cfg)
+	
+	// Create a mock merkle service for now
+	merkleService := &mockMerkleService{logger: logger}
+	
+	// Create a mock subsidy service for now  
+	subsidyService := &mockSubsidyService{logger: logger}
 
-	if err := http.ListenAndServe(addr, httpHandler); err != nil {
+	// Setup scheduler - TODO: This needs to be updated to work with the new service interfaces
+	// schedulerInstance := scheduler.NewScheduler(cfg.Scheduler.Interval, epochService, logger, cfg)
+	// go schedulerInstance.Start(ctx)
+
+	// Setup and start HTTP server
+	server := api.NewServer(epochService, subsidyService, merkleService, logger, cfg)
+	
+	if err := server.Start(); err != nil {
 		logger.Logf("ERROR server failed to start: %v", err)
 	}
+}
+
+// Mock services for now - these will be replaced with proper implementations
+
+type mockMerkleService struct {
+	logger interface{}
+}
+
+func (m *mockMerkleService) GenerateUserMerkleProof(ctx context.Context, userAddress, vaultAddress string) (*merkle.UserMerkleProofResponse, error) {
+	return nil, fmt.Errorf("mock service not implemented")
+}
+
+func (m *mockMerkleService) GenerateHistoricalMerkleProof(ctx context.Context, userAddress, vaultAddress, epochNumber string) (*merkle.UserMerkleProofResponse, error) {
+	return nil, fmt.Errorf("mock service not implemented")
+}
+
+type mockSubsidyService struct {
+	logger interface{}
+}
+
+func (m *mockSubsidyService) DistributeSubsidies(ctx context.Context, vaultId string) error {
+	return fmt.Errorf("mock service not implemented")
 }
