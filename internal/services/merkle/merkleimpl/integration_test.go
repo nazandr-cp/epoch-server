@@ -1,10 +1,14 @@
 package merkleimpl
 
 import (
+	"context"
 	"math/big"
 	"testing"
 
+	"github.com/andrey/epoch-server/internal/infra/subgraph"
+	"github.com/dgraph-io/badger/v4"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/go-pkgz/lgr"
 )
 
 // TestMerkleCompatibility_CrossSystemIntegration demonstrates that the Go Merkle
@@ -18,15 +22,15 @@ func TestMerkleCompatibility_CrossSystemIntegration(t *testing.T) {
 		{Address: "0x0000000000000000000000000000000000000001", TotalEarned: big.NewInt(100000000000000000)},  // 0.1 ETH worth
 	}
 
-	pg := NewProofGenerator()
+	service := createTestServiceForIntegration(t)
 
 	// Generate Merkle root
-	root := pg.BuildMerkleRoot(testEntries)
+	root := service.BuildMerkleRootFromEntries(testEntries)
 
 	// Test each entry can generate valid proofs
 	for i, entry := range testEntries {
 		// Generate proof
-		proof, calculatedRoot, err := pg.GenerateProof(testEntries, entry.Address, entry.TotalEarned)
+		proof, calculatedRoot, err := service.GenerateProof(testEntries, entry.Address, entry.TotalEarned)
 		if err != nil {
 			t.Fatalf("Failed to generate proof for entry %d: %v", i, err)
 		}
@@ -37,7 +41,7 @@ func TestMerkleCompatibility_CrossSystemIntegration(t *testing.T) {
 		}
 
 		// Verify using our internal verification (simulates OpenZeppelin)
-		if !pg.verifyProof(proof, root, entry.Address, entry.TotalEarned) {
+		if !service.verifyProof(proof, root, entry.Address, entry.TotalEarned) {
 			t.Errorf("Proof verification failed for entry %d", i)
 		}
 	}
@@ -48,6 +52,59 @@ func TestMerkleCompatibility_CrossSystemIntegration(t *testing.T) {
 	}
 }
 
+// createTestServiceForIntegration creates a service instance for integration testing
+func createTestServiceForIntegration(t *testing.T) *Service {
+	tempDir := t.TempDir()
+	logger := lgr.NoOp
+
+	// Create badger database
+	opts := badger.DefaultOptions(tempDir)
+	opts.Logger = nil // Disable badger logging for tests
+	db, err := badger.Open(opts)
+	if err != nil {
+		t.Fatalf("Failed to open test database: %v", err)
+	}
+
+	// Create mock subgraph client
+	mockClient := &integrationTestSubgraphClient{}
+
+	return New(db, mockClient, logger)
+}
+
+// integrationTestSubgraphClient implements SubgraphClient for integration testing
+type integrationTestSubgraphClient struct{}
+
+func (m *integrationTestSubgraphClient) QueryEpochWithBlockInfo(ctx context.Context, epochNumber string) (*subgraph.Epoch, error) {
+	return &subgraph.Epoch{}, nil
+}
+
+func (m *integrationTestSubgraphClient) QueryCurrentActiveEpoch(ctx context.Context) (*subgraph.Epoch, error) {
+	return &subgraph.Epoch{}, nil
+}
+
+func (m *integrationTestSubgraphClient) ExecuteQuery(ctx context.Context, request subgraph.GraphQLRequest, response interface{}) error {
+	return nil
+}
+
+// createTestServiceForBenchmark creates a service instance for benchmark testing
+func createTestServiceForBenchmark(b *testing.B) *Service {
+	tempDir := b.TempDir()
+	logger := lgr.NoOp
+
+	// Create badger database
+	opts := badger.DefaultOptions(tempDir)
+	opts.Logger = nil // Disable badger logging for tests
+	db, err := badger.Open(opts)
+	if err != nil {
+		b.Fatalf("Failed to open test database: %v", err)
+	}
+
+	// Create mock subgraph client
+	mockClient := &integrationTestSubgraphClient{}
+
+	return New(db, mockClient, logger)
+}
+
 // TestZeroValueHandling ensures that zero values are handled correctly
 func TestZeroValueHandling(t *testing.T) {
 	// Test with zero amounts (should still be included in tree)
@@ -56,11 +113,11 @@ func TestZeroValueHandling(t *testing.T) {
 		{Address: "0x1234567890123456789012345678901234567890", TotalEarned: big.NewInt(1000000000000000000)},
 	}
 
-	pg := NewProofGenerator()
-	root := pg.BuildMerkleRoot(entries)
+	service := createTestServiceForIntegration(t)
+	root := service.BuildMerkleRootFromEntries(entries)
 
 	// Generate proof for zero amount entry
-	proof, calculatedRoot, err := pg.GenerateProof(entries, entries[0].Address, entries[0].TotalEarned)
+	proof, calculatedRoot, err := service.GenerateProof(entries, entries[0].Address, entries[0].TotalEarned)
 	if err != nil {
 		t.Fatalf("Failed to generate proof for zero amount entry: %v", err)
 	}
@@ -69,7 +126,7 @@ func TestZeroValueHandling(t *testing.T) {
 		t.Error("Root mismatch for zero amount entry")
 	}
 
-	if !pg.verifyProof(proof, root, entries[0].Address, entries[0].TotalEarned) {
+	if !service.verifyProof(proof, root, entries[0].Address, entries[0].TotalEarned) {
 		t.Error("Proof verification failed for zero amount entry")
 	}
 }
@@ -85,11 +142,11 @@ func TestLargeAmountHandling(t *testing.T) {
 		{Address: "0x1234567890123456789012345678901234567890", TotalEarned: largeAmount},
 	}
 
-	pg := NewProofGenerator()
-	root := pg.BuildMerkleRoot(entries)
+	service := createTestServiceForIntegration(t)
+	root := service.BuildMerkleRootFromEntries(entries)
 
 	// Generate proof for large amount entry
-	proof, calculatedRoot, err := pg.GenerateProof(entries, entries[1].Address, entries[1].TotalEarned)
+	proof, calculatedRoot, err := service.GenerateProof(entries, entries[1].Address, entries[1].TotalEarned)
 	if err != nil {
 		t.Fatalf("Failed to generate proof for large amount entry: %v", err)
 	}
@@ -98,7 +155,7 @@ func TestLargeAmountHandling(t *testing.T) {
 		t.Error("Root mismatch for large amount entry")
 	}
 
-	if !pg.verifyProof(proof, root, entries[1].Address, entries[1].TotalEarned) {
+	if !service.verifyProof(proof, root, entries[1].Address, entries[1].TotalEarned) {
 		t.Error("Proof verification failed for large amount entry")
 	}
 }
@@ -113,30 +170,30 @@ func BenchmarkMerkleOperations(b *testing.B) {
 		entries[i] = Entry{Address: addr.Hex(), TotalEarned: amount}
 	}
 
-	pg := NewProofGenerator()
+	service := createTestServiceForBenchmark(b)
 
 	b.Run("BuildMerkleRoot", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
-			pg.BuildMerkleRoot(entries)
+			service.BuildMerkleRootFromEntries(entries)
 		}
 	})
 
-	root := pg.BuildMerkleRoot(entries)
+	root := service.BuildMerkleRootFromEntries(entries)
 
 	b.Run("GenerateProof", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
 			targetEntry := entries[i%len(entries)]
-			_, _, _ = pg.GenerateProof(entries, targetEntry.Address, targetEntry.TotalEarned)
+			_, _, _ = service.GenerateProof(entries, targetEntry.Address, targetEntry.TotalEarned)
 		}
 	})
 
 	// Pre-generate a proof for verification benchmark
 	targetEntry := entries[0]
-	proof, _, _ := pg.GenerateProof(entries, targetEntry.Address, targetEntry.TotalEarned)
+	proof, _, _ := service.GenerateProof(entries, targetEntry.Address, targetEntry.TotalEarned)
 
 	b.Run("VerifyProof", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
-			pg.verifyProof(proof, root, targetEntry.Address, targetEntry.TotalEarned)
+			service.verifyProof(proof, root, targetEntry.Address, targetEntry.TotalEarned)
 		}
 	})
 }

@@ -45,13 +45,13 @@ func NewSubsidizerClientWithConfig(logger lgr.L, ethConfig SubsidizerEthereumCon
 		ethConfig:    ethConfig,
 		contractAddr: contractAddr,
 	}
-	
+
 	// Initialize Ethereum client and contract
 	if err := client.initialize(); err != nil {
 		logger.Logf("ERROR failed to initialize subsidizer client: %v", err)
 		return nil, err
 	}
-	
+
 	return client, nil
 }
 
@@ -128,7 +128,7 @@ func (c *SubsidizerClient) UpdateMerkleRoot(ctx context.Context, vaultId string,
 	contractAddr := common.HexToAddress(c.contractAddr)
 	contractInstance := c.subsidizer.Instance(c.ethClient, contractAddr)
 	tx, err := contractInstance.RawTransact(opts, data)
-	
+
 	if err != nil {
 		c.logger.Logf("ERROR failed to call updateMerkleRoot: %v", err)
 		return fmt.Errorf("failed to call updateMerkleRoot: %w", err)
@@ -182,7 +182,7 @@ func (c *SubsidizerClient) UpdateMerkleRootAndWaitForConfirmation(ctx context.Co
 	contractAddr := common.HexToAddress(c.contractAddr)
 	contractInstance := c.subsidizer.Instance(c.ethClient, contractAddr)
 	tx, err := contractInstance.RawTransact(opts, data)
-	
+
 	if err != nil {
 		c.logger.Logf("ERROR failed to call updateMerkleRoot: %v", err)
 		return fmt.Errorf("failed to call updateMerkleRoot: %w", err)
@@ -198,7 +198,7 @@ func (c *SubsidizerClient) UpdateMerkleRootAndWaitForConfirmation(ctx context.Co
 		c.logger.Logf("ERROR failed to wait for updateMerkleRoot transaction: %v", err)
 		return fmt.Errorf("failed to wait for updateMerkleRoot transaction: %w", err)
 	}
-	
+
 	if receipt.Status == 0 {
 		c.logger.Logf("ERROR updateMerkleRoot transaction failed: %s", tx.Hash().Hex())
 		return fmt.Errorf("updateMerkleRoot transaction failed with hash %s", tx.Hash().Hex())

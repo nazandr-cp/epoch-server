@@ -1,15 +1,20 @@
 package merkleimpl
 
 import (
+	"context"
 	"math/big"
 	"testing"
 
+	"github.com/andrey/epoch-server/internal/infra/subgraph"
+	"github.com/dgraph-io/badger/v4"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/go-pkgz/lgr"
 )
 
 func TestProofGenerator_OpenZeppelinCompatibility(t *testing.T) {
-	pg := NewProofGenerator()
+	// Create test service
+	service := createTestService(t)
 
 	// Test with sample data similar to what the contracts would use
 	entries := []Entry{
@@ -19,11 +24,11 @@ func TestProofGenerator_OpenZeppelinCompatibility(t *testing.T) {
 	}
 
 	// Generate Merkle root
-	root := pg.BuildMerkleRoot(entries)
+	root := service.BuildMerkleRootFromEntries(entries)
 
 	// Test proof generation for each entry
 	for i, entry := range entries {
-		proof, calculatedRoot, err := pg.GenerateProof(entries, entry.Address, entry.TotalEarned)
+		proof, calculatedRoot, err := service.GenerateProof(entries, entry.Address, entry.TotalEarned)
 		if err != nil {
 			t.Fatalf("Failed to generate proof for entry %d: %v", i, err)
 		}
@@ -35,14 +40,14 @@ func TestProofGenerator_OpenZeppelinCompatibility(t *testing.T) {
 		}
 
 		// Verify the proof manually (simulate OpenZeppelin's verify function)
-		if !pg.verifyProof(proof, root, entry.Address, entry.TotalEarned) {
+		if !service.verifyProof(proof, root, entry.Address, entry.TotalEarned) {
 			t.Errorf("Proof verification failed for entry %d", i)
 		}
 	}
 }
 
 func TestProofGenerator_LeafHashCompatibility(t *testing.T) {
-	pg := NewProofGenerator()
+	service := createTestService(t)
 
 	// Test cases that match the Solidity abi.encodePacked format
 	testCases := []struct {
@@ -69,7 +74,7 @@ func TestProofGenerator_LeafHashCompatibility(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			leaf := pg.createLeafHash(tc.address, tc.amount)
+			leaf := service.CreateLeafHash(tc.address, tc.amount)
 
 			// Verify the leaf hash format
 			if leaf == [32]byte{} {
@@ -77,7 +82,7 @@ func TestProofGenerator_LeafHashCompatibility(t *testing.T) {
 			}
 
 			// Verify consistency - same inputs should produce same hash
-			leaf2 := pg.createLeafHash(tc.address, tc.amount)
+			leaf2 := service.CreateLeafHash(tc.address, tc.amount)
 			if leaf != leaf2 {
 				t.Error("Leaf hash should be deterministic")
 			}
@@ -86,10 +91,10 @@ func TestProofGenerator_LeafHashCompatibility(t *testing.T) {
 }
 
 func TestProofGenerator_EmptyAndSingleEntry(t *testing.T) {
-	pg := NewProofGenerator()
+	service := createTestService(t)
 
 	// Test empty entries
-	emptyRoot := pg.BuildMerkleRoot([]Entry{})
+	emptyRoot := service.BuildMerkleRootFromEntries([]Entry{})
 	if emptyRoot != [32]byte{} {
 		t.Error("Empty entries should produce zero root")
 	}
@@ -99,8 +104,8 @@ func TestProofGenerator_EmptyAndSingleEntry(t *testing.T) {
 		{Address: "0x742d35Cc6bF8E65f8b95E6c5CB15F5C5D5b8DbC3", TotalEarned: big.NewInt(1000000000000000000)},
 	}
 
-	singleRoot := pg.BuildMerkleRoot(singleEntry)
-	expectedLeaf := pg.createLeafHash(singleEntry[0].Address, singleEntry[0].TotalEarned)
+	singleRoot := service.BuildMerkleRootFromEntries(singleEntry)
+	expectedLeaf := service.CreateLeafHash(singleEntry[0].Address, singleEntry[0].TotalEarned)
 
 	if singleRoot != expectedLeaf {
 		t.Errorf("Single entry root should equal the leaf hash: expected %s, got %s",
@@ -108,7 +113,7 @@ func TestProofGenerator_EmptyAndSingleEntry(t *testing.T) {
 	}
 
 	// Test proof for single entry
-	proof, root, err := pg.GenerateProof(singleEntry, singleEntry[0].Address, singleEntry[0].TotalEarned)
+	proof, root, err := service.GenerateProof(singleEntry, singleEntry[0].Address, singleEntry[0].TotalEarned)
 	if err != nil {
 		t.Fatalf("Failed to generate proof for single entry: %v", err)
 	}
@@ -123,7 +128,7 @@ func TestProofGenerator_EmptyAndSingleEntry(t *testing.T) {
 }
 
 func TestProofGenerator_DeterministicSorting(t *testing.T) {
-	pg := NewProofGenerator()
+	service := createTestService(t)
 
 	// Test that different input orders produce the same root
 	entries1 := []Entry{
@@ -138,8 +143,8 @@ func TestProofGenerator_DeterministicSorting(t *testing.T) {
 		{Address: "0x1234567890123456789012345678901234567890", TotalEarned: big.NewInt(2000000000000000000)},
 	}
 
-	root1 := pg.BuildMerkleRoot(entries1)
-	root2 := pg.BuildMerkleRoot(entries2)
+	root1 := service.BuildMerkleRootFromEntries(entries1)
+	root2 := service.BuildMerkleRootFromEntries(entries2)
 
 	if root1 != root2 {
 		t.Errorf("Different input orders should produce same root: %s vs %s",
@@ -149,16 +154,16 @@ func TestProofGenerator_DeterministicSorting(t *testing.T) {
 }
 
 // verifyProof simulates OpenZeppelin's MerkleProof.verify function
-func (pg *ProofGenerator) verifyProof(proof [][32]byte, root [32]byte, address string, amount *big.Int) bool {
-	leaf := pg.createLeafHash(address, amount)
-	return pg.processProof(proof, leaf) == root
+func (s *Service) verifyProof(proof [][32]byte, root [32]byte, address string, amount *big.Int) bool {
+	leaf := s.CreateLeafHash(address, amount)
+	return s.processProof(proof, leaf) == root
 }
 
 // processProof simulates OpenZeppelin's MerkleProof.processProof function
-func (pg *ProofGenerator) processProof(proof [][32]byte, leaf [32]byte) [32]byte {
+func (s *Service) processProof(proof [][32]byte, leaf [32]byte) [32]byte {
 	computedHash := leaf
 	for _, proofElement := range proof {
-		if pg.isLeftSmaller(computedHash, proofElement) {
+		if s.IsLeftSmaller(computedHash, proofElement) {
 			// computedHash goes on the left
 			combined := append(computedHash[:], proofElement[:]...)
 			computedHash = crypto.Keccak256Hash(combined)
@@ -176,7 +181,7 @@ func TestProofGenerator_LargeDataset(t *testing.T) {
 		t.Skip("Skipping large dataset test in short mode")
 	}
 
-	pg := NewProofGenerator()
+	service := createTestService(t)
 
 	// Generate a larger dataset to test performance and correctness
 	entries := make([]Entry, 100)
@@ -191,13 +196,13 @@ func TestProofGenerator_LargeDataset(t *testing.T) {
 	}
 
 	// Build root
-	root := pg.BuildMerkleRoot(entries)
+	root := service.BuildMerkleRootFromEntries(entries)
 
 	// Test a few random proofs
 	testIndices := []int{0, 10, 50, 99}
 	for _, idx := range testIndices {
 		entry := entries[idx]
-		proof, calculatedRoot, err := pg.GenerateProof(entries, entry.Address, entry.TotalEarned)
+		proof, calculatedRoot, err := service.GenerateProof(entries, entry.Address, entry.TotalEarned)
 		if err != nil {
 			t.Fatalf("Failed to generate proof for entry %d: %v", idx, err)
 		}
@@ -206,9 +211,57 @@ func TestProofGenerator_LargeDataset(t *testing.T) {
 			t.Errorf("Root mismatch for entry %d", idx)
 		}
 
-		if !pg.verifyProof(proof, root, entry.Address, entry.TotalEarned) {
+		if !service.verifyProof(proof, root, entry.Address, entry.TotalEarned) {
 			t.Errorf("Proof verification failed for entry %d", idx)
 		}
 
 	}
+}
+
+// createTestService creates a service instance for testing
+func createTestService(t *testing.T) *Service {
+	tempDir := t.TempDir()
+	logger := lgr.NoOp
+
+	// Create badger database
+	opts := badger.DefaultOptions(tempDir)
+	opts.Logger = nil // Disable badger logging for tests
+	db, err := badger.Open(opts)
+	if err != nil {
+		t.Fatalf("Failed to open test database: %v", err)
+	}
+
+	// Create mock subgraph client
+	mockClient := &testSubgraphClient{}
+
+	return New(db, mockClient, logger)
+}
+
+// testSubgraphClient implements SubgraphClient for testing
+type testSubgraphClient struct{}
+
+func (m *testSubgraphClient) QueryEpochWithBlockInfo(ctx context.Context, epochNumber string) (*subgraph.Epoch, error) {
+	return &subgraph.Epoch{
+		EpochNumber:                  epochNumber,
+		StartTimestamp:               "1640000000",
+		EndTimestamp:                 "1640086400",
+		ProcessingCompletedTimestamp: "1640086400",
+		CreatedAtBlock:               "12345678",
+		UpdatedAtBlock:               "12345680",
+	}, nil
+}
+
+func (m *testSubgraphClient) QueryCurrentActiveEpoch(ctx context.Context) (*subgraph.Epoch, error) {
+	return &subgraph.Epoch{
+		EpochNumber:                  "1",
+		StartTimestamp:               "1640000000",
+		EndTimestamp:                 "1640086400",
+		ProcessingCompletedTimestamp: "",
+		CreatedAtBlock:               "12345678",
+		UpdatedAtBlock:               "12345680",
+	}, nil
+}
+
+func (m *testSubgraphClient) ExecuteQuery(ctx context.Context, request subgraph.GraphQLRequest, response interface{}) error {
+	return nil
 }

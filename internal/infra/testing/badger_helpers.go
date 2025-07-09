@@ -56,7 +56,7 @@ func (h *BadgerTestHelper) AssertKeyValue(t require.TestingT, key string, expect
 		if err != nil {
 			return err
 		}
-		
+
 		return item.Value(func(val []byte) error {
 			require.Equal(t, expectedValue, val, "Value mismatch for key %s", key)
 			return nil
@@ -104,7 +104,7 @@ func (h *BadgerTestHelper) AssertTransactionIsolation(t require.TestingT, key st
 			if err != nil {
 				return err
 			}
-			
+
 			var val []byte
 			err = item.Value(func(v []byte) error {
 				val = append(val, v...)
@@ -113,10 +113,10 @@ func (h *BadgerTestHelper) AssertTransactionIsolation(t require.TestingT, key st
 			if err != nil {
 				return err
 			}
-			
+
 			// Simulate work
 			time.Sleep(50 * time.Millisecond)
-			
+
 			// Update value
 			newVal := append(val, []byte("-tx1")...)
 			return txn.Set([]byte(key), newVal)
@@ -135,7 +135,7 @@ func (h *BadgerTestHelper) AssertTransactionIsolation(t require.TestingT, key st
 			if err != nil {
 				return err
 			}
-			
+
 			var val []byte
 			err = item.Value(func(v []byte) error {
 				val = append(val, v...)
@@ -144,10 +144,10 @@ func (h *BadgerTestHelper) AssertTransactionIsolation(t require.TestingT, key st
 			if err != nil {
 				return err
 			}
-			
+
 			// Simulate work
 			time.Sleep(50 * time.Millisecond)
-			
+
 			// Update value
 			newVal := append(val, []byte("-tx2")...)
 			return txn.Set([]byte(key), newVal)
@@ -171,7 +171,7 @@ func (h *BadgerTestHelper) AssertTransactionIsolation(t require.TestingT, key st
 		if err != nil {
 			return err
 		}
-		
+
 		return item.Value(func(val []byte) error {
 			h.logger.Logf("DEBUG final value: %s", string(val))
 			// One of the transactions should have won
@@ -245,23 +245,23 @@ func (h *BadgerTestHelper) RunConcurrentOperations(operations []func() error) []
 func (h *BadgerTestHelper) CollectMetrics() BadgerMetrics {
 	lsm, vlog := h.container.GetStats()
 	keyCount, _ := h.container.GetKeyCount()
-	
+
 	return BadgerMetrics{
-		KeyCount:    keyCount,
-		LSMSize:     lsm,
-		VLogSize:    vlog,
-		TotalSize:   lsm + vlog,
-		Timestamp:   time.Now(),
+		KeyCount:  keyCount,
+		LSMSize:   lsm,
+		VLogSize:  vlog,
+		TotalSize: lsm + vlog,
+		Timestamp: time.Now(),
 	}
 }
 
 // BadgerMetrics holds BadgerDB metrics
 type BadgerMetrics struct {
-	KeyCount    int
-	LSMSize     int64
-	VLogSize    int64
-	TotalSize   int64
-	Timestamp   time.Time
+	KeyCount  int
+	LSMSize   int64
+	VLogSize  int64
+	TotalSize int64
+	Timestamp time.Time
 }
 
 // TestScenario represents a test scenario
@@ -277,31 +277,31 @@ type TestScenario struct {
 // RunScenario executes a test scenario
 func (h *BadgerTestHelper) RunScenario(t require.TestingT, scenario TestScenario) {
 	h.logger.Logf("INFO Running scenario: %s", scenario.Name)
-	
+
 	// Setup
 	if scenario.Setup != nil {
 		err := scenario.Setup(h)
 		require.NoError(t, err, "Setup failed for scenario: %s", scenario.Name)
 	}
-	
+
 	// Execute
 	if scenario.Execute != nil {
 		err := scenario.Execute(h)
 		require.NoError(t, err, "Execute failed for scenario: %s", scenario.Name)
 	}
-	
+
 	// Verify
 	if scenario.Verify != nil {
 		err := scenario.Verify(h, t)
 		require.NoError(t, err, "Verify failed for scenario: %s", scenario.Name)
 	}
-	
+
 	// Cleanup
 	if scenario.Cleanup != nil {
 		err := scenario.Cleanup(h)
 		require.NoError(t, err, "Cleanup failed for scenario: %s", scenario.Name)
 	}
-	
+
 	h.logger.Logf("INFO Scenario completed: %s", scenario.Name)
 }
 

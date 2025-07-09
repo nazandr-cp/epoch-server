@@ -17,7 +17,7 @@ type Config struct {
 func New(level string) lgr.L {
 	cfg := Config{
 		Level:  level,
-		Format: "text", // default format
+		Format: "text",   // default format
 		Output: "stdout", // default output
 	}
 	return NewWithConfig(cfg)
@@ -25,10 +25,10 @@ func New(level string) lgr.L {
 
 func NewWithConfig(cfg Config) lgr.L {
 	var options []lgr.Option
-	
+
 	// Add basic timestamp with milliseconds for transaction tracking
 	options = append(options, lgr.Msec)
-	
+
 	// Set log level
 	switch strings.ToLower(cfg.Level) {
 	case "trace":
@@ -38,7 +38,7 @@ func NewWithConfig(cfg Config) lgr.L {
 	case "info", "warn", "error":
 		// INFO is the default level in lgr
 	}
-	
+
 	// Configure format-specific options
 	switch strings.ToLower(cfg.Format) {
 	case "json":
@@ -51,7 +51,7 @@ func NewWithConfig(cfg Config) lgr.L {
 		// Default to text format with level braces
 		options = append(options, lgr.LevelBraces)
 	}
-	
+
 	// Set output destination
 	var output io.Writer = os.Stdout
 	switch strings.ToLower(cfg.Output) {
@@ -64,18 +64,18 @@ func NewWithConfig(cfg Config) lgr.L {
 		output = os.Stdout
 	}
 	options = append(options, lgr.Out(output))
-	
+
 	// Add caller information for debug and trace levels (helpful for blockchain debugging)
 	level := strings.ToLower(cfg.Level)
 	if level == "trace" || level == "debug" {
 		options = append(options, lgr.CallerFile, lgr.CallerFunc)
 	}
-	
+
 	// For error output, also send to stderr in addition to main output
 	// This is useful for container environments where errors should go to stderr
 	if strings.ToLower(cfg.Output) != "stderr" {
 		options = append(options, lgr.Err(os.Stderr))
 	}
-	
+
 	return lgr.New(options...)
 }

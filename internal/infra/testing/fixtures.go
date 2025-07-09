@@ -71,10 +71,10 @@ func (g *TestDataGenerator) GenerateEpochData(vaultID string, epochNumber *big.I
 	now := time.Now()
 	startTime := now.Add(-time.Duration(g.rand.Intn(3600)) * time.Second)
 	endTime := startTime.Add(time.Duration(g.rand.Intn(3600)+1800) * time.Second)
-	
+
 	statuses := []string{"pending", "active", "completed"}
 	status := statuses[g.rand.Intn(len(statuses))]
-	
+
 	return EpochData{
 		Number:      epochNumber,
 		StartTime:   startTime,
@@ -108,7 +108,7 @@ func (g *TestDataGenerator) GenerateMerkleData(vaultID string, epochNumber *big.
 			TotalEarned: amount,
 		}
 	}
-	
+
 	return MerkleData{
 		Entries:     entries,
 		MerkleRoot:  g.GenerateRandomHash(),
@@ -124,9 +124,9 @@ func (g *TestDataGenerator) GenerateMerkleData(vaultID string, epochNumber *big.
 func (g *TestDataGenerator) GenerateSubsidyData(vaultID string, epochNumber *big.Int) SubsidyData {
 	statuses := []string{"pending", "distributed", "failed"}
 	status := statuses[g.rand.Intn(len(statuses))]
-	
+
 	now := time.Now()
-	
+
 	data := SubsidyData{
 		ID:                g.GenerateRandomID(),
 		EpochNumber:       epochNumber,
@@ -137,13 +137,13 @@ func (g *TestDataGenerator) GenerateSubsidyData(vaultID string, epochNumber *big
 		CreatedAt:         now.Add(-time.Duration(g.rand.Intn(86400)) * time.Second),
 		UpdatedAt:         now,
 	}
-	
+
 	// Add tx hash and block number for distributed status
 	if status == "distributed" {
 		data.TxHash = g.GenerateRandomHash()
 		data.BlockNumber = g.rand.Int63n(1000000) + 18000000
 	}
-	
+
 	return data
 }
 
@@ -164,10 +164,10 @@ func (g *TestDataGenerator) GenerateRandomHash() string {
 // GenerateRandomAmount generates a random amount (up to 1000 ETH)
 func (g *TestDataGenerator) GenerateRandomAmount() *big.Int {
 	// Generate amount between 0.01 ETH and 1000 ETH
-	min := big.NewInt(10000000000000000)  // 0.01 ETH
+	min := big.NewInt(10000000000000000) // 0.01 ETH
 	max := new(big.Int)
 	max.SetString("1000000000000000000000", 10) // 1000 ETH
-	
+
 	diff := new(big.Int).Sub(max, min)
 	random := new(big.Int).Rand(g.rand, diff)
 	return random.Add(random, min)
@@ -194,24 +194,24 @@ type TestDataSet struct {
 // GenerateTestDataSet generates a complete test data set
 func (g *TestDataGenerator) GenerateTestDataSet(vaultID string, epochCount int, merkleEntriesPerEpoch int, subsidiesPerEpoch int) TestDataSet {
 	epochs := g.GenerateMultipleEpochData(vaultID, epochCount)
-	
+
 	var merkles []MerkleData
 	var subsidies []SubsidyData
-	
+
 	for i := 0; i < epochCount; i++ {
 		epochNumber := big.NewInt(int64(i + 1))
-		
+
 		// Generate merkle data for this epoch
 		merkleData := g.GenerateMerkleData(vaultID, epochNumber, merkleEntriesPerEpoch)
 		merkles = append(merkles, merkleData)
-		
+
 		// Generate subsidy data for this epoch
 		for j := 0; j < subsidiesPerEpoch; j++ {
 			subsidyData := g.GenerateSubsidyData(vaultID, epochNumber)
 			subsidies = append(subsidies, subsidyData)
 		}
 	}
-	
+
 	return TestDataSet{
 		VaultID:   vaultID,
 		Epochs:    epochs,
@@ -288,28 +288,28 @@ func (ts *TestScenarios) EdgeCaseScenario(vaultID string) TestDataSet {
 		// Current epoch
 		ts.generator.GenerateEpochData(vaultID, big.NewInt(time.Now().Unix())),
 	}
-	
+
 	// Merkle with zero entries
 	merkleEmpty := ts.generator.GenerateMerkleData(vaultID, big.NewInt(0), 0)
-	
+
 	// Merkle with single entry
 	merkleSingle := ts.generator.GenerateMerkleData(vaultID, big.NewInt(1), 1)
-	
+
 	// Merkle with max entries
 	merkleMax := ts.generator.GenerateMerkleData(vaultID, big.NewInt(999999999), 10000)
-	
+
 	merkles := []MerkleData{merkleEmpty, merkleSingle, merkleMax}
-	
+
 	// Subsidy with zero amount
 	subsidyZero := ts.generator.GenerateSubsidyData(vaultID, big.NewInt(0))
 	subsidyZero.Amount = big.NewInt(0)
-	
+
 	// Subsidy with max amount
 	subsidyMax := ts.generator.GenerateSubsidyData(vaultID, big.NewInt(999999999))
 	subsidyMax.Amount, _ = new(big.Int).SetString("115792089237316195423570985008687907853269984665640564039457584007913129639935", 10)
-	
+
 	subsidies := []SubsidyData{subsidyZero, subsidyMax}
-	
+
 	return TestDataSet{
 		VaultID:   vaultID,
 		Epochs:    epochs,

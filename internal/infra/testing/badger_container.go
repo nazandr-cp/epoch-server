@@ -50,7 +50,7 @@ func NewBadgerContainer(ctx context.Context, config BadgerContainerConfig) (*Bad
 	req := testcontainers.ContainerRequest{
 		Image: config.Image,
 		// Keep container running
-		Cmd: []string{"sleep", "3600"},
+		Cmd:          []string{"sleep", "3600"},
 		ExposedPorts: []string{},
 		WaitingFor:   wait.ForExec([]string{"echo", "ready"}).WithStartupTimeout(30 * time.Second),
 	}
@@ -71,7 +71,7 @@ func NewBadgerContainer(ctx context.Context, config BadgerContainerConfig) (*Bad
 		opts.Dir = "/tmp/badger-test"
 		opts.ValueDir = "/tmp/badger-test"
 	}
-	
+
 	// Set up BadgerDB options for testing
 	opts.Logger = newBadgerLogger(config.Logger)
 	opts.MemTableSize = 1 << 20 // 1MB for faster tests
@@ -80,11 +80,11 @@ func NewBadgerContainer(ctx context.Context, config BadgerContainerConfig) (*Bad
 	opts.NumLevelZeroTablesStall = 2
 	opts.LevelSizeMultiplier = 2
 	opts.MaxLevels = 3
-	opts.SyncWrites = false     // Faster for tests
+	opts.SyncWrites = false // Faster for tests
 	opts.NumVersionsToKeep = 1
 	opts.CompactL0OnClose = true
 	opts.ValueLogFileSize = 16 << 20 // 16MB - minimum valid size
-	
+
 	if config.Debug {
 		opts.Logger = newBadgerLogger(lgr.New(lgr.Debug))
 	}

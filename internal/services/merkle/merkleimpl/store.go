@@ -78,19 +78,19 @@ func (s *Store) SaveSnapshot(ctx context.Context, epochNumber *big.Int, snapshot
 // GetSnapshot retrieves a merkle snapshot for a specific epoch
 func (s *Store) GetSnapshot(ctx context.Context, epochNumber *big.Int, vaultID string) (*MerkleSnapshot, error) {
 	key := s.buildSnapshotKey(epochNumber, vaultID)
-	
+
 	var snapshot MerkleSnapshot
 	err := s.db.View(func(txn *badger.Txn) error {
 		item, err := txn.Get([]byte(key))
 		if err != nil {
 			return err
 		}
-		
+
 		return item.Value(func(val []byte) error {
 			return json.Unmarshal(val, &snapshot)
 		})
 	})
-	
+
 	if err != nil {
 		if err == badger.ErrKeyNotFound {
 			return nil, fmt.Errorf("snapshot not found for vault %s, epoch %s", vaultID, epochNumber.String())
@@ -104,20 +104,20 @@ func (s *Store) GetSnapshot(ctx context.Context, epochNumber *big.Int, vaultID s
 // GetLatestSnapshot retrieves the latest merkle snapshot for a vault
 func (s *Store) GetLatestSnapshot(ctx context.Context, vaultID string) (*MerkleSnapshot, error) {
 	latestKey := s.buildLatestKey(vaultID)
-	
+
 	var latestEpochStr string
 	err := s.db.View(func(txn *badger.Txn) error {
 		item, err := txn.Get([]byte(latestKey))
 		if err != nil {
 			return err
 		}
-		
+
 		return item.Value(func(val []byte) error {
 			latestEpochStr = string(val)
 			return nil
 		})
 	})
-	
+
 	if err != nil {
 		if err == badger.ErrKeyNotFound {
 			return nil, fmt.Errorf("no snapshots found for vault %s", vaultID)
@@ -137,30 +137,30 @@ func (s *Store) GetLatestSnapshot(ctx context.Context, vaultID string) (*MerkleS
 func (s *Store) ListSnapshots(ctx context.Context, vaultID string, limit int) ([]MerkleSnapshot, error) {
 	prefix := s.buildVaultPrefix(vaultID)
 	var snapshots []MerkleSnapshot
-	
+
 	err := s.db.View(func(txn *badger.Txn) error {
 		opts := badger.DefaultIteratorOptions
 		opts.Reverse = true // Get latest first
-		
+
 		it := txn.NewIterator(opts)
 		defer it.Close()
-		
+
 		count := 0
 		for it.Rewind(); it.Valid() && (limit == 0 || count < limit); it.Next() {
 			item := it.Item()
 			key := item.Key()
 			keyStr := string(key)
-			
+
 			// Skip keys that don't match our vault prefix
 			if !strings.HasPrefix(keyStr, prefix) {
 				continue
 			}
-			
+
 			// Skip non-snapshot keys (like latest pointer)
 			if !strings.Contains(keyStr, ":epoch:") {
 				continue
 			}
-			
+
 			err := item.Value(func(val []byte) error {
 				var snapshot MerkleSnapshot
 				if err := json.Unmarshal(val, &snapshot); err != nil {
@@ -177,7 +177,7 @@ func (s *Store) ListSnapshots(ctx context.Context, vaultID string, limit int) ([
 		}
 		return nil
 	})
-	
+
 	if err != nil {
 		return nil, fmt.Errorf("failed to list snapshots: %w", err)
 	}

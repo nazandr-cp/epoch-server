@@ -1,58 +1,62 @@
 package merkleimpl
 
 import (
+	"context"
 	"math/big"
 	"testing"
 
+	"github.com/andrey/epoch-server/internal/infra/subgraph"
+	"github.com/dgraph-io/badger/v4"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/go-pkgz/lgr"
 )
 
 // TestExactSolidityCompatibility performs ultra-precise validation that our Go
 // implementation matches the exact behavior expected by the Solidity contracts
 func TestExactSolidityCompatibility(t *testing.T) {
-	pg := NewProofGenerator()
-	
+	service := createTestServiceForSolidity(t)
+
 	// Test case that exactly matches DebtSubsidizer.sol expected format
 	// This mimics the exact data that would come from the lazy distributor
 	entries := []Entry{
 		{Address: "0x742d35Cc6bF8E65f8b95E6c5CB15F5C5D5b8DbC3", TotalEarned: big.NewInt(1500000000000000000)}, // 1.5 ETH
-		{Address: "0x1234567890123456789012345678901234567890", TotalEarned: big.NewInt(750000000000000000)},  // 0.75 ETH  
+		{Address: "0x1234567890123456789012345678901234567890", TotalEarned: big.NewInt(750000000000000000)},  // 0.75 ETH
 		{Address: "0xAbCdEfAbCdEfAbCdEfAbCdEfAbCdEfAbCdEfAbCd", TotalEarned: big.NewInt(2000000000000000000)}, // 2 ETH
 	}
-	
+
 	// Generate merkle root using our implementation
-	root := pg.BuildMerkleRoot(entries)
-	
+	root := service.BuildMerkleRootFromEntries(entries)
+
 	t.Logf("Generated Merkle Root: 0x%x", root)
-	
+
 	// For each entry, generate proof and verify it matches expected Solidity behavior
 	for i, entry := range entries {
 		t.Run(entry.Address, func(t *testing.T) {
 			// Generate proof
-			proof, calculatedRoot, err := pg.GenerateProof(entries, entry.Address, entry.TotalEarned)
+			proof, calculatedRoot, err := service.GenerateProof(entries, entry.Address, entry.TotalEarned)
 			if err != nil {
 				t.Fatalf("Failed to generate proof: %v", err)
 			}
-			
+
 			// Verify root consistency
 			if calculatedRoot != root {
 				t.Errorf("Root mismatch: expected %x, got %x", root, calculatedRoot)
 			}
-			
+
 			// Create the exact leaf that the Solidity contract would create
 			expectedLeaf := createSolidityCompatibleLeaf(entry.Address, entry.TotalEarned)
-			actualLeaf := pg.createLeafHash(entry.Address, entry.TotalEarned)
-			
+			actualLeaf := service.CreateLeafHash(entry.Address, entry.TotalEarned)
+
 			if expectedLeaf != actualLeaf {
 				t.Errorf("Leaf hash mismatch:\nExpected: %x\nActual:   %x", expectedLeaf, actualLeaf)
 			}
-			
+
 			// Verify proof using OpenZeppelin-compatible verification
 			if !simulateOpenZeppelinVerify(proof, root, expectedLeaf) {
 				t.Errorf("OpenZeppelin verification failed")
 			}
-			
+
 			// Log details for manual verification
 			t.Logf("Entry %d:", i)
 			t.Logf("  Address: %s", entry.Address)
@@ -71,28 +75,28 @@ func TestExactSolidityCompatibility(t *testing.T) {
 func createSolidityCompatibleLeaf(address string, amount *big.Int) [32]byte {
 	// Convert address to bytes exactly as Solidity would
 	addr := common.HexToAddress(address)
-	
+
 	// Create abi.encodePacked equivalent
 	// In Solidity: abi.encodePacked(address recipient, uint256 newTotal)
 	// - address is 20 bytes
 	// - uint256 is 32 bytes in big-endian format
 	packed := make([]byte, 52) // 20 + 32 = 52 bytes
-	
+
 	// Copy address bytes (20 bytes)
 	copy(packed[0:20], addr.Bytes())
-	
+
 	// Copy amount as 32-byte big-endian
 	amountBytes := make([]byte, 32)
 	amount.FillBytes(amountBytes) // FillBytes fills with big-endian representation
 	copy(packed[20:52], amountBytes)
-	
+
 	return crypto.Keccak256Hash(packed)
 }
 
 // simulateOpenZeppelinVerify simulates OpenZeppelin's MerkleProof.verify function
 func simulateOpenZeppelinVerify(proof [][32]byte, root [32]byte, leaf [32]byte) bool {
 	computedHash := leaf
-	
+
 	for _, proofElement := range proof {
 		// OpenZeppelin sorts the pair before hashing: keccak256(abi.encodePacked(a, b))
 		// where a and b are sorted so that a <= b
@@ -106,7 +110,7 @@ func simulateOpenZeppelinVerify(proof [][32]byte, root [32]byte, leaf [32]byte) 
 			computedHash = crypto.Keccak256Hash(combined)
 		}
 	}
-	
+
 	return computedHash == root
 }
 
@@ -126,8 +130,8 @@ func isHashSmaller(a, b [32]byte) bool {
 // TestKnownVectorCompatibility tests against known vectors that could be
 // pre-computed and verified against actual Solidity contract calls
 func TestKnownVectorCompatibility(t *testing.T) {
-	pg := NewProofGenerator()
-	
+	service := createTestServiceForSolidity(t)
+
 	// Known test vector - these values would be verified against actual contract
 	testVector := struct {
 		address      string
@@ -136,23 +140,23 @@ func TestKnownVectorCompatibility(t *testing.T) {
 	}{
 		address:      "0x742d35Cc6bF8E65f8b95E6c5CB15F5C5D5b8DbC3",
 		amount:       big.NewInt(1000000000000000000), // 1 ETH
-		expectedLeaf: "", // Would be filled with actual contract result
+		expectedLeaf: "",                              // Would be filled with actual contract result
 	}
-	
+
 	// Generate leaf using our implementation
-	actualLeaf := pg.createLeafHash(testVector.address, testVector.amount)
-	
+	actualLeaf := service.CreateLeafHash(testVector.address, testVector.amount)
+
 	// For now, just verify it's deterministic and not zero
 	if actualLeaf == [32]byte{} {
 		t.Error("Leaf hash should not be zero")
 	}
-	
+
 	// Verify the leaf matches our Solidity-compatible function
 	expectedLeaf := createSolidityCompatibleLeaf(testVector.address, testVector.amount)
 	if actualLeaf != expectedLeaf {
 		t.Errorf("Leaf mismatch:\nActual:   %x\nExpected: %x", actualLeaf, expectedLeaf)
 	}
-	
+
 	t.Logf("Address: %s", testVector.address)
 	t.Logf("Amount: %s", testVector.amount.String())
 	t.Logf("Leaf: 0x%x", actualLeaf)
@@ -161,25 +165,25 @@ func TestKnownVectorCompatibility(t *testing.T) {
 // TestCaseNormalization verifies that addresses are handled correctly
 // regardless of case, matching Ethereum's case-insensitive address handling
 func TestCaseNormalization(t *testing.T) {
-	pg := NewProofGenerator()
+	service := createTestServiceForSolidity(t)
 	amount := big.NewInt(1000000000000000000)
-	
+
 	// Same address in different cases
 	addresses := []string{
 		"0x742d35Cc6bF8E65f8b95E6c5CB15F5C5D5b8DbC3", // Mixed case
 		"0x742D35CC6BF8E65F8B95E6C5CB15F5C5D5B8DBC3", // Upper case
 		"0x742d35cc6bf8e65f8b95e6c5cb15f5c5d5b8dbc3", // Lower case
 	}
-	
+
 	var expectedLeaf [32]byte
 	for i, addr := range addresses {
-		leaf := pg.createLeafHash(addr, amount)
+		leaf := service.CreateLeafHash(addr, amount)
 		if i == 0 {
 			expectedLeaf = leaf
 			t.Logf("Reference leaf for %s: 0x%x", addr, leaf)
 		} else {
 			if leaf != expectedLeaf {
-				t.Errorf("Address %s produced different leaf hash: 0x%x (expected 0x%x)", 
+				t.Errorf("Address %s produced different leaf hash: 0x%x (expected 0x%x)",
 					addr, leaf, expectedLeaf)
 			} else {
 				t.Logf("Address %s correctly produced same leaf: 0x%x", addr, leaf)
@@ -190,32 +194,85 @@ func TestCaseNormalization(t *testing.T) {
 
 // BenchmarkSolidityCompatibleOperations benchmarks the Solidity-compatible functions
 func BenchmarkSolidityCompatibleOperations(b *testing.B) {
-	pg := NewProofGenerator()
+	service := createTestServiceForSolidityBenchmark(b)
 	address := "0x742d35Cc6bF8E65f8b95E6c5CB15F5C5D5b8DbC3"
 	amount := big.NewInt(1000000000000000000)
-	
+
 	b.Run("CreateLeafHash", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
-			pg.createLeafHash(address, amount)
+			service.CreateLeafHash(address, amount)
 		}
 	})
-	
+
 	b.Run("SolidityCompatibleLeaf", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
 			createSolidityCompatibleLeaf(address, amount)
 		}
 	})
-	
+
 	// Test with multiple entries
 	entries := []Entry{
 		{Address: "0x742d35Cc6bF8E65f8b95E6c5CB15F5C5D5b8DbC3", TotalEarned: big.NewInt(1000000000000000000)},
 		{Address: "0x1234567890123456789012345678901234567890", TotalEarned: big.NewInt(2000000000000000000)},
 		{Address: "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd", TotalEarned: big.NewInt(500000000000000000)},
 	}
-	
+
 	b.Run("BuildMerkleRoot", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
-			pg.BuildMerkleRoot(entries)
+			service.BuildMerkleRootFromEntries(entries)
 		}
 	})
+}
+
+// createTestServiceForSolidity creates a service instance for solidity verification testing
+func createTestServiceForSolidity(t *testing.T) *Service {
+	tempDir := t.TempDir()
+	logger := lgr.NoOp
+
+	// Create badger database
+	opts := badger.DefaultOptions(tempDir)
+	opts.Logger = nil // Disable badger logging for tests
+	db, err := badger.Open(opts)
+	if err != nil {
+		t.Fatalf("Failed to open test database: %v", err)
+	}
+
+	// Create mock subgraph client
+	mockClient := &solidityTestSubgraphClient{}
+
+	return New(db, mockClient, logger)
+}
+
+// createTestServiceForSolidityBenchmark creates a service instance for solidity benchmark testing
+func createTestServiceForSolidityBenchmark(b *testing.B) *Service {
+	tempDir := b.TempDir()
+	logger := lgr.NoOp
+
+	// Create badger database
+	opts := badger.DefaultOptions(tempDir)
+	opts.Logger = nil // Disable badger logging for tests
+	db, err := badger.Open(opts)
+	if err != nil {
+		b.Fatalf("Failed to open test database: %v", err)
+	}
+
+	// Create mock subgraph client
+	mockClient := &solidityTestSubgraphClient{}
+
+	return New(db, mockClient, logger)
+}
+
+// solidityTestSubgraphClient implements SubgraphClient for solidity testing
+type solidityTestSubgraphClient struct{}
+
+func (m *solidityTestSubgraphClient) QueryEpochWithBlockInfo(ctx context.Context, epochNumber string) (*subgraph.Epoch, error) {
+	return &subgraph.Epoch{}, nil
+}
+
+func (m *solidityTestSubgraphClient) QueryCurrentActiveEpoch(ctx context.Context) (*subgraph.Epoch, error) {
+	return &subgraph.Epoch{}, nil
+}
+
+func (m *solidityTestSubgraphClient) ExecuteQuery(ctx context.Context, request subgraph.GraphQLRequest, response interface{}) error {
+	return nil
 }

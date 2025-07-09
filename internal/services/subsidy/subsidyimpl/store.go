@@ -77,19 +77,19 @@ func (s *Store) SaveDistribution(ctx context.Context, distribution SubsidyDistri
 // GetDistribution retrieves a subsidy distribution by ID
 func (s *Store) GetDistribution(ctx context.Context, distributionID string) (*SubsidyDistribution, error) {
 	key := s.buildDistributionKey(distributionID)
-	
+
 	var distribution SubsidyDistribution
 	err := s.db.View(func(txn *badger.Txn) error {
 		item, err := txn.Get([]byte(key))
 		if err != nil {
 			return err
 		}
-		
+
 		return item.Value(func(val []byte) error {
 			return json.Unmarshal(val, &distribution)
 		})
 	})
-	
+
 	if err != nil {
 		if err == badger.ErrKeyNotFound {
 			return nil, fmt.Errorf("distribution not found: %s", distributionID)
@@ -104,17 +104,17 @@ func (s *Store) GetDistribution(ctx context.Context, distributionID string) (*Su
 func (s *Store) ListDistributionsByEpoch(ctx context.Context, epochNumber *big.Int, vaultID string) ([]SubsidyDistribution, error) {
 	prefix := s.buildEpochVaultPrefix(epochNumber, vaultID)
 	var distributions []SubsidyDistribution
-	
+
 	err := s.db.View(func(txn *badger.Txn) error {
 		opts := badger.DefaultIteratorOptions
 		opts.Prefix = []byte(prefix)
-		
+
 		it := txn.NewIterator(opts)
 		defer it.Close()
-		
+
 		for it.Rewind(); it.Valid(); it.Next() {
 			item := it.Item()
-			
+
 			err := item.Value(func(val []byte) error {
 				distributionID := string(val)
 				distribution, err := s.GetDistribution(ctx, distributionID)
@@ -131,7 +131,7 @@ func (s *Store) ListDistributionsByEpoch(ctx context.Context, epochNumber *big.I
 		}
 		return nil
 	})
-	
+
 	if err != nil {
 		return nil, fmt.Errorf("failed to list distributions: %w", err)
 	}
@@ -142,25 +142,25 @@ func (s *Store) ListDistributionsByEpoch(ctx context.Context, epochNumber *big.I
 // ListDistributionsByStatus retrieves all distributions with a specific status
 func (s *Store) ListDistributionsByStatus(ctx context.Context, status string, limit int) ([]SubsidyDistribution, error) {
 	var distributions []SubsidyDistribution
-	
+
 	err := s.db.View(func(txn *badger.Txn) error {
 		opts := badger.DefaultIteratorOptions
 		opts.Prefix = []byte("subsidy:distribution:")
-		
+
 		it := txn.NewIterator(opts)
 		defer it.Close()
-		
+
 		count := 0
 		for it.Rewind(); it.Valid() && (limit == 0 || count < limit); it.Next() {
 			item := it.Item()
-			
+
 			err := item.Value(func(val []byte) error {
 				var distribution SubsidyDistribution
 				if err := json.Unmarshal(val, &distribution); err != nil {
 					s.logger.Logf("WARN failed to unmarshal distribution: %v", err)
 					return nil // Continue iteration
 				}
-				
+
 				if distribution.Status == status {
 					distributions = append(distributions, distribution)
 					count++
@@ -173,7 +173,7 @@ func (s *Store) ListDistributionsByStatus(ctx context.Context, status string, li
 		}
 		return nil
 	})
-	
+
 	if err != nil {
 		return nil, fmt.Errorf("failed to list distributions by status: %w", err)
 	}

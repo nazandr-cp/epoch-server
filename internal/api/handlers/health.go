@@ -10,8 +10,8 @@ import (
 
 // HealthHandler handles health check requests
 type HealthHandler struct {
-	logger        lgr.L
-	healthChecks  []func() error
+	logger       lgr.L
+	healthChecks []func() error
 }
 
 // NewHealthHandler creates a new health handler
@@ -41,7 +41,7 @@ func (h *HealthHandler) HandleHealth(w http.ResponseWriter, r *http.Request) {
 		Status: "ok",
 		Checks: make(map[string]string),
 	}
-	
+
 	// Run all health checks
 	healthy := true
 	for i, check := range h.healthChecks {
@@ -53,12 +53,12 @@ func (h *HealthHandler) HandleHealth(w http.ResponseWriter, r *http.Request) {
 			response.Checks[checkName] = "OK"
 		}
 	}
-	
+
 	if !healthy {
 		response.Status = "unhealthy"
 		rest.EncodeJSON(w, http.StatusServiceUnavailable, response)
 		return
 	}
-	
+
 	rest.RenderJSON(w, response)
 }

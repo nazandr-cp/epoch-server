@@ -41,22 +41,22 @@ func writeErrorResponse(w http.ResponseWriter, r *http.Request, logger lgr.L, er
 // Helper functions to check error types across all services
 func isTransactionFailedError(err error) bool {
 	return errors.Is(err, epoch.ErrTransactionFailed) ||
-		   errors.Is(err, subsidy.ErrTransactionFailed)
+		errors.Is(err, subsidy.ErrTransactionFailed)
 }
 
 func isInvalidInputError(err error) bool {
 	return errors.Is(err, epoch.ErrInvalidInput) ||
-		   errors.Is(err, subsidy.ErrInvalidInput) ||
-		   errors.Is(err, merkle.ErrInvalidInput)
+		errors.Is(err, subsidy.ErrInvalidInput) ||
+		errors.Is(err, merkle.ErrInvalidInput)
 }
 
 func isNotFoundError(err error) bool {
 	return errors.Is(err, epoch.ErrNotFound) ||
-		   errors.Is(err, subsidy.ErrNotFound) ||
-		   errors.Is(err, merkle.ErrNotFound)
+		errors.Is(err, subsidy.ErrNotFound) ||
+		errors.Is(err, merkle.ErrNotFound)
 }
 
 func isTimeoutError(err error) bool {
 	return errors.Is(err, epoch.ErrTimeout) ||
-		   errors.Is(err, subsidy.ErrTimeout)
+		errors.Is(err, subsidy.ErrTimeout)
 }

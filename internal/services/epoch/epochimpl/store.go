@@ -75,19 +75,19 @@ func (s *Store) SaveEpoch(ctx context.Context, epoch EpochInfo) error {
 // GetEpoch retrieves epoch information
 func (s *Store) GetEpoch(ctx context.Context, epochNumber *big.Int, vaultID string) (*EpochInfo, error) {
 	key := s.buildEpochKey(epochNumber, vaultID)
-	
+
 	var epoch EpochInfo
 	err := s.db.View(func(txn *badger.Txn) error {
 		item, err := txn.Get([]byte(key))
 		if err != nil {
 			return err
 		}
-		
+
 		return item.Value(func(val []byte) error {
 			return json.Unmarshal(val, &epoch)
 		})
 	})
-	
+
 	if err != nil {
 		if err == badger.ErrKeyNotFound {
 			return nil, fmt.Errorf("epoch not found for vault %s, epoch %s", vaultID, epochNumber.String())
@@ -101,20 +101,20 @@ func (s *Store) GetEpoch(ctx context.Context, epochNumber *big.Int, vaultID stri
 // GetCurrentEpoch retrieves the current epoch for a vault
 func (s *Store) GetCurrentEpoch(ctx context.Context, vaultID string) (*EpochInfo, error) {
 	currentKey := s.buildCurrentKey(vaultID)
-	
+
 	var currentEpochStr string
 	err := s.db.View(func(txn *badger.Txn) error {
 		item, err := txn.Get([]byte(currentKey))
 		if err != nil {
 			return err
 		}
-		
+
 		return item.Value(func(val []byte) error {
 			currentEpochStr = string(val)
 			return nil
 		})
 	})
-	
+
 	if err != nil {
 		if err == badger.ErrKeyNotFound {
 			return nil, fmt.Errorf("no current epoch found for vault %s", vaultID)
@@ -134,30 +134,30 @@ func (s *Store) GetCurrentEpoch(ctx context.Context, vaultID string) (*EpochInfo
 func (s *Store) ListEpochs(ctx context.Context, vaultID string, limit int) ([]EpochInfo, error) {
 	prefix := s.buildVaultPrefix(vaultID)
 	var epochs []EpochInfo
-	
+
 	err := s.db.View(func(txn *badger.Txn) error {
 		opts := badger.DefaultIteratorOptions
 		opts.Reverse = true // Get latest first
-		
+
 		it := txn.NewIterator(opts)
 		defer it.Close()
-		
+
 		count := 0
 		for it.Rewind(); it.Valid() && (limit == 0 || count < limit); it.Next() {
 			item := it.Item()
 			key := item.Key()
 			keyStr := string(key)
-			
+
 			// Skip keys that don't match our vault prefix
 			if !strings.HasPrefix(keyStr, prefix) {
 				continue
 			}
-			
+
 			// Skip non-epoch keys (like current pointer)
 			if !strings.Contains(keyStr, ":epoch:") {
 				continue
 			}
-			
+
 			err := item.Value(func(val []byte) error {
 				var epoch EpochInfo
 				if err := json.Unmarshal(val, &epoch); err != nil {
@@ -174,7 +174,7 @@ func (s *Store) ListEpochs(ctx context.Context, vaultID string, limit int) ([]Ep
 		}
 		return nil
 	})
-	
+
 	if err != nil {
 		return nil, fmt.Errorf("failed to list epochs: %w", err)
 	}

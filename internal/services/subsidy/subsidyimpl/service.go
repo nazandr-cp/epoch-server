@@ -67,7 +67,7 @@ func isTransactionError(err error) bool {
 		"failed to send transaction",
 		"transaction timeout",
 	}
-	
+
 	for _, txErr := range transactionErrors {
 		if contains(errStr, txErr) {
 			return true
@@ -84,7 +84,7 @@ func contains(s, substr string) bool {
 	if len(s) < len(substr) {
 		return false
 	}
-	
+
 	for i := 0; i <= len(s)-len(substr); i++ {
 		if s[i:i+len(substr)] == substr {
 			return true

@@ -24,9 +24,9 @@ import (
 	"github.com/andrey/epoch-server/internal/infra/blockchain"
 	"github.com/andrey/epoch-server/internal/infra/config"
 	"github.com/andrey/epoch-server/internal/infra/logging"
+	"github.com/andrey/epoch-server/internal/infra/storage"
 	"github.com/andrey/epoch-server/internal/infra/subgraph"
 	"github.com/andrey/epoch-server/internal/services/epoch/epochimpl"
-	"github.com/andrey/epoch-server/internal/services/merkle"
 	"github.com/andrey/epoch-server/internal/services/merkle/merkleimpl"
 	"github.com/andrey/epoch-server/internal/services/scheduler"
 )
@@ -78,14 +78,22 @@ func main() {
 		log.Fatalf("Failed to initialize contract client: %v", err)
 	}
 
-	// Setup merkle service dependencies
-	calculator := merkleimpl.NewCalculator()
+	// Setup database
+	storageConfig := storage.StorageConfig{
+		Type: cfg.Database.Type,
+		Path: cfg.Database.ConnectionString,
+	}
+	dbWrapper, err := storage.NewDatabaseWrapper(storageConfig, logger)
+	if err != nil {
+		log.Fatalf("Failed to initialize database: %v", err)
+	}
+	defer dbWrapper.Close()
+
+	// Setup merkle service with unified implementation
+	merkleService := merkleimpl.New(dbWrapper.GetDB(), subgraphClient, logger)
 
 	// Setup services
-	epochService := epochimpl.New(contractClient, subgraphClient, calculator, logger, cfg)
-
-	// Create a mock merkle service for now
-	merkleService := &mockMerkleService{logger: logger}
+	epochService := epochimpl.New(contractClient, subgraphClient, merkleService, logger, cfg)
 
 	// Create a mock subsidy service for now
 	subsidyService := &mockSubsidyService{logger: logger}
@@ -103,19 +111,7 @@ func main() {
 	}
 }
 
-// Mock services for now - these will be replaced with proper implementations
-
-type mockMerkleService struct {
-	logger interface{}
-}
-
-func (m *mockMerkleService) GenerateUserMerkleProof(ctx context.Context, userAddress, vaultAddress string) (*merkle.UserMerkleProofResponse, error) {
-	return nil, fmt.Errorf("mock service not implemented")
-}
-
-func (m *mockMerkleService) GenerateHistoricalMerkleProof(ctx context.Context, userAddress, vaultAddress, epochNumber string) (*merkle.UserMerkleProofResponse, error) {
-	return nil, fmt.Errorf("mock service not implemented")
-}
+// Mock subsidy service for now - this will be replaced with proper implementation
 
 type mockSubsidyService struct {
 	logger interface{}

@@ -56,10 +56,10 @@ func (s *Server) SetupRoutes() http.Handler {
 
 	// Apply global middlewares
 	router.Use(rest.RealIP)
-	router.Use(rest.Trace)                                    // Add request tracing
-	router.Use(rest.SizeLimit(1024 * 1024))                  // 1MB request size limit
+	router.Use(rest.Trace)                  // Add request tracing
+	router.Use(rest.SizeLimit(1024 * 1024)) // 1MB request size limit
 	router.Use(middleware.Auth(s.logger))
-	router.Use(middleware.Logging(s.logger))                 // Keep custom logging middleware
+	router.Use(middleware.Logging(s.logger)) // Keep custom logging middleware
 	router.Use(middleware.Recovery(s.logger))
 	router.Use(rest.AppInfo("epoch-server", "andrey", "1.0.0"))
 	router.Use(rest.Ping)

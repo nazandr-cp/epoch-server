@@ -9,11 +9,11 @@ type SubsidyDistributionRequest struct {
 
 // SubsidyDistributionResponse represents the response from subsidy distribution
 type SubsidyDistributionResponse struct {
-	VaultID             string `json:"vaultId"`
-	EpochID             string `json:"epochId"`
-	TotalSubsidies      string `json:"totalSubsidies"`
-	AccountsProcessed   int    `json:"accountsProcessed"`
-	MerkleRoot          string `json:"merkleRoot"`
-	TransactionHash     string `json:"transactionHash,omitempty"`
-	Status              string `json:"status"`
+	VaultID           string `json:"vaultId"`
+	EpochID           string `json:"epochId"`
+	TotalSubsidies    string `json:"totalSubsidies"`
+	AccountsProcessed int    `json:"accountsProcessed"`
+	MerkleRoot        string `json:"merkleRoot"`
+	TransactionHash   string `json:"transactionHash,omitempty"`
+	Status            string `json:"status"`
 }

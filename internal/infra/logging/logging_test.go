@@ -48,7 +48,7 @@ func TestNewWithConfig(t *testing.T) {
 			if logger == nil {
 				t.Fatal("logger should not be nil")
 			}
-			
+
 			// Test that logger can log messages
 			logger.Logf("INFO test message for %s", tt.name)
 		})

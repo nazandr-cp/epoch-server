@@ -84,12 +84,12 @@ func (h *MerkleHandler) HandleGetUserHistoricalMerkleProof(w http.ResponseWriter
 	// Extract user address and epoch number from URL path
 	userAddress := r.PathValue("address")
 	epochNumber := r.PathValue("epochNumber")
-	
+
 	if userAddress == "" {
 		writeErrorResponse(w, r, h.logger, merkle.ErrInvalidInput, "Missing user address")
 		return
 	}
-	
+
 	if epochNumber == "" {
 		writeErrorResponse(w, r, h.logger, merkle.ErrInvalidInput, "Missing epoch number")
 		return

@@ -11,13 +11,13 @@ import (
 type TestConfig struct {
 	// BadgerDB configuration
 	BadgerDB BadgerDBTestConfig `yaml:"badger_db"`
-	
+
 	// Test execution configuration
 	Execution ExecutionConfig `yaml:"execution"`
-	
+
 	// Performance test configuration
 	Performance PerformanceConfig `yaml:"performance"`
-	
+
 	// Concurrency test configuration
 	Concurrency ConcurrencyConfig `yaml:"concurrency"`
 }
@@ -26,29 +26,28 @@ type TestConfig struct {
 type BadgerDBTestConfig struct {
 	// Base directory for test databases
 	BaseDir string `yaml:"base_dir"`
-	
+
 	// Whether to enable debug logging
 	Debug bool `yaml:"debug"`
-	
+
 	// Memory table size for tests (in bytes)
 	MemTableSize int64 `yaml:"mem_table_size"`
-	
+
 	// Number of memory tables
 	NumMemtables int `yaml:"num_memtables"`
-	
-	
+
 	// Whether to sync writes (slower but safer)
 	SyncWrites bool `yaml:"sync_writes"`
-	
+
 	// Number of versions to keep
 	NumVersionsToKeep int `yaml:"num_versions_to_keep"`
-	
+
 	// Compact L0 on close
 	CompactL0OnClose bool `yaml:"compact_l0_on_close"`
-	
+
 	// Maximum levels in LSM tree
 	MaxLevels int `yaml:"max_levels"`
-	
+
 	// Level size multiplier
 	LevelSizeMultiplier int `yaml:"level_size_multiplier"`
 }
@@ -57,16 +56,16 @@ type BadgerDBTestConfig struct {
 type ExecutionConfig struct {
 	// Timeout for individual tests
 	TestTimeout time.Duration `yaml:"test_timeout"`
-	
+
 	// Timeout for container startup
 	StartupTimeout time.Duration `yaml:"startup_timeout"`
-	
+
 	// Whether to run tests in parallel
 	ParallelExecution bool `yaml:"parallel_execution"`
-	
+
 	// Whether to clean up containers after tests
 	CleanupContainers bool `yaml:"cleanup_containers"`
-	
+
 	// Whether to preserve test data for debugging
 	PreserveData bool `yaml:"preserve_data"`
 }
@@ -75,22 +74,22 @@ type ExecutionConfig struct {
 type PerformanceConfig struct {
 	// Number of operations for performance tests
 	OperationCount int `yaml:"operation_count"`
-	
+
 	// Size of test data (in bytes)
 	DataSize int `yaml:"data_size"`
-	
+
 	// Number of concurrent operations
 	ConcurrentOperations int `yaml:"concurrent_operations"`
-	
+
 	// Duration for stress tests
 	StressDuration time.Duration `yaml:"stress_duration"`
-	
+
 	// Memory limit for tests (in bytes)
 	MemoryLimit int64 `yaml:"memory_limit"`
-	
+
 	// Whether to enable memory profiling
 	MemoryProfiling bool `yaml:"memory_profiling"`
-	
+
 	// Whether to enable CPU profiling
 	CPUProfiling bool `yaml:"cpu_profiling"`
 }
@@ -99,19 +98,19 @@ type PerformanceConfig struct {
 type ConcurrencyConfig struct {
 	// Number of concurrent goroutines
 	NumGoroutines int `yaml:"num_goroutines"`
-	
+
 	// Number of concurrent readers
 	NumReaders int `yaml:"num_readers"`
-	
+
 	// Number of concurrent writers
 	NumWriters int `yaml:"num_writers"`
-	
+
 	// Duration for concurrency tests
 	Duration time.Duration `yaml:"duration"`
-	
+
 	// Whether to test transaction conflicts
 	TestTransactionConflicts bool `yaml:"test_transaction_conflicts"`
-	
+
 	// Whether to test deadlock scenarios
 	TestDeadlocks bool `yaml:"test_deadlocks"`
 }
@@ -120,15 +119,15 @@ type ConcurrencyConfig struct {
 func DefaultTestConfig() TestConfig {
 	return TestConfig{
 		BadgerDB: BadgerDBTestConfig{
-			BaseDir:               "/tmp/badger-test",
-			Debug:                 false,
-			MemTableSize:          1 << 20, // 1MB
-			NumMemtables:          2,
-			SyncWrites:            false,
-			NumVersionsToKeep:     1,
-			CompactL0OnClose:      true,
-			MaxLevels:             3,
-			LevelSizeMultiplier:   2,
+			BaseDir:             "/tmp/badger-test",
+			Debug:               false,
+			MemTableSize:        1 << 20, // 1MB
+			NumMemtables:        2,
+			SyncWrites:          false,
+			NumVersionsToKeep:   1,
+			CompactL0OnClose:    true,
+			MaxLevels:           3,
+			LevelSizeMultiplier: 2,
 		},
 		Execution: ExecutionConfig{
 			TestTimeout:       5 * time.Minute,
@@ -191,12 +190,12 @@ func (c BadgerDBTestConfig) ToBadgerOptions(dir string, logger lgr.L) badger.Opt
 	opts.CompactL0OnClose = c.CompactL0OnClose
 	opts.MaxLevels = c.MaxLevels
 	opts.LevelSizeMultiplier = c.LevelSizeMultiplier
-	
+
 	// Test-specific optimizations
 	opts.NumLevelZeroTables = 1
 	opts.NumLevelZeroTablesStall = 2
-	opts.ValueThreshold = 32 // Store smaller values in LSM tree
+	opts.ValueThreshold = 32         // Store smaller values in LSM tree
 	opts.ValueLogFileSize = 16 << 20 // 16MB - minimum valid size
-	
+
 	return opts
 }

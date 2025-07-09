@@ -25,12 +25,12 @@ func NewDatabaseWrapper(config StorageConfig, logger lgr.L) (*DatabaseWrapper, e
 	case "badger":
 		opts := badger.DefaultOptions(config.Path)
 		opts.Logger = newBadgerLogger(logger)
-		
+
 		db, err := badger.Open(opts)
 		if err != nil {
 			return nil, fmt.Errorf("failed to open badger database: %w", err)
 		}
-		
+
 		return &DatabaseWrapper{
 			db:     db,
 			logger: logger,

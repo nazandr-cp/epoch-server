@@ -79,7 +79,6 @@ type AccountSubsidy struct {
 	UpdatedAtTimestamp      string  `json:"updatedAtTimestamp"`
 }
 
-
 type Epoch struct {
 	ID                            string `json:"id"`
 	EpochNumber                   string `json:"epochNumber"`
@@ -105,32 +104,32 @@ type Epoch struct {
 }
 
 type Collection struct {
-	ID                    string `json:"id"`
-	ContractAddress       string `json:"contractAddress"`
-	Name                  string `json:"name"`
-	Symbol                string `json:"symbol"`
-	TotalSupply           string `json:"totalSupply"`
-	CollectionType        string `json:"collectionType"`
-	IsActive              bool   `json:"isActive"`
-	YieldSharePercentage  string `json:"yieldSharePercentage"`
-	WeightFunctionType    string `json:"weightFunctionType"`
-	WeightFunctionP1      string `json:"weightFunctionP1"`
-	WeightFunctionP2      string `json:"weightFunctionP2"`
-	MinBorrowAmount       string `json:"minBorrowAmount"`
-	MaxBorrowAmount       string `json:"maxBorrowAmount"`
-	TotalNFTsDeposited    string `json:"totalNFTsDeposited"`
-	UpdatedAtBlock        string `json:"updatedAtBlock"`
-	UpdatedAtTimestamp    string `json:"updatedAtTimestamp"`
+	ID                   string `json:"id"`
+	ContractAddress      string `json:"contractAddress"`
+	Name                 string `json:"name"`
+	Symbol               string `json:"symbol"`
+	TotalSupply          string `json:"totalSupply"`
+	CollectionType       string `json:"collectionType"`
+	IsActive             bool   `json:"isActive"`
+	YieldSharePercentage string `json:"yieldSharePercentage"`
+	WeightFunctionType   string `json:"weightFunctionType"`
+	WeightFunctionP1     string `json:"weightFunctionP1"`
+	WeightFunctionP2     string `json:"weightFunctionP2"`
+	MinBorrowAmount      string `json:"minBorrowAmount"`
+	MaxBorrowAmount      string `json:"maxBorrowAmount"`
+	TotalNFTsDeposited   string `json:"totalNFTsDeposited"`
+	UpdatedAtBlock       string `json:"updatedAtBlock"`
+	UpdatedAtTimestamp   string `json:"updatedAtTimestamp"`
 }
 
 type MerkleDistribution struct {
-	ID            string `json:"id"`
-	Epoch         Epoch  `json:"epoch"`
-	Vault         string `json:"vault"`
-	MerkleRoot    string `json:"merkleRoot"`
-	TotalAmount   string `json:"totalAmount"`
-	Timestamp     string `json:"timestamp"`
-	UpdatedAtBlock string `json:"updatedAtBlock"`
+	ID                 string `json:"id"`
+	Epoch              Epoch  `json:"epoch"`
+	Vault              string `json:"vault"`
+	MerkleRoot         string `json:"merkleRoot"`
+	TotalAmount        string `json:"totalAmount"`
+	Timestamp          string `json:"timestamp"`
+	UpdatedAtBlock     string `json:"updatedAtBlock"`
 	UpdatedAtTimestamp string `json:"updatedAtTimestamp"`
 }
 
@@ -158,7 +157,7 @@ type AccountsResponse struct {
 	Accounts []Account `json:"accounts"`
 }
 
-// AccountSubsidiesResponse represents the response for account subsidies query  
+// AccountSubsidiesResponse represents the response for account subsidies query
 type AccountSubsidiesResponse struct {
 	AccountSubsidies []AccountSubsidy `json:"accountSubsidies"`
 }
@@ -174,7 +173,6 @@ type MerkleDistributionsResponse struct {
 }
 
 // UsersResponse is kept for backward compatibility
-
 
 // QueryAccounts queries accounts using the new schema
 func (c *Client) QueryAccounts(ctx context.Context) ([]Account, error) {
@@ -242,7 +240,6 @@ func (c *Client) QueryAccountSubsidiesForVault(ctx context.Context, vaultAddress
 
 	return response.AccountSubsidies, nil
 }
-
 
 func (c *Client) executeQuery(ctx context.Context, request GraphQLRequest, response interface{}) error {
 	jsonData, err := json.Marshal(request)
@@ -353,7 +350,7 @@ func (c *Client) ExecutePaginatedQuery(ctx context.Context, queryTemplate string
 	dataField := map[string]json.RawMessage{
 		entityField: allEntitiesJson,
 	}
-	
+
 	dataFieldJson, err := json.Marshal(dataField)
 	if err != nil {
 		return fmt.Errorf("failed to marshal data field: %w", err)
@@ -439,7 +436,7 @@ func (c *Client) ExecutePaginatedQueryAtBlock(ctx context.Context, queryTemplate
 	dataField := map[string]json.RawMessage{
 		entityField: allEntitiesJson,
 	}
-	
+
 	dataFieldJson, err := json.Marshal(dataField)
 	if err != nil {
 		return fmt.Errorf("failed to marshal data field: %w", err)
@@ -804,8 +801,8 @@ func (c *Client) QueryAccountSubsidiesForEpoch(ctx context.Context, vaultAddress
 	`
 
 	variables := map[string]interface{}{
-		"vaultId":            vaultAddress,
-		"epochEndTimestamp":  epochEndTimestamp,
+		"vaultId":           vaultAddress,
+		"epochEndTimestamp": epochEndTimestamp,
 	}
 
 	var response AccountSubsidiesResponse

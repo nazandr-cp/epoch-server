@@ -51,13 +51,13 @@ func NewClientWithConfig(logger lgr.L, ethConfig EthereumConfig, contracts Contr
 		ethConfig: ethConfig,
 		contracts: contracts,
 	}
-	
+
 	// Initialize Ethereum client and contracts
 	if err := client.initialize(); err != nil {
 		logger.Logf("ERROR failed to initialize contract client: %v", err)
 		return nil, err
 	}
-	
+
 	return client, nil
 }
 
@@ -99,7 +99,7 @@ func (c *Client) initialize() error {
 
 func (c *Client) StartEpoch(ctx context.Context) error {
 	c.logger.Logf("INFO starting epoch")
-	
+
 	if c.ethClient == nil || c.privateKey == nil {
 		c.logger.Logf("ERROR Ethereum client not initialized")
 		return fmt.Errorf("ethereum client not initialized")
@@ -130,14 +130,14 @@ func (c *Client) StartEpoch(ctx context.Context) error {
 	// Call startEpoch() function using simplified interface
 	data := c.epochManager.PackStartEpoch()
 	tx, err := contractInstance.RawTransact(opts, data)
-	
+
 	if err != nil {
 		c.logger.Logf("ERROR failed to call startEpoch: %v", err)
 		return fmt.Errorf("failed to call startEpoch: %w", err)
 	}
 
 	c.logger.Logf("INFO started epoch transaction sent: %s", tx.Hash().Hex())
-	
+
 	// Wait for transaction to be mined and check if it was successful
 	c.logger.Logf("DEBUG about to call bind.WaitMined for transaction %s", tx.Hash().Hex())
 	c.logger.Logf("INFO waiting for transaction %s to be mined...", tx.Hash().Hex())
@@ -146,14 +146,14 @@ func (c *Client) StartEpoch(ctx context.Context) error {
 		c.logger.Logf("ERROR failed to wait for startEpoch transaction %s: %v", tx.Hash().Hex(), err)
 		return fmt.Errorf("failed to wait for startEpoch transaction: %w", err)
 	}
-	
+
 	c.logger.Logf("INFO transaction %s mined in block %d", tx.Hash().Hex(), receipt.BlockNumber.Uint64())
-	
+
 	if receipt.Status == 0 {
 		c.logger.Logf("ERROR startEpoch transaction failed: %s", tx.Hash().Hex())
 		return fmt.Errorf("startEpoch transaction failed with hash %s", tx.Hash().Hex())
 	}
-	
+
 	c.logger.Logf("INFO startEpoch transaction successful: %s", tx.Hash().Hex())
 	return nil
 }
@@ -165,7 +165,7 @@ func (c *Client) DistributeSubsidies(ctx context.Context, epochID string) error 
 
 func (c *Client) GetCurrentEpochId(ctx context.Context) (*big.Int, error) {
 	c.logger.Logf("INFO getting current epoch ID")
-	
+
 	if c.ethClient == nil || c.privateKey == nil {
 		c.logger.Logf("WARN Ethereum client not initialized, returning epoch ID 1")
 		return big.NewInt(1), nil
@@ -199,7 +199,7 @@ func (c *Client) GetCurrentEpochId(ctx context.Context) (*big.Int, error) {
 
 func (c *Client) UpdateExchangeRate(ctx context.Context, lendingManagerAddress string) error {
 	c.logger.Logf("INFO updating exchange rate for LendingManager %s", lendingManagerAddress)
-	
+
 	if c.ethClient == nil || c.privateKey == nil {
 		c.logger.Logf("ERROR Ethereum client not initialized")
 		return fmt.Errorf("ethereum client not initialized")
@@ -225,7 +225,7 @@ func (c *Client) UpdateExchangeRate(ctx context.Context, lendingManagerAddress s
 
 	// Create LendingManager contract instance and call updateExchangeRate function
 	lendingManagerAddr := common.HexToAddress(lendingManagerAddress)
-	
+
 	// Create the function call data for updateExchangeRate()
 	methodID := crypto.Keccak256([]byte("updateExchangeRate()"))[:4]
 	data := methodID
@@ -233,33 +233,33 @@ func (c *Client) UpdateExchangeRate(ctx context.Context, lendingManagerAddress s
 	// Create contract instance for LendingManager
 	contractInstance := c.epochManager.Instance(c.ethClient, lendingManagerAddr)
 	tx, err := contractInstance.RawTransact(opts, data)
-	
+
 	if err != nil {
 		c.logger.Logf("ERROR failed to call updateExchangeRate: %v", err)
 		return fmt.Errorf("failed to call updateExchangeRate: %w", err)
 	}
 
 	c.logger.Logf("INFO updateExchangeRate transaction sent: %s", tx.Hash().Hex())
-	
+
 	// Wait for transaction to be mined and check if it was successful
 	receipt, err := bind.WaitMined(ctx, c.ethClient, tx)
 	if err != nil {
 		c.logger.Logf("ERROR failed to wait for updateExchangeRate transaction: %v", err)
 		return fmt.Errorf("failed to wait for updateExchangeRate transaction: %w", err)
 	}
-	
+
 	if receipt.Status == 0 {
 		c.logger.Logf("ERROR updateExchangeRate transaction failed: %s", tx.Hash().Hex())
 		return fmt.Errorf("updateExchangeRate transaction failed with hash %s", tx.Hash().Hex())
 	}
-	
+
 	c.logger.Logf("INFO updateExchangeRate transaction successful: %s", tx.Hash().Hex())
 	return nil
 }
 
 func (c *Client) AllocateYieldToEpoch(ctx context.Context, epochId *big.Int, vaultAddress string) error {
 	c.logger.Logf("INFO allocating yield to epoch %s for vault %s", epochId.String(), vaultAddress)
-	
+
 	if c.ethClient == nil || c.privateKey == nil {
 		c.logger.Logf("WARN Ethereum client not initialized, skipping allocateYieldToEpoch call")
 		return nil
@@ -285,7 +285,7 @@ func (c *Client) AllocateYieldToEpoch(ctx context.Context, epochId *big.Int, vau
 
 	// Create vault contract instance and call allocateYieldToEpoch function
 	vaultAddr := common.HexToAddress(vaultAddress)
-	
+
 	// Create the function call data for allocateYieldToEpoch(uint256)
 	methodID := crypto.Keccak256([]byte("allocateYieldToEpoch(uint256)"))[:4]
 	epochIdPacked := common.LeftPadBytes(epochId.Bytes(), 32)
@@ -294,33 +294,33 @@ func (c *Client) AllocateYieldToEpoch(ctx context.Context, epochId *big.Int, vau
 	// Create vault contract instance (not epoch manager) since allocateYieldToEpoch is on the vault
 	contractInstance := c.epochManager.Instance(c.ethClient, vaultAddr)
 	tx, err := contractInstance.RawTransact(opts, data)
-	
+
 	if err != nil {
 		c.logger.Logf("ERROR failed to call allocateYieldToEpoch: %v", err)
 		return fmt.Errorf("failed to call allocateYieldToEpoch: %w", err)
 	}
 
 	c.logger.Logf("INFO allocateYieldToEpoch transaction sent: %s", tx.Hash().Hex())
-	
+
 	// Wait for transaction to be mined and check if it was successful
 	receipt, err := bind.WaitMined(ctx, c.ethClient, tx)
 	if err != nil {
 		c.logger.Logf("ERROR failed to wait for allocateYieldToEpoch transaction: %v", err)
 		return fmt.Errorf("failed to wait for allocateYieldToEpoch transaction: %w", err)
 	}
-	
+
 	if receipt.Status == 0 {
 		c.logger.Logf("ERROR allocateYieldToEpoch transaction failed: %s", tx.Hash().Hex())
 		return fmt.Errorf("allocateYieldToEpoch transaction failed with hash %s", tx.Hash().Hex())
 	}
-	
+
 	c.logger.Logf("INFO allocateYieldToEpoch transaction successful: %s", tx.Hash().Hex())
 	return nil
 }
 
 func (c *Client) AllocateCumulativeYieldToEpoch(ctx context.Context, epochId *big.Int, vaultAddress string, amount *big.Int) error {
 	c.logger.Logf("INFO allocating cumulative yield %s to epoch %s for vault %s", amount.String(), epochId.String(), vaultAddress)
-	
+
 	if c.ethClient == nil || c.privateKey == nil {
 		c.logger.Logf("WARN Ethereum client not initialized, skipping allocateCumulativeYieldToEpoch call")
 		return nil
@@ -346,7 +346,7 @@ func (c *Client) AllocateCumulativeYieldToEpoch(ctx context.Context, epochId *bi
 
 	// Create vault contract instance and call allocateCumulativeYieldToEpoch function
 	vaultAddr := common.HexToAddress(vaultAddress)
-	
+
 	// Create the function call data for allocateCumulativeYieldToEpoch(uint256, uint256)
 	methodID := crypto.Keccak256([]byte("allocateCumulativeYieldToEpoch(uint256,uint256)"))[:4]
 	epochIdPacked := common.LeftPadBytes(epochId.Bytes(), 32)
@@ -357,34 +357,34 @@ func (c *Client) AllocateCumulativeYieldToEpoch(ctx context.Context, epochId *bi
 	// Create vault contract instance (not epoch manager) since allocateCumulativeYieldToEpoch is on the vault
 	contractInstance := c.epochManager.Instance(c.ethClient, vaultAddr)
 	tx, err := contractInstance.RawTransact(opts, data)
-	
+
 	if err != nil {
 		c.logger.Logf("ERROR failed to call allocateCumulativeYieldToEpoch: %v", err)
 		return fmt.Errorf("failed to call allocateCumulativeYieldToEpoch: %w", err)
 	}
 
 	c.logger.Logf("INFO allocateCumulativeYieldToEpoch transaction sent: %s", tx.Hash().Hex())
-	
+
 	// Wait for transaction to be mined and check if it was successful
 	receipt, err := bind.WaitMined(ctx, c.ethClient, tx)
 	if err != nil {
 		c.logger.Logf("ERROR failed to wait for allocateCumulativeYieldToEpoch transaction: %v", err)
 		return fmt.Errorf("failed to wait for allocateCumulativeYieldToEpoch transaction: %w", err)
 	}
-	
+
 	if receipt.Status == 0 {
 		c.logger.Logf("ERROR allocateCumulativeYieldToEpoch transaction failed: %s", tx.Hash().Hex())
 		return fmt.Errorf("allocateCumulativeYieldToEpoch transaction failed with hash %s", tx.Hash().Hex())
 	}
-	
+
 	c.logger.Logf("INFO allocateCumulativeYieldToEpoch transaction successful: %s", tx.Hash().Hex())
 	return nil
 }
 
 func (c *Client) EndEpochWithSubsidies(ctx context.Context, epochId *big.Int, vaultAddress string, merkleRoot [32]byte, subsidiesDistributed *big.Int) error {
-	c.logger.Logf("INFO ending epoch %s with subsidies: vault=%s, merkleRoot=%x, subsidies=%s", 
+	c.logger.Logf("INFO ending epoch %s with subsidies: vault=%s, merkleRoot=%x, subsidies=%s",
 		epochId.String(), vaultAddress, merkleRoot, subsidiesDistributed.String())
-	
+
 	if c.ethClient == nil || c.privateKey == nil {
 		c.logger.Logf("ERROR Ethereum client not initialized")
 		return fmt.Errorf("ethereum client not initialized")
@@ -418,33 +418,33 @@ func (c *Client) EndEpochWithSubsidies(ctx context.Context, epochId *big.Int, va
 	// Call endEpochWithSubsidies function
 	data := c.epochManager.PackEndEpochWithSubsidies(epochId, vaultAddr, merkleRoot, subsidiesDistributed)
 	tx, err := contractInstance.RawTransact(opts, data)
-	
+
 	if err != nil {
 		c.logger.Logf("ERROR failed to call endEpochWithSubsidies: %v", err)
 		return fmt.Errorf("failed to call endEpochWithSubsidies: %w", err)
 	}
 
 	c.logger.Logf("INFO endEpochWithSubsidies transaction sent: %s", tx.Hash().Hex())
-	
+
 	// Wait for transaction to be mined and check if it was successful
 	receipt, err := bind.WaitMined(ctx, c.ethClient, tx)
 	if err != nil {
 		c.logger.Logf("ERROR failed to wait for endEpochWithSubsidies transaction: %v", err)
 		return fmt.Errorf("failed to wait for endEpochWithSubsidies transaction: %w", err)
 	}
-	
+
 	if receipt.Status == 0 {
 		c.logger.Logf("ERROR endEpochWithSubsidies transaction failed: %s", tx.Hash().Hex())
 		return fmt.Errorf("endEpochWithSubsidies transaction failed with hash %s", tx.Hash().Hex())
 	}
-	
+
 	c.logger.Logf("INFO endEpochWithSubsidies transaction successful: %s", tx.Hash().Hex())
 	return nil
 }
 
 func (c *Client) ForceEndEpochWithZeroYield(ctx context.Context, epochId *big.Int, vaultAddress string) error {
 	c.logger.Logf("INFO force ending epoch %s with zero yield: vault=%s", epochId.String(), vaultAddress)
-	
+
 	if c.ethClient == nil || c.privateKey == nil {
 		c.logger.Logf("ERROR Ethereum client not initialized")
 		return fmt.Errorf("ethereum client not initialized")
@@ -482,7 +482,7 @@ func (c *Client) ForceEndEpochWithZeroYield(ctx context.Context, epochId *big.In
 	}
 
 	c.logger.Logf("INFO forceEndEpochWithZeroYield transaction sent: %s", tx.Hash().Hex())
-	
+
 	c.logger.Logf("INFO forceEndEpochWithZeroYield transaction successful: %s", tx.Hash().Hex())
 	return nil
 }

@@ -16,7 +16,7 @@ func Recovery(logger lgr.L) func(http.Handler) http.Handler {
 				if err := recover(); err != nil {
 					// Log the panic with stack trace
 					logger.Logf("ERROR panic recovered: %v\nStack trace:\n%s", err, debug.Stack())
-					
+
 					// Return a 500 error response
 					w.Header().Set("Content-Type", "application/json")
 					w.WriteHeader(http.StatusInternalServerError)
@@ -26,7 +26,7 @@ func Recovery(logger lgr.L) func(http.Handler) http.Handler {
 					})
 				}
 			}()
-			
+
 			next.ServeHTTP(w, r)
 		})
 	}

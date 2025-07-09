@@ -13,7 +13,7 @@ func Auth(logger lgr.L) func(http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// For now, this is a placeholder - you can implement actual auth logic here
 			// For example, checking API keys, JWT tokens, etc.
-			
+
 			// Example: Check for API key in header
 			apiKey := r.Header.Get("X-API-Key")
 			if apiKey == "" {
@@ -21,7 +21,7 @@ func Auth(logger lgr.L) func(http.Handler) http.Handler {
 				// In production, you might want to reject these
 				logger.Logf("WARN request without API key from %s", r.RemoteAddr)
 			}
-			
+
 			next.ServeHTTP(w, r)
 		})
 	}
@@ -43,11 +43,11 @@ func RequireAuth(logger lgr.L) func(http.Handler) http.Handler {
 				})
 				return
 			}
-			
+
 			// In a real implementation, you would validate the API key
 			// For now, just log and proceed
 			logger.Logf("DEBUG authenticated request with key: %s...", apiKey[:min(len(apiKey), 8)])
-			
+
 			next.ServeHTTP(w, r)
 		})
 	}

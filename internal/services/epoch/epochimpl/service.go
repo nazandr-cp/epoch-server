@@ -110,12 +110,12 @@ func (s *Service) ForceEndEpoch(ctx context.Context, epochId uint64, vaultId str
 			return fmt.Errorf("%w: cannot force end future epoch %d (current: %d)", epoch.ErrInvalidInput, epochId, currentEpochInt)
 		}
 	}
-	
+
 	// Convert epochId to big.Int
 	epochIdBig := big.NewInt(int64(epochId))
-	
+
 	s.logger.Logf("INFO calling ForceEndEpochWithZeroYield for epoch %d", epochId)
-	
+
 	if err := s.contractClient.ForceEndEpochWithZeroYield(ctx, epochIdBig, vaultId); err != nil {
 		s.logger.Logf("ERROR ForceEndEpochWithZeroYield failed for epoch %d: %v", epochId, err)
 		if isTransactionError(err) {
@@ -123,7 +123,7 @@ func (s *Service) ForceEndEpoch(ctx context.Context, epochId uint64, vaultId str
 		}
 		return fmt.Errorf("failed to force end epoch %d for vault %s: %w", epochId, vaultId, err)
 	}
-	
+
 	s.logger.Logf("INFO successfully force ended epoch %d for vault %s with zero yield", epochId, vaultId)
 	return nil
 }
@@ -291,7 +291,7 @@ func isTransactionError(err error) bool {
 		"failed to send transaction",
 		"transaction timeout",
 	}
-	
+
 	for _, txErr := range transactionErrors {
 		if contains(errStr, txErr) {
 			return true
@@ -308,7 +308,7 @@ func isEpochStillActiveError(err error) bool {
 		"epoch still active",
 		"EpochStillActive",
 	}
-	
+
 	for _, epochErr := range epochStillActiveErrors {
 		if contains(errStr, epochErr) {
 			return true
@@ -325,7 +325,7 @@ func contains(s, substr string) bool {
 	if len(s) < len(substr) {
 		return false
 	}
-	
+
 	for i := 0; i <= len(s)-len(substr); i++ {
 		if s[i:i+len(substr)] == substr {
 			return true

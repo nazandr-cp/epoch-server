@@ -23,41 +23,41 @@ func TestScheduler_NewScheduler(t *testing.T) {
 			return nil, nil
 		},
 	}
-	
+
 	mockSubsidyService := &SubsidyServiceMock{
 		DistributeSubsidiesFunc: func(ctx context.Context, vaultId string) error {
 			return nil
 		},
 	}
-	
+
 	logger := lgr.NoOp
 	cfg := &config.Config{}
 	cfg.Contracts.CollectionsVault = "0x1234567890123456789012345678901234567890"
-	
+
 	interval := 10 * time.Second
-	
+
 	scheduler := NewScheduler(mockEpochService, mockSubsidyService, interval, logger, cfg)
-	
+
 	if scheduler == nil {
 		t.Error("NewScheduler returned nil")
 	}
-	
+
 	if scheduler.epochService == nil {
 		t.Error("Scheduler epochService is nil")
 	}
-	
+
 	if scheduler.subsidyService == nil {
 		t.Error("Scheduler subsidyService is nil")
 	}
-	
+
 	if scheduler.logger == nil {
 		t.Error("Scheduler logger is nil")
 	}
-	
+
 	if scheduler.interval != interval {
 		t.Errorf("Expected interval %v, got %v", interval, scheduler.interval)
 	}
-	
+
 	if scheduler.config == nil {
 		t.Error("Scheduler config is nil")
 	}
@@ -66,7 +66,7 @@ func TestScheduler_NewScheduler(t *testing.T) {
 func TestScheduler_runEpochCycle(t *testing.T) {
 	epochStartCalled := false
 	subsidyDistributeCalled := false
-	
+
 	mockEpochService := &epoch.ServiceMock{
 		StartEpochFunc: func(ctx context.Context) error {
 			epochStartCalled = true
@@ -79,7 +79,7 @@ func TestScheduler_runEpochCycle(t *testing.T) {
 			return nil, nil
 		},
 	}
-	
+
 	mockSubsidyService := &SubsidyServiceMock{
 		DistributeSubsidiesFunc: func(ctx context.Context, vaultId string) error {
 			subsidyDistributeCalled = true
@@ -89,22 +89,22 @@ func TestScheduler_runEpochCycle(t *testing.T) {
 			return nil
 		},
 	}
-	
+
 	logger := lgr.NoOp
 	cfg := &config.Config{}
 	cfg.Contracts.CollectionsVault = "0x1234567890123456789012345678901234567890"
-	
+
 	interval := 10 * time.Second
-	
+
 	scheduler := NewScheduler(mockEpochService, mockSubsidyService, interval, logger, cfg)
-	
+
 	ctx := context.Background()
 	scheduler.runEpochCycle(ctx)
-	
+
 	if !epochStartCalled {
 		t.Error("Expected StartEpoch to be called")
 	}
-	
+
 	if !subsidyDistributeCalled {
 		t.Error("Expected DistributeSubsidies to be called")
 	}
@@ -113,7 +113,7 @@ func TestScheduler_runEpochCycle(t *testing.T) {
 func TestScheduler_runEpochCycle_WithErrors(t *testing.T) {
 	epochStartCalled := false
 	subsidyDistributeCalled := false
-	
+
 	mockEpochService := &epoch.ServiceMock{
 		StartEpochFunc: func(ctx context.Context) error {
 			epochStartCalled = true
@@ -126,29 +126,29 @@ func TestScheduler_runEpochCycle_WithErrors(t *testing.T) {
 			return nil, nil
 		},
 	}
-	
+
 	mockSubsidyService := &SubsidyServiceMock{
 		DistributeSubsidiesFunc: func(ctx context.Context, vaultId string) error {
 			subsidyDistributeCalled = true
 			return fmt.Errorf("subsidy distribute error")
 		},
 	}
-	
+
 	logger := lgr.NoOp
 	cfg := &config.Config{}
 	cfg.Contracts.CollectionsVault = "0x1234567890123456789012345678901234567890"
-	
+
 	interval := 10 * time.Second
-	
+
 	scheduler := NewScheduler(mockEpochService, mockSubsidyService, interval, logger, cfg)
-	
+
 	ctx := context.Background()
 	scheduler.runEpochCycle(ctx)
-	
+
 	if !epochStartCalled {
 		t.Error("Expected StartEpoch to be called")
 	}
-	
+
 	if !subsidyDistributeCalled {
 		t.Error("Expected DistributeSubsidies to be called")
 	}
