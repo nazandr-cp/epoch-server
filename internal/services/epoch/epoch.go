@@ -4,6 +4,8 @@ import (
 	"context"
 )
 
+//go:generate moq -out epoch_mocks.go . Service
+
 // Service defines the interface for epoch management operations
 type Service interface {
 	// StartEpoch initiates a new epoch

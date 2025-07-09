@@ -5,22 +5,36 @@ import (
 	"time"
 
 	"github.com/andrey/epoch-server/internal/infra/config"
+	"github.com/andrey/epoch-server/internal/services/epoch"
+	"github.com/andrey/epoch-server/internal/services/subsidy"
 	"github.com/go-pkgz/lgr"
 )
 
-type Scheduler struct {
-	// service  *service.Service  // TODO: Update to use new service interfaces
-	logger   lgr.L
-	interval time.Duration
-	config   *config.Config
+//go:generate moq -out scheduler_mocks.go . EpochService SubsidyService
+
+type EpochService interface {
+	StartEpoch(ctx context.Context) error
 }
 
-func NewScheduler(interval time.Duration, logger lgr.L, cfg *config.Config) *Scheduler {
+type SubsidyService interface {
+	DistributeSubsidies(ctx context.Context, vaultId string) error
+}
+
+type Scheduler struct {
+	epochService   EpochService
+	subsidyService SubsidyService
+	logger         lgr.L
+	interval       time.Duration
+	config         *config.Config
+}
+
+func NewScheduler(epochService epoch.Service, subsidyService subsidy.Service, interval time.Duration, logger lgr.L, cfg *config.Config) *Scheduler {
 	return &Scheduler{
-		// service:  svc,  // TODO: Update to use new service interfaces
-		logger:   logger,
-		interval: interval,
-		config:   cfg,
+		epochService:   epochService,
+		subsidyService: subsidyService,
+		logger:         logger,
+		interval:       interval,
+		config:         cfg,
 	}
 }
 
@@ -42,20 +56,18 @@ func (s *Scheduler) Start(ctx context.Context) {
 }
 
 func (s *Scheduler) runEpochCycle(ctx context.Context) {
-	// TODO: Update to use new service interfaces
-	// if err := s.service.StartEpoch(ctx); err != nil {
-	// 	s.logger.Logf("ERROR failed to start epoch: %v", err)
-	// } else {
-	// 	s.logger.Logf("INFO successfully started epoch")
-	// }
+	// Start epoch if needed
+	if err := s.epochService.StartEpoch(ctx); err != nil {
+		s.logger.Logf("ERROR failed to start epoch: %v", err)
+	} else {
+		s.logger.Logf("INFO successfully started epoch")
+	}
 
 	// Use vault address from configuration for subsidy distribution
-	// vaultId := s.config.Contracts.CollectionsVault
-	// if err := s.service.DistributeSubsidies(ctx, vaultId); err != nil {
-	// 	s.logger.Logf("ERROR failed to distribute subsidies: %v", err)
-	// } else {
-	// 	s.logger.Logf("INFO successfully distributed subsidies")
-	// }
-	
-	s.logger.Logf("INFO scheduler tick - service tasks would be executed here")
+	vaultId := s.config.Contracts.CollectionsVault
+	if err := s.subsidyService.DistributeSubsidies(ctx, vaultId); err != nil {
+		s.logger.Logf("ERROR failed to distribute subsidies: %v", err)
+	} else {
+		s.logger.Logf("INFO successfully distributed subsidies")
+	}
 }

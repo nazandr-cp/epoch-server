@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"time"
 
 	"github.com/andrey/epoch-server/internal/api"
 	"github.com/andrey/epoch-server/internal/infra/blockchain"
@@ -14,6 +15,7 @@ import (
 	"github.com/andrey/epoch-server/internal/services/epoch/epochimpl"
 	"github.com/andrey/epoch-server/internal/services/merkle"
 	"github.com/andrey/epoch-server/internal/services/merkle/merkleimpl"
+	"github.com/andrey/epoch-server/internal/services/scheduler"
 )
 
 func main() {
@@ -78,9 +80,10 @@ func main() {
 	// Create a mock subsidy service for now  
 	subsidyService := &mockSubsidyService{logger: logger}
 
-	// Setup scheduler - TODO: This needs to be updated to work with the new service interfaces
-	// schedulerInstance := scheduler.NewScheduler(cfg.Scheduler.Interval, epochService, logger, cfg)
-	// go schedulerInstance.Start(ctx)
+	// Setup scheduler with proper service interfaces
+	schedulerInterval := time.Duration(cfg.Scheduler.Interval) * time.Second
+	schedulerInstance := scheduler.NewScheduler(epochService, subsidyService, schedulerInterval, logger, cfg)
+	go schedulerInstance.Start(ctx)
 
 	// Setup and start HTTP server
 	server := api.NewServer(epochService, subsidyService, merkleService, logger, cfg)

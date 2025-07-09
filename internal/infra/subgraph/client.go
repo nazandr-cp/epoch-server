@@ -9,10 +9,33 @@ import (
 	"time"
 )
 
+//go:generate moq -out subgraph_mocks.go . SubgraphClient
+
+// SubgraphClient defines the interface for subgraph operations
+type SubgraphClient interface {
+	ExecuteQuery(ctx context.Context, request GraphQLRequest, response interface{}) error
+	QueryAccounts(ctx context.Context) ([]Account, error)
+	QueryAccountSubsidiesForVault(ctx context.Context, vaultAddress string) ([]AccountSubsidy, error)
+	QueryCompletedEpochs(ctx context.Context) ([]Epoch, error)
+	QueryEpochByNumber(ctx context.Context, epochNumber string) (*Epoch, error)
+	QueryCurrentActiveEpoch(ctx context.Context) (*Epoch, error)
+	QueryEpochWithBlockInfo(ctx context.Context, epochNumber string) (*Epoch, error)
+	QueryMerkleDistributionForEpoch(ctx context.Context, epochNumber string, vaultAddress string) (*MerkleDistribution, error)
+	QueryAccountSubsidiesAtBlock(ctx context.Context, vaultAddress string, blockNumber int64) ([]AccountSubsidy, error)
+	QueryAccountSubsidiesForEpoch(ctx context.Context, vaultAddress string, epochEndTimestamp string) ([]AccountSubsidy, error)
+	HealthCheck(ctx context.Context) error
+	ExecutePaginatedQuery(ctx context.Context, queryTemplate string, variables map[string]interface{}, entityField string, response interface{}) error
+	ExecuteQueryAtBlock(ctx context.Context, query string, variables map[string]interface{}, blockNumber int64, response interface{}) error
+	ExecutePaginatedQueryAtBlock(ctx context.Context, queryTemplate string, variables map[string]interface{}, entityField string, blockNumber int64, response interface{}) error
+}
+
 type Client struct {
 	httpClient *http.Client
 	endpoint   string
 }
+
+// Ensure Client implements SubgraphClient
+var _ SubgraphClient = (*Client)(nil)
 
 func NewClient(endpoint string) *Client {
 	return &Client{

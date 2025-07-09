@@ -4,6 +4,8 @@ import (
 	"context"
 )
 
+//go:generate moq -out merkle_mocks.go . Service
+
 // Service defines the interface for merkle proof operations
 type Service interface {
 	// GenerateUserMerkleProof generates a merkle proof for a user's current earnings
