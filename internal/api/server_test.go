@@ -107,6 +107,13 @@ func TestServerRoutes(t *testing.T) {
 			description:    "Get user historical merkle proof endpoint",
 		},
 		{
+			name:           "swagger_ui",
+			method:         "GET",
+			path:           "/swagger/index.html",
+			expectedStatus: http.StatusOK,
+			description:    "Swagger UI endpoint",
+		},
+		{
 			name:           "not_found",
 			method:         "GET",
 			path:           "/api/nonexistent",
@@ -143,7 +150,7 @@ func TestRouteGrouping(t *testing.T) {
 		{"/health", "GET", true},
 		{"/api/epochs/start", "POST", true},
 		{"/api/users/test/total-earned", "GET", true},
-		{"/epochs/start", "POST", false}, // Should not work without /api prefix
+		{"/epochs/start", "POST", false},           // Should not work without /api prefix
 		{"/users/test/total-earned", "GET", false}, // Should not work without /api prefix
 	}
 

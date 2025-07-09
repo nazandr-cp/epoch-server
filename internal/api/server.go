@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 
+	_ "github.com/andrey/epoch-server/docs"
 	"github.com/andrey/epoch-server/internal/api/handlers"
 	"github.com/andrey/epoch-server/internal/api/middleware"
 	"github.com/andrey/epoch-server/internal/infra/config"
@@ -13,6 +14,7 @@ import (
 	"github.com/go-pkgz/lgr"
 	"github.com/go-pkgz/rest"
 	"github.com/go-pkgz/routegroup"
+	httpSwagger "github.com/swaggo/http-swagger"
 )
 
 // Server represents the HTTP server
@@ -63,9 +65,12 @@ func (s *Server) SetupRoutes() http.Handler {
 	// Health check route (no grouping needed)
 	router.HandleFunc("GET /health", healthHandler.HandleHealth)
 
+	// Swagger documentation route
+	router.HandleFunc("GET /swagger/*", httpSwagger.Handler())
+
 	// API routes group
 	apiRouter := router.Mount("/api")
-	
+
 	// Epoch management routes
 	epochRouter := apiRouter.Mount("/epochs")
 	epochRouter.HandleFunc("POST /start", epochHandler.HandleStartEpoch)

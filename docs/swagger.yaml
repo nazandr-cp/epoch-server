@@ -1,0 +1,311 @@
+basePath: /
+consumes:
+- application/json
+definitions:
+  epoch.UserEarningsResponse:
+    properties:
+      calculatedAt:
+        type: integer
+      dataTimestamp:
+        description: Timestamp used for calculations
+        type: integer
+      totalEarned:
+        type: string
+      userAddress:
+        type: string
+      vaultAddress:
+        type: string
+    type: object
+  handlers.DistributeSubsidiesResponse:
+    properties:
+      message:
+        example: Subsidy distribution initiated successfully
+        type: string
+      status:
+        example: accepted
+        type: string
+      vaultID:
+        example: 0x1234567890123456789012345678901234567890
+        type: string
+    type: object
+  handlers.ErrorResponse:
+    properties:
+      code:
+        type: integer
+      details:
+        type: string
+      error:
+        type: string
+    type: object
+  handlers.ForceEndEpochResponse:
+    properties:
+      epochId:
+        example: 1
+        type: integer
+      message:
+        example: Force end epoch initiated successfully
+        type: string
+      status:
+        example: accepted
+        type: string
+      vaultID:
+        example: 0x1234567890123456789012345678901234567890
+        type: string
+    type: object
+  handlers.HealthResponse:
+    properties:
+      status:
+        example: ok
+        type: string
+    type: object
+  handlers.StartEpochResponse:
+    properties:
+      message:
+        example: Epoch start initiated successfully
+        type: string
+      status:
+        example: accepted
+        type: string
+    type: object
+  merkle.UserMerkleProofResponse:
+    properties:
+      epochNumber:
+        type: string
+      generatedAt:
+        type: integer
+      leafIndex:
+        type: integer
+      merkleProof:
+        items:
+          type: string
+        type: array
+      merkleRoot:
+        type: string
+      totalEarned:
+        type: string
+      userAddress:
+        type: string
+      vaultAddress:
+        type: string
+    type: object
+host: localhost:8080
+info:
+  contact:
+    email: support@lend.fam
+    name: API Support
+    url: http://lend.fam/support
+  description: Epoch Server for managing NFT collection-backed lending epochs, subsidies,
+    and merkle proofs
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+  termsOfService: http://lend.fam/terms/
+  title: Epoch Server API
+  version: "1.0"
+paths:
+  /api/epochs/distribute:
+    post:
+      consumes:
+      - application/json
+      description: Initiates the distribution of subsidies for the current epoch
+      produces:
+      - application/json
+      responses:
+        "202":
+          description: Subsidy distribution accepted
+          schema:
+            $ref: '#/definitions/handlers.DistributeSubsidiesResponse'
+        "400":
+          description: Bad request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Distribute subsidies
+      tags:
+      - epochs
+  /api/epochs/force-end:
+    post:
+      consumes:
+      - application/json
+      description: Forcibly ends an epoch with zero yield distribution
+      parameters:
+      - description: Epoch ID to force end
+        in: query
+        name: epochId
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "202":
+          description: Epoch force end accepted
+          schema:
+            $ref: '#/definitions/handlers.ForceEndEpochResponse'
+        "400":
+          description: Bad request - missing or invalid epochId
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Force end epoch
+      tags:
+      - epochs
+  /api/epochs/start:
+    post:
+      consumes:
+      - application/json
+      description: Initiates the start of a new epoch for yield distribution
+      produces:
+      - application/json
+      responses:
+        "202":
+          description: Epoch start accepted
+          schema:
+            $ref: '#/definitions/handlers.StartEpochResponse'
+        "400":
+          description: Bad request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Start epoch
+      tags:
+      - epochs
+  /api/users/{address}/merkle-proof:
+    get:
+      consumes:
+      - application/json
+      description: Generates a merkle proof for a user's current earnings
+      parameters:
+      - description: User wallet address
+        in: path
+        name: address
+        required: true
+        type: string
+      - description: Vault address (optional, uses default if not provided)
+        in: query
+        name: vault
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Merkle proof generated successfully
+          schema:
+            $ref: '#/definitions/merkle.UserMerkleProofResponse'
+        "400":
+          description: Bad request - invalid address
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "404":
+          description: User not found
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Get user merkle proof
+      tags:
+      - users
+  /api/users/{address}/merkle-proof/epoch/{epochNumber}:
+    get:
+      consumes:
+      - application/json
+      description: Generates a merkle proof for a user's earnings at a specific epoch
+      parameters:
+      - description: User wallet address
+        in: path
+        name: address
+        required: true
+        type: string
+      - description: Epoch number
+        in: path
+        name: epochNumber
+        required: true
+        type: string
+      - description: Vault address (optional, uses default if not provided)
+        in: query
+        name: vault
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Historical merkle proof generated successfully
+          schema:
+            $ref: '#/definitions/merkle.UserMerkleProofResponse'
+        "400":
+          description: Bad request - invalid address or epoch
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "404":
+          description: User or epoch not found
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Get historical merkle proof
+      tags:
+      - users
+  /api/users/{address}/total-earned:
+    get:
+      consumes:
+      - application/json
+      description: Retrieves the total amount earned by a user across all epochs
+      parameters:
+      - description: User wallet address
+        in: path
+        name: address
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: User earnings information
+          schema:
+            $ref: '#/definitions/epoch.UserEarningsResponse'
+        "400":
+          description: Bad request - invalid address
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "404":
+          description: User not found
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Get user total earned
+      tags:
+      - users
+  /health:
+    get:
+      description: Returns the current health status of the epoch server
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Service is healthy
+          schema:
+            $ref: '#/definitions/handlers.HealthResponse'
+      summary: Health check
+      tags:
+      - health
+produces:
+- application/json
+schemes:
+- http
+- https
+swagger: "2.0"

@@ -27,6 +27,18 @@ func NewMerkleHandler(merkleService merkle.Service, logger lgr.L, cfg *config.Co
 }
 
 // HandleGetUserMerkleProof handles user merkle proof requests
+// @Summary Get user merkle proof
+// @Description Generates a merkle proof for a user's current earnings
+// @Tags users
+// @Accept json
+// @Produce json
+// @Param address path string true "User wallet address" example:"0x1234567890123456789012345678901234567890"
+// @Param vault query string false "Vault address (optional, uses default if not provided)" example:"0x1234567890123456789012345678901234567890"
+// @Success 200 {object} merkle.UserMerkleProofResponse "Merkle proof generated successfully"
+// @Failure 400 {object} ErrorResponse "Bad request - invalid address"
+// @Failure 404 {object} ErrorResponse "User not found"
+// @Failure 500 {object} ErrorResponse "Internal server error"
+// @Router /api/users/{address}/merkle-proof [get]
 func (h *MerkleHandler) HandleGetUserMerkleProof(w http.ResponseWriter, r *http.Request) {
 	// Extract user address from URL path
 	userAddress := r.PathValue("address")
@@ -57,6 +69,19 @@ func (h *MerkleHandler) HandleGetUserMerkleProof(w http.ResponseWriter, r *http.
 }
 
 // HandleGetUserHistoricalMerkleProof handles historical merkle proof requests
+// @Summary Get historical merkle proof
+// @Description Generates a merkle proof for a user's earnings at a specific epoch
+// @Tags users
+// @Accept json
+// @Produce json
+// @Param address path string true "User wallet address" example:"0x1234567890123456789012345678901234567890"
+// @Param epochNumber path string true "Epoch number" example:"1"
+// @Param vault query string false "Vault address (optional, uses default if not provided)" example:"0x1234567890123456789012345678901234567890"
+// @Success 200 {object} merkle.UserMerkleProofResponse "Historical merkle proof generated successfully"
+// @Failure 400 {object} ErrorResponse "Bad request - invalid address or epoch"
+// @Failure 404 {object} ErrorResponse "User or epoch not found"
+// @Failure 500 {object} ErrorResponse "Internal server error"
+// @Router /api/users/{address}/merkle-proof/epoch/{epochNumber} [get]
 func (h *MerkleHandler) HandleGetUserHistoricalMerkleProof(w http.ResponseWriter, r *http.Request) {
 	// Extract user address and epoch number from URL path
 	userAddress := r.PathValue("address")

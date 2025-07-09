@@ -1,3 +1,17 @@
+// @title Epoch Server API
+// @version 1.0
+// @description Epoch Server for managing NFT collection-backed lending epochs, subsidies, and merkle proofs
+// @termsOfService http://lend.fam/terms/
+// @contact.name API Support
+// @contact.url http://lend.fam/support
+// @contact.email support@lend.fam
+// @license.name MIT
+// @license.url https://opensource.org/licenses/MIT
+// @host localhost:8080
+// @BasePath /
+// @schemes http https
+// @accept json
+// @produce json
 package main
 
 import (
