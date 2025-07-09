@@ -1,9 +1,11 @@
 package testing
 
 import (
+	"context"
 	"fmt"
 	"math/big"
 	"math/rand"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -305,12 +307,14 @@ func (h *BadgerTestHelper) RunScenario(t require.TestingT, scenario TestScenario
 
 // CreateEpochKey creates a test epoch key
 func (h *BadgerTestHelper) CreateEpochKey(vaultID string, epochNumber *big.Int) string {
-	return fmt.Sprintf("epoch:vault:%s:epoch:%020s", vaultID, epochNumber.String())
+	normalizedVaultID := strings.ToLower(vaultID)
+	return fmt.Sprintf("epoch:vault:%s:epoch:%020s", normalizedVaultID, epochNumber.String())
 }
 
 // CreateMerkleKey creates a test merkle key
 func (h *BadgerTestHelper) CreateMerkleKey(vaultID string, epochNumber *big.Int) string {
-	return fmt.Sprintf("merkle:snapshot:vault:%s:epoch:%020s", vaultID, epochNumber.String())
+	normalizedVaultID := strings.ToLower(vaultID)
+	return fmt.Sprintf("merkle:snapshot:vault:%s:epoch:%020s", normalizedVaultID, epochNumber.String())
 }
 
 // CreateSubsidyKey creates a test subsidy key
@@ -320,7 +324,8 @@ func (h *BadgerTestHelper) CreateSubsidyKey(distributionID string) string {
 
 // CreateSubsidyEpochKey creates a test subsidy epoch index key
 func (h *BadgerTestHelper) CreateSubsidyEpochKey(epochNumber *big.Int, vaultID string, distributionID string) string {
-	return fmt.Sprintf("subsidy:epoch:%020s:vault:%s:distribution:%s", epochNumber.String(), vaultID, distributionID)
+	normalizedVaultID := strings.ToLower(vaultID)
+	return fmt.Sprintf("subsidy:epoch:%020s:vault:%s:distribution:%s", epochNumber.String(), normalizedVaultID, distributionID)
 }
 
 // WaitForCondition waits for a condition to be true with timeout
@@ -333,4 +338,24 @@ func (h *BadgerTestHelper) WaitForCondition(condition func() bool, timeout time.
 		time.Sleep(interval)
 	}
 	return false
+}
+
+// GetHost returns the container host
+func (h *BadgerTestHelper) GetHost(ctx context.Context) (string, error) {
+	return h.container.GetHost(ctx)
+}
+
+// Sync forces a sync of the BadgerDB
+func (h *BadgerTestHelper) Sync() error {
+	return h.container.Sync()
+}
+
+// RunGC runs garbage collection on the BadgerDB
+func (h *BadgerTestHelper) RunGC(ctx context.Context) error {
+	return h.container.RunGC(ctx)
+}
+
+// Clear removes all data from the BadgerDB
+func (h *BadgerTestHelper) Clear() error {
+	return h.container.Clear()
 }

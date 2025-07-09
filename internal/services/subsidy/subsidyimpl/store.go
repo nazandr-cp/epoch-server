@@ -189,8 +189,13 @@ func (s *Store) UpdateDistributionStatus(ctx context.Context, distributionID str
 	}
 
 	distribution.Status = status
-	distribution.TxHash = txHash
-	distribution.BlockNumber = blockNumber
+	// Only update TxHash and BlockNumber if they are provided (not empty/zero)
+	if txHash != "" {
+		distribution.TxHash = txHash
+	}
+	if blockNumber > 0 {
+		distribution.BlockNumber = blockNumber
+	}
 	distribution.UpdatedAt = time.Now()
 
 	return s.SaveDistribution(ctx, *distribution)

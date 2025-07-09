@@ -24,7 +24,6 @@ import (
 	"github.com/andrey/epoch-server/internal/infra/blockchain"
 	"github.com/andrey/epoch-server/internal/infra/config"
 	"github.com/andrey/epoch-server/internal/infra/logging"
-	"github.com/andrey/epoch-server/internal/infra/storage"
 	"github.com/andrey/epoch-server/internal/infra/subgraph"
 	"github.com/andrey/epoch-server/internal/services/epoch/epochimpl"
 	"github.com/andrey/epoch-server/internal/services/merkle"
@@ -79,19 +78,16 @@ func main() {
 		log.Fatalf("Failed to initialize contract client: %v", err)
 	}
 
-	// Setup storage
-	_ = storage.NewClient(logger)
-
 	// Setup merkle service dependencies
 	calculator := merkleimpl.NewCalculator()
 
 	// Setup services
 	epochService := epochimpl.New(contractClient, subgraphClient, calculator, logger, cfg)
-	
+
 	// Create a mock merkle service for now
 	merkleService := &mockMerkleService{logger: logger}
-	
-	// Create a mock subsidy service for now  
+
+	// Create a mock subsidy service for now
 	subsidyService := &mockSubsidyService{logger: logger}
 
 	// Setup scheduler with proper service interfaces
@@ -101,7 +97,7 @@ func main() {
 
 	// Setup and start HTTP server
 	server := api.NewServer(epochService, subsidyService, merkleService, logger, cfg)
-	
+
 	if err := server.Start(); err != nil {
 		logger.Logf("ERROR server failed to start: %v", err)
 	}
