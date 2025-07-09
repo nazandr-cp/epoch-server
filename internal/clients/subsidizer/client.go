@@ -92,7 +92,7 @@ func (c *Client) initialize() error {
 	return nil
 }
 
-func (c *Client) UpdateMerkleRoot(ctx context.Context, vaultId string, root [32]byte) error {
+func (c *Client) UpdateMerkleRoot(ctx context.Context, vaultId string, root [32]byte, totalSubsidies *big.Int) error {
 	// If not initialized (mock mode), just log
 	if c.ethClient == nil {
 		c.logger.Logf("INFO [MOCK] updating merkle root for vault %s: %x", vaultId, root)
@@ -122,7 +122,7 @@ func (c *Client) UpdateMerkleRoot(ctx context.Context, vaultId string, root [32]
 
 	// Build transaction data
 	vaultAddress := common.HexToAddress(vaultId)
-	data := c.subsidizer.PackUpdateMerkleRoot(vaultAddress, root)
+	data := c.subsidizer.PackUpdateMerkleRoot(vaultAddress, root, totalSubsidies)
 
 	// Create contract instance and submit transaction
 	contractAddr := common.HexToAddress(c.contractAddr)
@@ -138,7 +138,7 @@ func (c *Client) UpdateMerkleRoot(ctx context.Context, vaultId string, root [32]
 	return nil
 }
 
-func (c *Client) UpdateMerkleRootAndWaitForConfirmation(ctx context.Context, vaultId string, root [32]byte) error {
+func (c *Client) UpdateMerkleRootAndWaitForConfirmation(ctx context.Context, vaultId string, root [32]byte, totalSubsidies *big.Int) error {
 	// If not initialized (mock mode), simulate the old behavior
 	if c.ethClient == nil {
 		c.logger.Logf("INFO [MOCK] updating merkle root for vault %s: %x", vaultId, root)
@@ -176,7 +176,7 @@ func (c *Client) UpdateMerkleRootAndWaitForConfirmation(ctx context.Context, vau
 
 	// Build transaction data
 	vaultAddress := common.HexToAddress(vaultId)
-	data := c.subsidizer.PackUpdateMerkleRoot(vaultAddress, root)
+	data := c.subsidizer.PackUpdateMerkleRoot(vaultAddress, root, totalSubsidies)
 
 	// Create contract instance and submit transaction
 	contractAddr := common.HexToAddress(c.contractAddr)

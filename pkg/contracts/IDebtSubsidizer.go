@@ -39,7 +39,7 @@ type IDebtSubsidizerVaultInfo struct {
 
 // IDebtSubsidizerMetaData contains all meta data concerning the IDebtSubsidizer contract.
 var IDebtSubsidizerMetaData = bind.MetaData{
-	ABI: "[{\"type\":\"function\",\"name\":\"addEligibleUser\",\"inputs\":[{\"name\":\"user\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"addVault\",\"inputs\":[{\"name\":\"vaultAddress_\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"lendingManagerAddress_\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"claimAllSubsidies\",\"inputs\":[{\"name\":\"vaultAddresses\",\"type\":\"address[]\",\"internalType\":\"address[]\"},{\"name\":\"claims\",\"type\":\"tuple[]\",\"internalType\":\"structIDebtSubsidizer.ClaimData[]\",\"components\":[{\"name\":\"recipient\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"totalEarned\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"merkleProof\",\"type\":\"bytes32[]\",\"internalType\":\"bytes32[]\"}]}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"claimSubsidy\",\"inputs\":[{\"name\":\"vaultAddress\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"claim\",\"type\":\"tuple\",\"internalType\":\"structIDebtSubsidizer.ClaimData\",\"components\":[{\"name\":\"recipient\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"totalEarned\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"merkleProof\",\"type\":\"bytes32[]\",\"internalType\":\"bytes32[]\"}]}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"emergencyValidateAndPause\",\"inputs\":[{\"name\":\"vaultAddress\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"getMerkleRoot\",\"inputs\":[{\"name\":\"vaultAddress\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getTotalClaimedForVault\",\"inputs\":[{\"name\":\"vaultAddress\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getTotalEligibleUsers\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getTotalSubsidiesRemaining\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getTotalSubsidyPool\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getUserClaimedTotal\",\"inputs\":[{\"name\":\"vaultAddress\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"user\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"initializeSubsidyPool\",\"inputs\":[{\"name\":\"poolAmount\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"isCollectionRemoved\",\"inputs\":[{\"name\":\"vaultAddress\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"collection\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"isCollectionWhitelisted\",\"inputs\":[{\"name\":\"vaultAddress\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"collectionAddress\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"isUserEligible\",\"inputs\":[{\"name\":\"user\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"isVaultRemoved\",\"inputs\":[{\"name\":\"vaultAddress\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"paused\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"removeCollection\",\"inputs\":[{\"name\":\"vaultAddress\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"collectionAddress\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"removeEligibleUser\",\"inputs\":[{\"name\":\"user\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"removeVault\",\"inputs\":[{\"name\":\"vaultAddress_\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"updateMerkleRoot\",\"inputs\":[{\"name\":\"vaultAddress\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"merkleRoot\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"updateSubsidyPool\",\"inputs\":[{\"name\":\"newPoolAmount\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"userSecondsClaimed\",\"inputs\":[{\"name\":\"user\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"validateVaultClaimsIntegrity\",\"inputs\":[{\"name\":\"vaultAddress\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"},{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"vault\",\"inputs\":[{\"name\":\"vaultAddress\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"tuple\",\"internalType\":\"structIDebtSubsidizer.VaultInfo\",\"components\":[{\"name\":\"lendingManager\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"cToken\",\"type\":\"address\",\"internalType\":\"address\"}]}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"whitelistCollection\",\"inputs\":[{\"name\":\"vaultAddress\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"collectionAddress\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"event\",\"name\":\"CollectionRegistryUpdated\",\"inputs\":[{\"name\":\"oldRegistry\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newRegistry\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"DebtSubsidizerRoleGranted\",\"inputs\":[{\"name\":\"role\",\"type\":\"bytes32\",\"indexed\":true,\"internalType\":\"bytes32\"},{\"name\":\"account\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"sender\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"},{\"name\":\"timestamp\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"DebtSubsidizerRoleRevoked\",\"inputs\":[{\"name\":\"role\",\"type\":\"bytes32\",\"indexed\":true,\"internalType\":\"bytes32\"},{\"name\":\"account\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"sender\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"},{\"name\":\"timestamp\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"EligibleUserCountUpdated\",\"inputs\":[{\"name\":\"totalCount\",\"type\":\"uint256\",\"indexed\":true,\"internalType\":\"uint256\"},{\"name\":\"added\",\"type\":\"bool\",\"indexed\":true,\"internalType\":\"bool\"},{\"name\":\"user\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"},{\"name\":\"timestamp\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"MerkleRootUpdated\",\"inputs\":[{\"name\":\"vaultAddress\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"merkleRoot\",\"type\":\"bytes32\",\"indexed\":false,\"internalType\":\"bytes32\"},{\"name\":\"updatedBy\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"NewCollectionWhitelisted\",\"inputs\":[{\"name\":\"vaultAddress\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"collectionAddress\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"SubsidyClaimed\",\"inputs\":[{\"name\":\"vaultAddress\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"recipient\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"amount\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"SubsidyPoolInitialized\",\"inputs\":[{\"name\":\"poolAmount\",\"type\":\"uint256\",\"indexed\":true,\"internalType\":\"uint256\"},{\"name\":\"timestamp\",\"type\":\"uint256\",\"indexed\":true,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"SubsidyPoolUpdated\",\"inputs\":[{\"name\":\"oldAmount\",\"type\":\"uint256\",\"indexed\":true,\"internalType\":\"uint256\"},{\"name\":\"newAmount\",\"type\":\"uint256\",\"indexed\":true,\"internalType\":\"uint256\"},{\"name\":\"timestamp\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"VaultAdded\",\"inputs\":[{\"name\":\"vaultAddress\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"cTokenAddress\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"lendingManagerAddress\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"VaultRemoved\",\"inputs\":[{\"name\":\"vaultAddress\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"WhitelistCollectionRemoved\",\"inputs\":[{\"name\":\"vaultAddress\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"collectionAddress\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"error\",\"name\":\"AddressZero\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"AlreadyClaimed\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ArrayLengthMismatch\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"CannotSetSignerToZeroAddress\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"CollectionAlreadyExists\",\"inputs\":[{\"name\":\"collection\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"CollectionAlreadyWhitelistedInVault\",\"inputs\":[{\"name\":\"vaultAddress\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"collectionAddress\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"CollectionNotWhitelisted\",\"inputs\":[{\"name\":\"collection\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"CollectionNotWhitelistedInVault\",\"inputs\":[{\"name\":\"vaultAddress\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"collectionAddress\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"InsufficientYield\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidCollectionInterface\",\"inputs\":[{\"name\":\"collectionAddress\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"interfaceId\",\"type\":\"bytes4\",\"internalType\":\"bytes4\"}]},{\"type\":\"error\",\"name\":\"InvalidMerkleProof\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidSecondsColl\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidSignature\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidYieldSharePercentage\",\"inputs\":[{\"name\":\"totalSharePercentage\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]},{\"type\":\"error\",\"name\":\"InvalidYieldSlice\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"LendingManagerAssetMismatch\",\"inputs\":[{\"name\":\"vaultAsset\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"lmAsset\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"LendingManagerNotSetForVault\",\"inputs\":[{\"name\":\"vaultAddress\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"MerkleRootNotSet\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"VaultAlreadyRegistered\",\"inputs\":[{\"name\":\"vaultAddress\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"VaultMismatch\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"VaultNotRegistered\",\"inputs\":[{\"name\":\"vaultAddress\",\"type\":\"address\",\"internalType\":\"address\"}]}]",
+	ABI: "[{\"type\":\"function\",\"name\":\"addVault\",\"inputs\":[{\"name\":\"vaultAddress_\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"lendingManagerAddress_\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"claimAllSubsidies\",\"inputs\":[{\"name\":\"vaultAddresses\",\"type\":\"address[]\",\"internalType\":\"address[]\"},{\"name\":\"claims\",\"type\":\"tuple[]\",\"internalType\":\"structIDebtSubsidizer.ClaimData[]\",\"components\":[{\"name\":\"recipient\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"totalEarned\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"merkleProof\",\"type\":\"bytes32[]\",\"internalType\":\"bytes32[]\"}]}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"claimSubsidy\",\"inputs\":[{\"name\":\"vaultAddress\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"claim\",\"type\":\"tuple\",\"internalType\":\"structIDebtSubsidizer.ClaimData\",\"components\":[{\"name\":\"recipient\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"totalEarned\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"merkleProof\",\"type\":\"bytes32[]\",\"internalType\":\"bytes32[]\"}]}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"emergencyValidateAndPause\",\"inputs\":[{\"name\":\"vaultAddress\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"getMerkleRoot\",\"inputs\":[{\"name\":\"vaultAddress\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getRemainingSubsidies\",\"inputs\":[{\"name\":\"vaultAddress\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getTotalClaimedForVault\",\"inputs\":[{\"name\":\"vaultAddress\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getTotalSubsidies\",\"inputs\":[{\"name\":\"vaultAddress\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getTotalSubsidiesClaimed\",\"inputs\":[{\"name\":\"vaultAddress\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getUserClaimedTotal\",\"inputs\":[{\"name\":\"vaultAddress\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"user\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"isCollectionRemoved\",\"inputs\":[{\"name\":\"vaultAddress\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"collection\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"isCollectionWhitelisted\",\"inputs\":[{\"name\":\"vaultAddress\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"collectionAddress\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"isVaultRemoved\",\"inputs\":[{\"name\":\"vaultAddress\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"paused\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"removeCollection\",\"inputs\":[{\"name\":\"vaultAddress\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"collectionAddress\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"removeVault\",\"inputs\":[{\"name\":\"vaultAddress_\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"updateMerkleRoot\",\"inputs\":[{\"name\":\"vaultAddress\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"merkleRoot\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"totalSubsidiesForEpoch\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"userSecondsClaimed\",\"inputs\":[{\"name\":\"user\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"validateVaultClaimsIntegrity\",\"inputs\":[{\"name\":\"vaultAddress\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"},{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"vault\",\"inputs\":[{\"name\":\"vaultAddress\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"tuple\",\"internalType\":\"structIDebtSubsidizer.VaultInfo\",\"components\":[{\"name\":\"lendingManager\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"cToken\",\"type\":\"address\",\"internalType\":\"address\"}]}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"whitelistCollection\",\"inputs\":[{\"name\":\"vaultAddress\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"collectionAddress\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"event\",\"name\":\"CollectionRegistryUpdated\",\"inputs\":[{\"name\":\"oldRegistry\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newRegistry\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"DebtSubsidizerRoleGranted\",\"inputs\":[{\"name\":\"role\",\"type\":\"bytes32\",\"indexed\":true,\"internalType\":\"bytes32\"},{\"name\":\"account\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"sender\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"},{\"name\":\"timestamp\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"DebtSubsidizerRoleRevoked\",\"inputs\":[{\"name\":\"role\",\"type\":\"bytes32\",\"indexed\":true,\"internalType\":\"bytes32\"},{\"name\":\"account\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"sender\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"},{\"name\":\"timestamp\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"MerkleRootUpdated\",\"inputs\":[{\"name\":\"vaultAddress\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"merkleRoot\",\"type\":\"bytes32\",\"indexed\":false,\"internalType\":\"bytes32\"},{\"name\":\"updatedBy\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"NewCollectionWhitelisted\",\"inputs\":[{\"name\":\"vaultAddress\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"collectionAddress\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"SubsidyClaimed\",\"inputs\":[{\"name\":\"vaultAddress\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"recipient\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"amount\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"VaultAdded\",\"inputs\":[{\"name\":\"vaultAddress\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"cTokenAddress\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"lendingManagerAddress\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"VaultRemoved\",\"inputs\":[{\"name\":\"vaultAddress\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"WhitelistCollectionRemoved\",\"inputs\":[{\"name\":\"vaultAddress\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"collectionAddress\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"error\",\"name\":\"AddressZero\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"AlreadyClaimed\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ArrayLengthMismatch\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"CannotSetSignerToZeroAddress\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"CollectionAlreadyExists\",\"inputs\":[{\"name\":\"collection\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"CollectionAlreadyWhitelistedInVault\",\"inputs\":[{\"name\":\"vaultAddress\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"collectionAddress\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"CollectionNotWhitelisted\",\"inputs\":[{\"name\":\"collection\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"CollectionNotWhitelistedInVault\",\"inputs\":[{\"name\":\"vaultAddress\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"collectionAddress\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"InsufficientYield\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidCollectionInterface\",\"inputs\":[{\"name\":\"collectionAddress\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"interfaceId\",\"type\":\"bytes4\",\"internalType\":\"bytes4\"}]},{\"type\":\"error\",\"name\":\"InvalidMerkleProof\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidSecondsColl\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidSignature\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidYieldSharePercentage\",\"inputs\":[{\"name\":\"totalSharePercentage\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]},{\"type\":\"error\",\"name\":\"InvalidYieldSlice\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"LendingManagerAssetMismatch\",\"inputs\":[{\"name\":\"vaultAsset\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"lmAsset\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"LendingManagerNotSetForVault\",\"inputs\":[{\"name\":\"vaultAddress\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"MerkleRootNotSet\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"VaultAlreadyRegistered\",\"inputs\":[{\"name\":\"vaultAddress\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"VaultMismatch\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"VaultNotRegistered\",\"inputs\":[{\"name\":\"vaultAddress\",\"type\":\"address\",\"internalType\":\"address\"}]}]",
 	ID:  "IDebtSubsidizer",
 }
 
@@ -61,18 +61,6 @@ func NewIDebtSubsidizer() *IDebtSubsidizer {
 // Use this to create the instance object passed to abigen v2 library functions Call, Transact, etc.
 func (c *IDebtSubsidizer) Instance(backend bind.ContractBackend, addr common.Address) *bind.BoundContract {
 	return bind.NewBoundContract(addr, c.abi, backend, backend, backend)
-}
-
-// PackAddEligibleUser is the Go binding used to pack the parameters required for calling
-// the contract method with ID 0xf1e5820d.
-//
-// Solidity: function addEligibleUser(address user) returns()
-func (iDebtSubsidizer *IDebtSubsidizer) PackAddEligibleUser(user common.Address) []byte {
-	enc, err := iDebtSubsidizer.abi.Pack("addEligibleUser", user)
-	if err != nil {
-		panic(err)
-	}
-	return enc
 }
 
 // PackAddVault is the Go binding used to pack the parameters required for calling
@@ -148,6 +136,31 @@ func (iDebtSubsidizer *IDebtSubsidizer) UnpackGetMerkleRoot(data []byte) ([32]by
 	return out0, err
 }
 
+// PackGetRemainingSubsidies is the Go binding used to pack the parameters required for calling
+// the contract method with ID 0x9a3390eb.
+//
+// Solidity: function getRemainingSubsidies(address vaultAddress) view returns(uint256)
+func (iDebtSubsidizer *IDebtSubsidizer) PackGetRemainingSubsidies(vaultAddress common.Address) []byte {
+	enc, err := iDebtSubsidizer.abi.Pack("getRemainingSubsidies", vaultAddress)
+	if err != nil {
+		panic(err)
+	}
+	return enc
+}
+
+// UnpackGetRemainingSubsidies is the Go binding that unpacks the parameters returned
+// from invoking the contract method with ID 0x9a3390eb.
+//
+// Solidity: function getRemainingSubsidies(address vaultAddress) view returns(uint256)
+func (iDebtSubsidizer *IDebtSubsidizer) UnpackGetRemainingSubsidies(data []byte) (*big.Int, error) {
+	out, err := iDebtSubsidizer.abi.Unpack("getRemainingSubsidies", data)
+	if err != nil {
+		return new(big.Int), err
+	}
+	out0 := abi.ConvertType(out[0], new(big.Int)).(*big.Int)
+	return out0, err
+}
+
 // PackGetTotalClaimedForVault is the Go binding used to pack the parameters required for calling
 // the contract method with ID 0x8a494a9f.
 //
@@ -173,24 +186,24 @@ func (iDebtSubsidizer *IDebtSubsidizer) UnpackGetTotalClaimedForVault(data []byt
 	return out0, err
 }
 
-// PackGetTotalEligibleUsers is the Go binding used to pack the parameters required for calling
-// the contract method with ID 0x7d89ea62.
+// PackGetTotalSubsidies is the Go binding used to pack the parameters required for calling
+// the contract method with ID 0xb844f62a.
 //
-// Solidity: function getTotalEligibleUsers() view returns(uint256)
-func (iDebtSubsidizer *IDebtSubsidizer) PackGetTotalEligibleUsers() []byte {
-	enc, err := iDebtSubsidizer.abi.Pack("getTotalEligibleUsers")
+// Solidity: function getTotalSubsidies(address vaultAddress) view returns(uint256)
+func (iDebtSubsidizer *IDebtSubsidizer) PackGetTotalSubsidies(vaultAddress common.Address) []byte {
+	enc, err := iDebtSubsidizer.abi.Pack("getTotalSubsidies", vaultAddress)
 	if err != nil {
 		panic(err)
 	}
 	return enc
 }
 
-// UnpackGetTotalEligibleUsers is the Go binding that unpacks the parameters returned
-// from invoking the contract method with ID 0x7d89ea62.
+// UnpackGetTotalSubsidies is the Go binding that unpacks the parameters returned
+// from invoking the contract method with ID 0xb844f62a.
 //
-// Solidity: function getTotalEligibleUsers() view returns(uint256)
-func (iDebtSubsidizer *IDebtSubsidizer) UnpackGetTotalEligibleUsers(data []byte) (*big.Int, error) {
-	out, err := iDebtSubsidizer.abi.Unpack("getTotalEligibleUsers", data)
+// Solidity: function getTotalSubsidies(address vaultAddress) view returns(uint256)
+func (iDebtSubsidizer *IDebtSubsidizer) UnpackGetTotalSubsidies(data []byte) (*big.Int, error) {
+	out, err := iDebtSubsidizer.abi.Unpack("getTotalSubsidies", data)
 	if err != nil {
 		return new(big.Int), err
 	}
@@ -198,49 +211,24 @@ func (iDebtSubsidizer *IDebtSubsidizer) UnpackGetTotalEligibleUsers(data []byte)
 	return out0, err
 }
 
-// PackGetTotalSubsidiesRemaining is the Go binding used to pack the parameters required for calling
-// the contract method with ID 0x127fe7b5.
+// PackGetTotalSubsidiesClaimed is the Go binding used to pack the parameters required for calling
+// the contract method with ID 0x44dea2e7.
 //
-// Solidity: function getTotalSubsidiesRemaining() view returns(uint256)
-func (iDebtSubsidizer *IDebtSubsidizer) PackGetTotalSubsidiesRemaining() []byte {
-	enc, err := iDebtSubsidizer.abi.Pack("getTotalSubsidiesRemaining")
+// Solidity: function getTotalSubsidiesClaimed(address vaultAddress) view returns(uint256)
+func (iDebtSubsidizer *IDebtSubsidizer) PackGetTotalSubsidiesClaimed(vaultAddress common.Address) []byte {
+	enc, err := iDebtSubsidizer.abi.Pack("getTotalSubsidiesClaimed", vaultAddress)
 	if err != nil {
 		panic(err)
 	}
 	return enc
 }
 
-// UnpackGetTotalSubsidiesRemaining is the Go binding that unpacks the parameters returned
-// from invoking the contract method with ID 0x127fe7b5.
+// UnpackGetTotalSubsidiesClaimed is the Go binding that unpacks the parameters returned
+// from invoking the contract method with ID 0x44dea2e7.
 //
-// Solidity: function getTotalSubsidiesRemaining() view returns(uint256)
-func (iDebtSubsidizer *IDebtSubsidizer) UnpackGetTotalSubsidiesRemaining(data []byte) (*big.Int, error) {
-	out, err := iDebtSubsidizer.abi.Unpack("getTotalSubsidiesRemaining", data)
-	if err != nil {
-		return new(big.Int), err
-	}
-	out0 := abi.ConvertType(out[0], new(big.Int)).(*big.Int)
-	return out0, err
-}
-
-// PackGetTotalSubsidyPool is the Go binding used to pack the parameters required for calling
-// the contract method with ID 0x77f7eb9f.
-//
-// Solidity: function getTotalSubsidyPool() view returns(uint256)
-func (iDebtSubsidizer *IDebtSubsidizer) PackGetTotalSubsidyPool() []byte {
-	enc, err := iDebtSubsidizer.abi.Pack("getTotalSubsidyPool")
-	if err != nil {
-		panic(err)
-	}
-	return enc
-}
-
-// UnpackGetTotalSubsidyPool is the Go binding that unpacks the parameters returned
-// from invoking the contract method with ID 0x77f7eb9f.
-//
-// Solidity: function getTotalSubsidyPool() view returns(uint256)
-func (iDebtSubsidizer *IDebtSubsidizer) UnpackGetTotalSubsidyPool(data []byte) (*big.Int, error) {
-	out, err := iDebtSubsidizer.abi.Unpack("getTotalSubsidyPool", data)
+// Solidity: function getTotalSubsidiesClaimed(address vaultAddress) view returns(uint256)
+func (iDebtSubsidizer *IDebtSubsidizer) UnpackGetTotalSubsidiesClaimed(data []byte) (*big.Int, error) {
+	out, err := iDebtSubsidizer.abi.Unpack("getTotalSubsidiesClaimed", data)
 	if err != nil {
 		return new(big.Int), err
 	}
@@ -271,18 +259,6 @@ func (iDebtSubsidizer *IDebtSubsidizer) UnpackGetUserClaimedTotal(data []byte) (
 	}
 	out0 := abi.ConvertType(out[0], new(big.Int)).(*big.Int)
 	return out0, err
-}
-
-// PackInitializeSubsidyPool is the Go binding used to pack the parameters required for calling
-// the contract method with ID 0x95b00dd9.
-//
-// Solidity: function initializeSubsidyPool(uint256 poolAmount) returns()
-func (iDebtSubsidizer *IDebtSubsidizer) PackInitializeSubsidyPool(poolAmount *big.Int) []byte {
-	enc, err := iDebtSubsidizer.abi.Pack("initializeSubsidyPool", poolAmount)
-	if err != nil {
-		panic(err)
-	}
-	return enc
 }
 
 // PackIsCollectionRemoved is the Go binding used to pack the parameters required for calling
@@ -328,31 +304,6 @@ func (iDebtSubsidizer *IDebtSubsidizer) PackIsCollectionWhitelisted(vaultAddress
 // Solidity: function isCollectionWhitelisted(address vaultAddress, address collectionAddress) view returns(bool)
 func (iDebtSubsidizer *IDebtSubsidizer) UnpackIsCollectionWhitelisted(data []byte) (bool, error) {
 	out, err := iDebtSubsidizer.abi.Unpack("isCollectionWhitelisted", data)
-	if err != nil {
-		return *new(bool), err
-	}
-	out0 := *abi.ConvertType(out[0], new(bool)).(*bool)
-	return out0, err
-}
-
-// PackIsUserEligible is the Go binding used to pack the parameters required for calling
-// the contract method with ID 0x879df1f3.
-//
-// Solidity: function isUserEligible(address user) view returns(bool)
-func (iDebtSubsidizer *IDebtSubsidizer) PackIsUserEligible(user common.Address) []byte {
-	enc, err := iDebtSubsidizer.abi.Pack("isUserEligible", user)
-	if err != nil {
-		panic(err)
-	}
-	return enc
-}
-
-// UnpackIsUserEligible is the Go binding that unpacks the parameters returned
-// from invoking the contract method with ID 0x879df1f3.
-//
-// Solidity: function isUserEligible(address user) view returns(bool)
-func (iDebtSubsidizer *IDebtSubsidizer) UnpackIsUserEligible(data []byte) (bool, error) {
-	out, err := iDebtSubsidizer.abi.Unpack("isUserEligible", data)
 	if err != nil {
 		return *new(bool), err
 	}
@@ -422,18 +373,6 @@ func (iDebtSubsidizer *IDebtSubsidizer) PackRemoveCollection(vaultAddress common
 	return enc
 }
 
-// PackRemoveEligibleUser is the Go binding used to pack the parameters required for calling
-// the contract method with ID 0x7100296d.
-//
-// Solidity: function removeEligibleUser(address user) returns()
-func (iDebtSubsidizer *IDebtSubsidizer) PackRemoveEligibleUser(user common.Address) []byte {
-	enc, err := iDebtSubsidizer.abi.Pack("removeEligibleUser", user)
-	if err != nil {
-		panic(err)
-	}
-	return enc
-}
-
 // PackRemoveVault is the Go binding used to pack the parameters required for calling
 // the contract method with ID 0xceb68c23.
 //
@@ -447,23 +386,11 @@ func (iDebtSubsidizer *IDebtSubsidizer) PackRemoveVault(vaultAddress common.Addr
 }
 
 // PackUpdateMerkleRoot is the Go binding used to pack the parameters required for calling
-// the contract method with ID 0xe786818e.
+// the contract method with ID 0xc0f4bcfb.
 //
-// Solidity: function updateMerkleRoot(address vaultAddress, bytes32 merkleRoot) returns()
-func (iDebtSubsidizer *IDebtSubsidizer) PackUpdateMerkleRoot(vaultAddress common.Address, merkleRoot [32]byte) []byte {
-	enc, err := iDebtSubsidizer.abi.Pack("updateMerkleRoot", vaultAddress, merkleRoot)
-	if err != nil {
-		panic(err)
-	}
-	return enc
-}
-
-// PackUpdateSubsidyPool is the Go binding used to pack the parameters required for calling
-// the contract method with ID 0xb7ffc55d.
-//
-// Solidity: function updateSubsidyPool(uint256 newPoolAmount) returns()
-func (iDebtSubsidizer *IDebtSubsidizer) PackUpdateSubsidyPool(newPoolAmount *big.Int) []byte {
-	enc, err := iDebtSubsidizer.abi.Pack("updateSubsidyPool", newPoolAmount)
+// Solidity: function updateMerkleRoot(address vaultAddress, bytes32 merkleRoot, uint256 totalSubsidiesForEpoch) returns()
+func (iDebtSubsidizer *IDebtSubsidizer) PackUpdateMerkleRoot(vaultAddress common.Address, merkleRoot [32]byte, totalSubsidiesForEpoch *big.Int) []byte {
+	enc, err := iDebtSubsidizer.abi.Pack("updateMerkleRoot", vaultAddress, merkleRoot, totalSubsidiesForEpoch)
 	if err != nil {
 		panic(err)
 	}
@@ -699,50 +626,6 @@ func (iDebtSubsidizer *IDebtSubsidizer) UnpackDebtSubsidizerRoleRevokedEvent(log
 	return out, nil
 }
 
-// IDebtSubsidizerEligibleUserCountUpdated represents a EligibleUserCountUpdated event raised by the IDebtSubsidizer contract.
-type IDebtSubsidizerEligibleUserCountUpdated struct {
-	TotalCount *big.Int
-	Added      bool
-	User       common.Address
-	Timestamp  *big.Int
-	Raw        *types.Log // Blockchain specific contextual infos
-}
-
-const IDebtSubsidizerEligibleUserCountUpdatedEventName = "EligibleUserCountUpdated"
-
-// ContractEventName returns the user-defined event name.
-func (IDebtSubsidizerEligibleUserCountUpdated) ContractEventName() string {
-	return IDebtSubsidizerEligibleUserCountUpdatedEventName
-}
-
-// UnpackEligibleUserCountUpdatedEvent is the Go binding that unpacks the event data emitted
-// by contract.
-//
-// Solidity: event EligibleUserCountUpdated(uint256 indexed totalCount, bool indexed added, address user, uint256 timestamp)
-func (iDebtSubsidizer *IDebtSubsidizer) UnpackEligibleUserCountUpdatedEvent(log *types.Log) (*IDebtSubsidizerEligibleUserCountUpdated, error) {
-	event := "EligibleUserCountUpdated"
-	if log.Topics[0] != iDebtSubsidizer.abi.Events[event].ID {
-		return nil, errors.New("event signature mismatch")
-	}
-	out := new(IDebtSubsidizerEligibleUserCountUpdated)
-	if len(log.Data) > 0 {
-		if err := iDebtSubsidizer.abi.UnpackIntoInterface(out, event, log.Data); err != nil {
-			return nil, err
-		}
-	}
-	var indexed abi.Arguments
-	for _, arg := range iDebtSubsidizer.abi.Events[event].Inputs {
-		if arg.Indexed {
-			indexed = append(indexed, arg)
-		}
-	}
-	if err := abi.ParseTopics(out, indexed, log.Topics[1:]); err != nil {
-		return nil, err
-	}
-	out.Raw = log
-	return out, nil
-}
-
 // IDebtSubsidizerMerkleRootUpdated represents a MerkleRootUpdated event raised by the IDebtSubsidizer contract.
 type IDebtSubsidizerMerkleRootUpdated struct {
 	VaultAddress common.Address
@@ -853,91 +736,6 @@ func (iDebtSubsidizer *IDebtSubsidizer) UnpackSubsidyClaimedEvent(log *types.Log
 		return nil, errors.New("event signature mismatch")
 	}
 	out := new(IDebtSubsidizerSubsidyClaimed)
-	if len(log.Data) > 0 {
-		if err := iDebtSubsidizer.abi.UnpackIntoInterface(out, event, log.Data); err != nil {
-			return nil, err
-		}
-	}
-	var indexed abi.Arguments
-	for _, arg := range iDebtSubsidizer.abi.Events[event].Inputs {
-		if arg.Indexed {
-			indexed = append(indexed, arg)
-		}
-	}
-	if err := abi.ParseTopics(out, indexed, log.Topics[1:]); err != nil {
-		return nil, err
-	}
-	out.Raw = log
-	return out, nil
-}
-
-// IDebtSubsidizerSubsidyPoolInitialized represents a SubsidyPoolInitialized event raised by the IDebtSubsidizer contract.
-type IDebtSubsidizerSubsidyPoolInitialized struct {
-	PoolAmount *big.Int
-	Timestamp  *big.Int
-	Raw        *types.Log // Blockchain specific contextual infos
-}
-
-const IDebtSubsidizerSubsidyPoolInitializedEventName = "SubsidyPoolInitialized"
-
-// ContractEventName returns the user-defined event name.
-func (IDebtSubsidizerSubsidyPoolInitialized) ContractEventName() string {
-	return IDebtSubsidizerSubsidyPoolInitializedEventName
-}
-
-// UnpackSubsidyPoolInitializedEvent is the Go binding that unpacks the event data emitted
-// by contract.
-//
-// Solidity: event SubsidyPoolInitialized(uint256 indexed poolAmount, uint256 indexed timestamp)
-func (iDebtSubsidizer *IDebtSubsidizer) UnpackSubsidyPoolInitializedEvent(log *types.Log) (*IDebtSubsidizerSubsidyPoolInitialized, error) {
-	event := "SubsidyPoolInitialized"
-	if log.Topics[0] != iDebtSubsidizer.abi.Events[event].ID {
-		return nil, errors.New("event signature mismatch")
-	}
-	out := new(IDebtSubsidizerSubsidyPoolInitialized)
-	if len(log.Data) > 0 {
-		if err := iDebtSubsidizer.abi.UnpackIntoInterface(out, event, log.Data); err != nil {
-			return nil, err
-		}
-	}
-	var indexed abi.Arguments
-	for _, arg := range iDebtSubsidizer.abi.Events[event].Inputs {
-		if arg.Indexed {
-			indexed = append(indexed, arg)
-		}
-	}
-	if err := abi.ParseTopics(out, indexed, log.Topics[1:]); err != nil {
-		return nil, err
-	}
-	out.Raw = log
-	return out, nil
-}
-
-// IDebtSubsidizerSubsidyPoolUpdated represents a SubsidyPoolUpdated event raised by the IDebtSubsidizer contract.
-type IDebtSubsidizerSubsidyPoolUpdated struct {
-	OldAmount *big.Int
-	NewAmount *big.Int
-	Timestamp *big.Int
-	Raw       *types.Log // Blockchain specific contextual infos
-}
-
-const IDebtSubsidizerSubsidyPoolUpdatedEventName = "SubsidyPoolUpdated"
-
-// ContractEventName returns the user-defined event name.
-func (IDebtSubsidizerSubsidyPoolUpdated) ContractEventName() string {
-	return IDebtSubsidizerSubsidyPoolUpdatedEventName
-}
-
-// UnpackSubsidyPoolUpdatedEvent is the Go binding that unpacks the event data emitted
-// by contract.
-//
-// Solidity: event SubsidyPoolUpdated(uint256 indexed oldAmount, uint256 indexed newAmount, uint256 timestamp)
-func (iDebtSubsidizer *IDebtSubsidizer) UnpackSubsidyPoolUpdatedEvent(log *types.Log) (*IDebtSubsidizerSubsidyPoolUpdated, error) {
-	event := "SubsidyPoolUpdated"
-	if log.Topics[0] != iDebtSubsidizer.abi.Events[event].ID {
-		return nil, errors.New("event signature mismatch")
-	}
-	out := new(IDebtSubsidizerSubsidyPoolUpdated)
 	if len(log.Data) > 0 {
 		if err := iDebtSubsidizer.abi.UnpackIntoInterface(out, event, log.Data); err != nil {
 			return nil, err

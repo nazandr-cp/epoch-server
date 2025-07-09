@@ -26,8 +26,8 @@ type EpochManagerClient interface {
 }
 
 type DebtSubsidizerClient interface {
-	UpdateMerkleRoot(ctx context.Context, vaultId string, root [32]byte) error
-	UpdateMerkleRootAndWaitForConfirmation(ctx context.Context, vaultId string, root [32]byte) error
+	UpdateMerkleRoot(ctx context.Context, vaultId string, root [32]byte, totalSubsidies *big.Int) error
+	UpdateMerkleRootAndWaitForConfirmation(ctx context.Context, vaultId string, root [32]byte, totalSubsidies *big.Int) error
 }
 
 type StorageClient interface {
@@ -129,16 +129,16 @@ func (ld *LazyDistributor) Run(ctx context.Context, vaultId string) error {
 	var rootBytes [32]byte
 	copy(rootBytes[:], merkleRoot[:])
 
-	ld.logger.Logf("INFO updating merkle root for vault %s: %x", vaultId, rootBytes)
-	if err := ld.debtSubsidizerClient.UpdateMerkleRootAndWaitForConfirmation(ctx, vaultId, rootBytes); err != nil {
-		ld.logger.Logf("ERROR failed to update merkle root for vault %s: %v", vaultId, err)
-		return fmt.Errorf("failed to call updateMerkleRoot: %w", err)
-	}
-
 	// Calculate total subsidies distributed using the unified calculator
 	totalSubsidies := big.NewInt(0)
 	for _, entry := range entries {
 		totalSubsidies.Add(totalSubsidies, entry.TotalEarned)
+	}
+
+	ld.logger.Logf("INFO updating merkle root for vault %s: %x with total subsidies: %s", vaultId, rootBytes, totalSubsidies.String())
+	if err := ld.debtSubsidizerClient.UpdateMerkleRootAndWaitForConfirmation(ctx, vaultId, rootBytes, totalSubsidies); err != nil {
+		ld.logger.Logf("ERROR failed to update merkle root for vault %s: %v", vaultId, err)
+		return fmt.Errorf("failed to call updateMerkleRoot: %w", err)
 	}
 
 	ld.logger.Logf("INFO using epoch ID %s for subsidy distribution", epochId.String())

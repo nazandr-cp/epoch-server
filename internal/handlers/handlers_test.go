@@ -15,6 +15,7 @@ import (
 type mockService struct {
 	startEpochFunc          func(ctx context.Context) error
 	distributeSubsidiesFunc func(ctx context.Context, vaultID string) error
+	forceEndEpochFunc       func(ctx context.Context, epochId uint64, vaultId string) error
 }
 
 func (m *mockService) StartEpoch(ctx context.Context) error {
@@ -27,6 +28,13 @@ func (m *mockService) StartEpoch(ctx context.Context) error {
 func (m *mockService) DistributeSubsidies(ctx context.Context, vaultID string) error {
 	if m.distributeSubsidiesFunc != nil {
 		return m.distributeSubsidiesFunc(ctx, vaultID)
+	}
+	return nil
+}
+
+func (m *mockService) ForceEndEpoch(ctx context.Context, epochId uint64, vaultId string) error {
+	if m.forceEndEpochFunc != nil {
+		return m.forceEndEpochFunc(ctx, epochId, vaultId)
 	}
 	return nil
 }

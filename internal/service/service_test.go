@@ -90,6 +90,7 @@ type mockContractClient struct {
 	updateExchangeRateFunc  func(ctx context.Context, lendingManagerAddress string) error
 	allocateYieldToEpochFunc func(ctx context.Context, epochId *big.Int, vaultAddress string) error
 	endEpochWithSubsidiesFunc func(ctx context.Context, epochId *big.Int, vaultAddress string, merkleRoot [32]byte, subsidiesDistributed *big.Int) error
+	forceEndEpochWithZeroYieldFunc func(ctx context.Context, epochId *big.Int, vaultAddress string) error
 }
 
 func (m *mockContractClient) StartEpoch(ctx context.Context) error {
@@ -135,6 +136,13 @@ func (m *mockContractClient) UpdateExchangeRate(ctx context.Context, lendingMana
 func (m *mockContractClient) EndEpochWithSubsidies(ctx context.Context, epochId *big.Int, vaultAddress string, merkleRoot [32]byte, subsidiesDistributed *big.Int) error {
 	if m.endEpochWithSubsidiesFunc != nil {
 		return m.endEpochWithSubsidiesFunc(ctx, epochId, vaultAddress, merkleRoot, subsidiesDistributed)
+	}
+	return nil
+}
+
+func (m *mockContractClient) ForceEndEpochWithZeroYield(ctx context.Context, epochId *big.Int, vaultAddress string) error {
+	if m.forceEndEpochWithZeroYieldFunc != nil {
+		return m.forceEndEpochWithZeroYieldFunc(ctx, epochId, vaultAddress)
 	}
 	return nil
 }

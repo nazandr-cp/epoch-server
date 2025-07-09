@@ -54,6 +54,7 @@ type ContractClient interface {
 	AllocateYieldToEpoch(ctx context.Context, epochId *big.Int, vaultAddress string) error
 	AllocateCumulativeYieldToEpoch(ctx context.Context, epochId *big.Int, vaultAddress string, amount *big.Int) error
 	EndEpochWithSubsidies(ctx context.Context, epochId *big.Int, vaultAddress string, merkleRoot [32]byte, subsidiesDistributed *big.Int) error
+	ForceEndEpochWithZeroYield(ctx context.Context, epochId *big.Int, vaultAddress string) error
 }
 
 type Service struct {
@@ -191,37 +192,19 @@ func (s *Service) ForceEndEpoch(ctx context.Context, epochId uint64, vaultId str
 	// Convert epochId to big.Int
 	epochIdBig := big.NewInt(int64(epochId))
 	
-	// Try multiple strategies for ending the epoch
-	strategies := []struct{
-		name string
-		merkleRoot [32]byte
-		subsidies *big.Int
-	}{
-		{"zero subsidies", [32]byte{}, big.NewInt(0)},
-		{"minimal subsidies", [32]byte{}, big.NewInt(1)},
-		{"empty tree hash", [32]byte{0x56, 0xe8, 0x1f, 0x17, 0x1b, 0xcc, 0x55, 0xa6, 0xff, 0x83, 0x45, 0xe6, 0x92, 0xc0, 0xf8, 0x6e, 0x5b, 0x48, 0xe0, 0x1b, 0x99, 0x6c, 0xad, 0xc0, 0x01, 0x62, 0x2f, 0xb5, 0xe3, 0x63, 0xb4, 0x21}, big.NewInt(0)},
-	}
+	// Use the new ForceEndEpochWithZeroYield method
+	s.logger.Logf("INFO calling ForceEndEpochWithZeroYield for epoch %d", epochId)
 	
-	var lastErr error
-	for _, strategy := range strategies {
-		s.logger.Logf("INFO trying strategy '%s' for epoch %d", strategy.name, epochId)
-		
-		if err := epochClient.EndEpochWithSubsidies(ctx, epochIdBig, vaultId, strategy.merkleRoot, strategy.subsidies); err != nil {
-			s.logger.Logf("WARN strategy '%s' failed for epoch %d: %v", strategy.name, epochId, err)
-			lastErr = err
-			continue
+	if err := s.contractClient.ForceEndEpochWithZeroYield(ctx, epochIdBig, vaultId); err != nil {
+		s.logger.Logf("ERROR ForceEndEpochWithZeroYield failed for epoch %d: %v", epochId, err)
+		if isTransactionError(err) {
+			return fmt.Errorf("%w: failed to force end epoch %d for vault %s: %v", ErrTransactionFailed, epochId, vaultId, err)
 		}
-		
-		s.logger.Logf("INFO successfully force ended epoch %d for vault %s using strategy '%s'", epochId, vaultId, strategy.name)
-		return nil
+		return fmt.Errorf("failed to force end epoch %d for vault %s: %w", epochId, vaultId, err)
 	}
 	
-	// If all strategies failed, return the last error
-	s.logger.Logf("ERROR all strategies failed to force end epoch %d for vault %s", epochId, vaultId)
-	if isTransactionError(lastErr) {
-		return fmt.Errorf("%w: failed to force end epoch %d for vault %s: %v", ErrTransactionFailed, epochId, vaultId, lastErr)
-	}
-	return fmt.Errorf("failed to force end epoch %d for vault %s: %w", epochId, vaultId, lastErr)
+	s.logger.Logf("INFO successfully force ended epoch %d for vault %s with zero yield", epochId, vaultId)
+	return nil
 }
 
 func (s *Service) GetUserTotalEarned(ctx context.Context, userAddress, vaultId string) (*UserEarningsResponse, error) {

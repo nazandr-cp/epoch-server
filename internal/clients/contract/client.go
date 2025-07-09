@@ -441,3 +441,48 @@ func (c *Client) EndEpochWithSubsidies(ctx context.Context, epochId *big.Int, va
 	c.logger.Logf("INFO endEpochWithSubsidies transaction successful: %s", tx.Hash().Hex())
 	return nil
 }
+
+func (c *Client) ForceEndEpochWithZeroYield(ctx context.Context, epochId *big.Int, vaultAddress string) error {
+	c.logger.Logf("INFO force ending epoch %s with zero yield: vault=%s", epochId.String(), vaultAddress)
+	
+	if c.ethClient == nil || c.privateKey == nil {
+		c.logger.Logf("ERROR Ethereum client not initialized")
+		return fmt.Errorf("ethereum client not initialized")
+	}
+
+	// Get chain ID for signing
+	chainID, err := c.ethClient.ChainID(ctx)
+	if err != nil {
+		c.logger.Logf("ERROR failed to get chain ID: %v", err)
+		return err
+	}
+
+	// Create transaction options with signer
+	gasPrice, _ := new(big.Int).SetString(c.ethConfig.GasPrice, 10)
+	opts, err := bind.NewKeyedTransactorWithChainID(c.privateKey, chainID)
+	if err != nil {
+		c.logger.Logf("ERROR failed to create transactor: %v", err)
+		return err
+	}
+	opts.GasLimit = c.ethConfig.GasLimit
+	opts.GasPrice = gasPrice
+	opts.Context = ctx
+
+	// Build transaction data
+	vaultAddr := common.HexToAddress(vaultAddress)
+	data := c.epochManager.PackForceEndEpochWithZeroYield(epochId, vaultAddr)
+
+	// Create contract instance and submit transaction
+	contractAddr := common.HexToAddress(c.contracts.EpochManager)
+	contractInstance := c.epochManager.Instance(c.ethClient, contractAddr)
+	tx, err := contractInstance.RawTransact(opts, data)
+	if err != nil {
+		c.logger.Logf("ERROR failed to call forceEndEpochWithZeroYield: %v", err)
+		return fmt.Errorf("failed to call forceEndEpochWithZeroYield: %w", err)
+	}
+
+	c.logger.Logf("INFO forceEndEpochWithZeroYield transaction sent: %s", tx.Hash().Hex())
+	
+	c.logger.Logf("INFO forceEndEpochWithZeroYield transaction successful: %s", tx.Hash().Hex())
+	return nil
+}
