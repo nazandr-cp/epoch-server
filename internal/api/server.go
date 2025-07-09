@@ -12,6 +12,7 @@ import (
 	"github.com/andrey/epoch-server/internal/services/subsidy"
 	"github.com/go-pkgz/lgr"
 	"github.com/go-pkgz/rest"
+	"github.com/go-pkgz/routegroup"
 )
 
 // Server represents the HTTP server
@@ -48,36 +49,36 @@ func (s *Server) SetupRoutes() http.Handler {
 	subsidyHandler := handlers.NewSubsidyHandler(s.subsidyService, s.logger, s.config)
 	merkleHandler := handlers.NewMerkleHandler(s.merkleService, s.logger, s.config)
 
-	// Create new ServeMux with Go 1.22+ routing patterns
-	mux := http.NewServeMux()
+	// Create base router with routegroup
+	router := routegroup.New(http.NewServeMux())
 
-	// Register health check route
-	mux.HandleFunc("GET /health", healthHandler.HandleHealth)
+	// Apply global middlewares
+	router.Use(rest.RealIP)
+	router.Use(middleware.Auth(s.logger))
+	router.Use(middleware.Logging(s.logger))
+	router.Use(middleware.Recovery(s.logger))
+	router.Use(rest.AppInfo("epoch-server", "andrey", "1.0.0"))
+	router.Use(rest.Ping)
 
-	// Register epoch routes
-	mux.HandleFunc("POST /epochs/start", epochHandler.HandleStartEpoch)
-	mux.HandleFunc("POST /epochs/force-end", epochHandler.HandleForceEndEpoch)
-	mux.HandleFunc("GET /users/{address}/total-earned", epochHandler.HandleGetUserTotalEarned)
+	// Health check route (no grouping needed)
+	router.HandleFunc("GET /health", healthHandler.HandleHealth)
 
-	// Register subsidy routes
-	mux.HandleFunc("POST /epochs/distribute", subsidyHandler.HandleDistributeSubsidies)
+	// API routes group
+	apiRouter := router.Mount("/api")
+	
+	// Epoch management routes
+	epochRouter := apiRouter.Mount("/epochs")
+	epochRouter.HandleFunc("POST /start", epochHandler.HandleStartEpoch)
+	epochRouter.HandleFunc("POST /force-end", epochHandler.HandleForceEndEpoch)
+	epochRouter.HandleFunc("POST /distribute", subsidyHandler.HandleDistributeSubsidies)
 
-	// Register merkle proof routes
-	mux.HandleFunc("GET /users/{address}/merkle-proof", merkleHandler.HandleGetUserMerkleProof)
-	mux.HandleFunc("GET /users/{address}/merkle-proof/epoch/{epochNumber}", merkleHandler.HandleGetUserHistoricalMerkleProof)
+	// User-related routes
+	userRouter := apiRouter.Mount("/users")
+	userRouter.HandleFunc("GET /{address}/total-earned", epochHandler.HandleGetUserTotalEarned)
+	userRouter.HandleFunc("GET /{address}/merkle-proof", merkleHandler.HandleGetUserMerkleProof)
+	userRouter.HandleFunc("GET /{address}/merkle-proof/epoch/{epochNumber}", merkleHandler.HandleGetUserHistoricalMerkleProof)
 
-	// Apply middlewares using go-pkgz/rest and custom middleware
-	var handler http.Handler = mux
-
-	// Apply middlewares in reverse order (last applied = outermost)
-	handler = rest.Ping(handler)
-	handler = rest.AppInfo("epoch-server", "andrey", "1.0.0")(handler)
-	handler = middleware.Recovery(s.logger)(handler)
-	handler = middleware.Logging(s.logger)(handler)
-	handler = middleware.Auth(s.logger)(handler)
-	handler = rest.RealIP(handler)
-
-	return handler
+	return router
 }
 
 // Start starts the HTTP server
