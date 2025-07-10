@@ -1,5 +1,11 @@
 package subsidy
 
+import (
+	"context"
+	"math/big"
+	"time"
+)
+
 // SubsidyDistributionRequest represents a request to distribute subsidies
 type SubsidyDistributionRequest struct {
 	VaultID   string `json:"vaultId"`
@@ -16,4 +22,23 @@ type SubsidyDistributionResponse struct {
 	MerkleRoot        string `json:"merkleRoot"`
 	TransactionHash   string `json:"transactionHash,omitempty"`
 	Status            string `json:"status"`
+}
+
+// LazyDistributor interface for subsidy distribution
+type LazyDistributor interface {
+	Run(ctx context.Context, vaultId string) error
+}
+
+// SubsidyDistribution represents a subsidy distribution record
+type SubsidyDistribution struct {
+	ID                string    `json:"id"`
+	EpochNumber       *big.Int  `json:"epochNumber"`
+	VaultID           string    `json:"vaultId"`
+	CollectionAddress string    `json:"collectionAddress"`
+	Amount            *big.Int  `json:"amount"`
+	Status            string    `json:"status"` // "pending", "distributed", "failed"
+	TxHash            string    `json:"txHash,omitempty"`
+	BlockNumber       int64     `json:"blockNumber,omitempty"`
+	CreatedAt         time.Time `json:"createdAt"`
+	UpdatedAt         time.Time `json:"updatedAt"`
 }

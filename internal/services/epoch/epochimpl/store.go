@@ -8,21 +8,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/andrey/epoch-server/internal/services/epoch"
 	"github.com/dgraph-io/badger/v4"
 	"github.com/go-pkgz/lgr"
 )
-
-// EpochInfo represents information about an epoch
-type EpochInfo struct {
-	Number      *big.Int  `json:"number"`
-	StartTime   time.Time `json:"startTime"`
-	EndTime     time.Time `json:"endTime"`
-	BlockNumber int64     `json:"blockNumber"`
-	Status      string    `json:"status"` // "pending", "active", "completed"
-	VaultID     string    `json:"vaultId"`
-	CreatedAt   time.Time `json:"createdAt"`
-	UpdatedAt   time.Time `json:"updatedAt"`
-}
 
 // Store handles storage operations for epoch service
 type Store struct {
@@ -39,7 +28,7 @@ func NewStore(db *badger.DB, logger lgr.L) *Store {
 }
 
 // SaveEpoch saves epoch information
-func (s *Store) SaveEpoch(ctx context.Context, epoch EpochInfo) error {
+func (s *Store) SaveEpoch(ctx context.Context, epoch epoch.EpochInfo) error {
 	epoch.UpdatedAt = time.Now()
 	if epoch.CreatedAt.IsZero() {
 		epoch.CreatedAt = time.Now()
@@ -73,10 +62,10 @@ func (s *Store) SaveEpoch(ctx context.Context, epoch EpochInfo) error {
 }
 
 // GetEpoch retrieves epoch information
-func (s *Store) GetEpoch(ctx context.Context, epochNumber *big.Int, vaultID string) (*EpochInfo, error) {
+func (s *Store) GetEpoch(ctx context.Context, epochNumber *big.Int, vaultID string) (*epoch.EpochInfo, error) {
 	key := s.buildEpochKey(epochNumber, vaultID)
 
-	var epoch EpochInfo
+	var epochInfo epoch.EpochInfo
 	err := s.db.View(func(txn *badger.Txn) error {
 		item, err := txn.Get([]byte(key))
 		if err != nil {
@@ -84,7 +73,7 @@ func (s *Store) GetEpoch(ctx context.Context, epochNumber *big.Int, vaultID stri
 		}
 
 		return item.Value(func(val []byte) error {
-			return json.Unmarshal(val, &epoch)
+			return json.Unmarshal(val, &epochInfo)
 		})
 	})
 
@@ -95,11 +84,11 @@ func (s *Store) GetEpoch(ctx context.Context, epochNumber *big.Int, vaultID stri
 		return nil, fmt.Errorf("failed to get epoch: %w", err)
 	}
 
-	return &epoch, nil
+	return &epochInfo, nil
 }
 
 // GetCurrentEpoch retrieves the current epoch for a vault
-func (s *Store) GetCurrentEpoch(ctx context.Context, vaultID string) (*EpochInfo, error) {
+func (s *Store) GetCurrentEpoch(ctx context.Context, vaultID string) (*epoch.EpochInfo, error) {
 	currentKey := s.buildCurrentKey(vaultID)
 
 	var currentEpochStr string
@@ -131,9 +120,9 @@ func (s *Store) GetCurrentEpoch(ctx context.Context, vaultID string) (*EpochInfo
 }
 
 // ListEpochs retrieves multiple epochs for a vault
-func (s *Store) ListEpochs(ctx context.Context, vaultID string, limit int) ([]EpochInfo, error) {
+func (s *Store) ListEpochs(ctx context.Context, vaultID string, limit int) ([]epoch.EpochInfo, error) {
 	prefix := s.buildVaultPrefix(vaultID)
-	var epochs []EpochInfo
+	var epochs []epoch.EpochInfo
 
 	err := s.db.View(func(txn *badger.Txn) error {
 		opts := badger.DefaultIteratorOptions
@@ -159,12 +148,12 @@ func (s *Store) ListEpochs(ctx context.Context, vaultID string, limit int) ([]Ep
 			}
 
 			err := item.Value(func(val []byte) error {
-				var epoch EpochInfo
-				if err := json.Unmarshal(val, &epoch); err != nil {
+				var epochInfo epoch.EpochInfo
+				if err := json.Unmarshal(val, &epochInfo); err != nil {
 					s.logger.Logf("WARN failed to unmarshal epoch: %v", err)
 					return nil // Continue iteration
 				}
-				epochs = append(epochs, epoch)
+				epochs = append(epochs, epochInfo)
 				count++
 				return nil
 			})

@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	infratesting "github.com/andrey/epoch-server/internal/infra/testing"
+	"github.com/andrey/epoch-server/internal/services/merkle"
 )
 
 // TestMerkleStore_Integration runs comprehensive integration tests for MerkleStore using testcontainers
@@ -88,7 +89,7 @@ func testContainerLifecycle(t *testing.T, ctx context.Context, generator *infrat
 	epochNumber := big.NewInt(1)
 	merkleData := generator.GenerateMerkleData(vaultID, epochNumber, 5)
 
-	snapshot := MerkleSnapshot{
+	snapshot := merkle.MerkleSnapshot{
 		Entries:     convertToMerkleEntries(merkleData.Entries),
 		MerkleRoot:  merkleData.MerkleRoot,
 		Timestamp:   merkleData.Timestamp,
@@ -126,7 +127,7 @@ func testDataPersistence(t *testing.T, ctx context.Context, generator *infratest
 
 	// Create test data
 	merkleData := generator.GenerateMerkleData(vaultID, epochNumber, 10)
-	snapshot := MerkleSnapshot{
+	snapshot := merkle.MerkleSnapshot{
 		Entries:     convertToMerkleEntries(merkleData.Entries),
 		MerkleRoot:  merkleData.MerkleRoot,
 		Timestamp:   merkleData.Timestamp,
@@ -179,7 +180,7 @@ func testLargeDatasets(t *testing.T, ctx context.Context, generator *infratestin
 
 			// Generate large dataset
 			merkleData := generator.GenerateMerkleData(vaultID, epochNumber, size)
-			snapshot := MerkleSnapshot{
+			snapshot := merkle.MerkleSnapshot{
 				Entries:     convertToMerkleEntries(merkleData.Entries),
 				MerkleRoot:  merkleData.MerkleRoot,
 				Timestamp:   merkleData.Timestamp,
@@ -234,7 +235,7 @@ func testConcurrentOperations(t *testing.T, ctx context.Context, generator *infr
 	var wg sync.WaitGroup
 	errors := make(chan error, numGoroutines*operationsPerGoroutine)
 
-	// Concurrent writers
+	// Run concurrent writers
 	for i := 0; i < numGoroutines; i++ {
 		wg.Add(1)
 		go func(workerID int) {
@@ -244,7 +245,7 @@ func testConcurrentOperations(t *testing.T, ctx context.Context, generator *infr
 				epochNumber := big.NewInt(int64(workerID*operationsPerGoroutine + j))
 
 				merkleData := generator.GenerateMerkleData(vaultID, epochNumber, 20)
-				snapshot := MerkleSnapshot{
+				snapshot := merkle.MerkleSnapshot{
 					Entries:     convertToMerkleEntries(merkleData.Entries),
 					MerkleRoot:  merkleData.MerkleRoot,
 					Timestamp:   merkleData.Timestamp,
@@ -259,7 +260,7 @@ func testConcurrentOperations(t *testing.T, ctx context.Context, generator *infr
 		}(i)
 	}
 
-	// Concurrent readers (after some data is written)
+	// Run concurrent readers (after some data is written)
 	time.Sleep(100 * time.Millisecond)
 	for i := 0; i < numGoroutines/2; i++ {
 		wg.Add(1)
@@ -316,14 +317,14 @@ func testSnapshotVersioning(t *testing.T, ctx context.Context, generator *infrat
 	vaultID := generator.GenerateVaultID()
 	numEpochs := 20
 
-	var savedSnapshots []MerkleSnapshot
+	var savedSnapshots []merkle.MerkleSnapshot
 
 	// Save multiple epochs
 	for i := 1; i <= numEpochs; i++ {
 		epochNumber := big.NewInt(int64(i))
 
 		merkleData := generator.GenerateMerkleData(vaultID, epochNumber, 10)
-		snapshot := MerkleSnapshot{
+		snapshot := merkle.MerkleSnapshot{
 			Entries:     convertToMerkleEntries(merkleData.Entries),
 			MerkleRoot:  merkleData.MerkleRoot,
 			Timestamp:   merkleData.Timestamp + int64(i), // Ensure increasing timestamps
@@ -398,7 +399,7 @@ func testPerformanceBenchmarks(t *testing.T, ctx context.Context, generator *inf
 		for i := 0; i < numOps; i++ {
 			epochNumber := big.NewInt(int64(i))
 			merkleData := generator.GenerateMerkleData(vaultID, epochNumber, entrySize)
-			snapshot := MerkleSnapshot{
+			snapshot := merkle.MerkleSnapshot{
 				Entries:     convertToMerkleEntries(merkleData.Entries),
 				MerkleRoot:  merkleData.MerkleRoot,
 				Timestamp:   merkleData.Timestamp,
@@ -453,8 +454,8 @@ func testEdgeCases(t *testing.T, ctx context.Context, generator *infratesting.Te
 
 	t.Run("EmptySnapshot", func(t *testing.T) {
 		epochNumber := big.NewInt(999)
-		snapshot := MerkleSnapshot{
-			Entries:     []MerkleEntry{}, // Empty entries
+		snapshot := merkle.MerkleSnapshot{
+			Entries:     []merkle.MerkleEntry{}, // Empty entries
 			MerkleRoot:  "0x0000000000000000000000000000000000000000000000000000000000000000",
 			Timestamp:   time.Now().Unix(),
 			VaultID:     vaultID,
@@ -473,7 +474,7 @@ func testEdgeCases(t *testing.T, ctx context.Context, generator *infratesting.Te
 	t.Run("ZeroEpoch", func(t *testing.T) {
 		epochNumber := big.NewInt(0)
 		merkleData := generator.GenerateMerkleData(vaultID, epochNumber, 5)
-		snapshot := MerkleSnapshot{
+		snapshot := merkle.MerkleSnapshot{
 			Entries:     convertToMerkleEntries(merkleData.Entries),
 			MerkleRoot:  merkleData.MerkleRoot,
 			Timestamp:   merkleData.Timestamp,
@@ -495,7 +496,7 @@ func testEdgeCases(t *testing.T, ctx context.Context, generator *infratesting.Te
 		epochNumber.SetString("999999999999999999999", 10)
 
 		merkleData := generator.GenerateMerkleData(vaultID, epochNumber, 10)
-		snapshot := MerkleSnapshot{
+		snapshot := merkle.MerkleSnapshot{
 			Entries:     convertToMerkleEntries(merkleData.Entries),
 			MerkleRoot:  merkleData.MerkleRoot,
 			Timestamp:   merkleData.Timestamp,
@@ -548,7 +549,7 @@ func testTransactionIsolation(t *testing.T, ctx context.Context, generator *infr
 
 	// Create initial snapshot
 	merkleData := generator.GenerateMerkleData(vaultID, epochNumber, 10)
-	snapshot := MerkleSnapshot{
+	snapshot := merkle.MerkleSnapshot{
 		Entries:     convertToMerkleEntries(merkleData.Entries),
 		MerkleRoot:  merkleData.MerkleRoot,
 		Timestamp:   merkleData.Timestamp,
@@ -627,10 +628,10 @@ func testTransactionIsolation(t *testing.T, ctx context.Context, generator *infr
 }
 
 // Helper function to convert test data to store types
-func convertToMerkleEntries(entries []infratesting.MerkleEntry) []MerkleEntry {
-	result := make([]MerkleEntry, len(entries))
+func convertToMerkleEntries(entries []infratesting.MerkleEntry) []merkle.MerkleEntry {
+	result := make([]merkle.MerkleEntry, len(entries))
 	for i, entry := range entries {
-		result[i] = MerkleEntry{
+		result[i] = merkle.MerkleEntry{
 			Address:     entry.Address,
 			TotalEarned: entry.TotalEarned,
 		}

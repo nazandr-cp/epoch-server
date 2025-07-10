@@ -34,10 +34,16 @@ func TestServerRoutes(t *testing.T) {
 	}
 
 	mockMerkleService := &merkle.ServiceMock{
-		GenerateUserMerkleProofFunc: func(ctx context.Context, userAddress, vaultAddress string) (*merkle.UserMerkleProofResponse, error) {
+		GenerateUserMerkleProofFunc: func(
+			ctx context.Context,
+			userAddress, vaultAddress string,
+		) (*merkle.UserMerkleProofResponse, error) {
 			return &merkle.UserMerkleProofResponse{}, nil
 		},
-		GenerateHistoricalMerkleProofFunc: func(ctx context.Context, userAddress, vaultAddress, epochNumber string) (*merkle.UserMerkleProofResponse, error) {
+		GenerateHistoricalMerkleProofFunc: func(
+			ctx context.Context,
+			userAddress, vaultAddress, epochNumber string,
+		) (*merkle.UserMerkleProofResponse, error) {
 			return &merkle.UserMerkleProofResponse{}, nil
 		},
 	}

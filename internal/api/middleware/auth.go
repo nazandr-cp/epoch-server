@@ -37,10 +37,12 @@ func RequireAuth(logger lgr.L) func(http.Handler) http.Handler {
 				logger.Logf("ERROR unauthorized request from %s", r.RemoteAddr)
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusUnauthorized)
-				json.NewEncoder(w).Encode(map[string]interface{}{
+				if err := json.NewEncoder(w).Encode(map[string]interface{}{
 					"error": "Unauthorized",
 					"code":  http.StatusUnauthorized,
-				})
+				}); err != nil {
+					logger.Logf("ERROR failed to encode auth error response: %v", err)
+				}
 				return
 			}
 

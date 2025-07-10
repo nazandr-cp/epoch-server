@@ -47,6 +47,14 @@ The server integrates with multiple smart contracts using generated Go bindings 
 - **Contract ABIs**: `/Users/andrey/projects/lend.fam MVP/collection-vault/out/`
 - **Subgraph**: `/Users/andrey/projects/lend.fam MVP/rewards-subgraph/`
 
+## Code Quality Configuration
+
+### golangci-lint
+- **Configuration file**: `.golangci.yml` (comprehensive linting rules)
+- **Enabled linters**: 40+ linters including security, style, and performance checks
+- **Custom settings**: Go 1.22+ support, project-specific exclusions, security rules
+- **Integration**: Runs via `make lint` command
+
 ## Common Development Commands
 
 ### Building and Running
@@ -87,7 +95,7 @@ make coverage
 # Format code
 go fmt ./...
 
-# Run linter (requires golangci-lint)
+# Run linter (uses .golangci.yml config)
 make lint
 
 # Run security scan (requires gosec)

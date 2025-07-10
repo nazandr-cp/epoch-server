@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	infratesting "github.com/andrey/epoch-server/internal/infra/testing"
+	"github.com/andrey/epoch-server/internal/services/subsidy"
 )
 
 // TestSubsidyStore_Integration runs comprehensive integration tests for SubsidyStore using testcontainers
@@ -96,7 +97,7 @@ func testContainerLifecycle(t *testing.T, ctx context.Context, generator *infrat
 	epochNumber := big.NewInt(1)
 	subsidyData := generator.GenerateSubsidyData(vaultID, epochNumber)
 
-	distribution := SubsidyDistribution{
+	distribution := subsidy.SubsidyDistribution{
 		ID:                subsidyData.ID,
 		EpochNumber:       subsidyData.EpochNumber,
 		VaultID:           subsidyData.VaultID,
@@ -137,7 +138,7 @@ func testDataPersistence(t *testing.T, ctx context.Context, generator *infratest
 
 	// Create test data
 	subsidyData := generator.GenerateSubsidyData(vaultID, epochNumber)
-	distribution := SubsidyDistribution{
+	distribution := subsidy.SubsidyDistribution{
 		ID:                subsidyData.ID,
 		EpochNumber:       subsidyData.EpochNumber,
 		VaultID:           subsidyData.VaultID,
@@ -189,7 +190,7 @@ func testDistributionWorkflow(t *testing.T, ctx context.Context, generator *infr
 
 	// Create initial distribution with "pending" status
 	subsidyData := generator.GenerateSubsidyData(vaultID, epochNumber)
-	distribution := SubsidyDistribution{
+	distribution := subsidy.SubsidyDistribution{
 		ID:                subsidyData.ID,
 		EpochNumber:       subsidyData.EpochNumber,
 		VaultID:           subsidyData.VaultID,
@@ -263,8 +264,7 @@ func testEpochBasedQuerying(t *testing.T, ctx context.Context, generator *infrat
 	numEpochs := 5
 	distributionsPerEpoch := 10
 
-	var allDistributions []SubsidyDistribution
-	epochDistributions := make(map[string][]SubsidyDistribution) // epochNumber -> distributions
+	epochDistributions := make(map[string][]subsidy.SubsidyDistribution) // epochNumber -> distributions
 
 	// Create distributions for multiple epochs
 	for i := 1; i <= numEpochs; i++ {
@@ -273,7 +273,7 @@ func testEpochBasedQuerying(t *testing.T, ctx context.Context, generator *infrat
 
 		for j := 0; j < distributionsPerEpoch; j++ {
 			subsidyData := generator.GenerateSubsidyData(vaultID, epochNumber)
-			distribution := SubsidyDistribution{
+			distribution := subsidy.SubsidyDistribution{
 				ID:                subsidyData.ID,
 				EpochNumber:       subsidyData.EpochNumber,
 				VaultID:           subsidyData.VaultID,
@@ -287,7 +287,6 @@ func testEpochBasedQuerying(t *testing.T, ctx context.Context, generator *infrat
 			err = store.SaveDistribution(ctx, distribution)
 			require.NoError(t, err)
 
-			allDistributions = append(allDistributions, distribution)
 			epochDistributions[epochKey] = append(epochDistributions[epochKey], distribution)
 		}
 	}
@@ -342,7 +341,7 @@ func testStatusFiltering(t *testing.T, ctx context.Context, generator *infratest
 	for _, status := range statuses {
 		for i := 0; i < distributionsPerStatus; i++ {
 			subsidyData := generator.GenerateSubsidyData(vaultID, epochNumber)
-			distribution := SubsidyDistribution{
+			distribution := subsidy.SubsidyDistribution{
 				ID:                subsidyData.ID,
 				EpochNumber:       subsidyData.EpochNumber,
 				VaultID:           subsidyData.VaultID,
@@ -420,7 +419,7 @@ func testConcurrentOperations(t *testing.T, ctx context.Context, generator *infr
 				subsidyData := generator.GenerateSubsidyData(vaultID, epochNumber)
 				subsidyData.ID = fmt.Sprintf("worker-%d-op-%d", workerID, j) // Unique ID
 
-				distribution := SubsidyDistribution{
+				distribution := subsidy.SubsidyDistribution{
 					ID:                subsidyData.ID,
 					EpochNumber:       subsidyData.EpochNumber,
 					VaultID:           subsidyData.VaultID,
@@ -531,7 +530,7 @@ func testLargeScaleDistributions(t *testing.T, ctx context.Context, generator *i
 				subsidyData := generator.GenerateSubsidyData(vaultID, epochNumber)
 				subsidyData.ID = fmt.Sprintf("large-scale-%d", i)
 
-				distribution := SubsidyDistribution{
+				distribution := subsidy.SubsidyDistribution{
 					ID:                subsidyData.ID,
 					EpochNumber:       subsidyData.EpochNumber,
 					VaultID:           subsidyData.VaultID,
@@ -596,7 +595,7 @@ func testPerformanceBenchmarks(t *testing.T, ctx context.Context, generator *inf
 			subsidyData := generator.GenerateSubsidyData(vaultID, epochNumber)
 			subsidyData.ID = fmt.Sprintf("bench-save-%d", i)
 
-			distribution := SubsidyDistribution{
+			distribution := subsidy.SubsidyDistribution{
 				ID:                subsidyData.ID,
 				EpochNumber:       subsidyData.EpochNumber,
 				VaultID:           subsidyData.VaultID,
@@ -676,7 +675,7 @@ func testEdgeCases(t *testing.T, ctx context.Context, generator *infratesting.Te
 	t.Run("ZeroAmount", func(t *testing.T) {
 		epochNumber := big.NewInt(1)
 		subsidyData := generator.GenerateSubsidyData(vaultID, epochNumber)
-		distribution := SubsidyDistribution{
+		distribution := subsidy.SubsidyDistribution{
 			ID:                subsidyData.ID,
 			EpochNumber:       subsidyData.EpochNumber,
 			VaultID:           subsidyData.VaultID,
@@ -703,7 +702,7 @@ func testEdgeCases(t *testing.T, ctx context.Context, generator *infratesting.Te
 		maxAmount := new(big.Int)
 		maxAmount.SetString("115792089237316195423570985008687907853269984665640564039457584007913129639935", 10)
 
-		distribution := SubsidyDistribution{
+		distribution := subsidy.SubsidyDistribution{
 			ID:                subsidyData.ID,
 			EpochNumber:       subsidyData.EpochNumber,
 			VaultID:           subsidyData.VaultID,
@@ -725,7 +724,7 @@ func testEdgeCases(t *testing.T, ctx context.Context, generator *infratesting.Te
 	t.Run("ZeroEpoch", func(t *testing.T) {
 		epochNumber := big.NewInt(0)
 		subsidyData := generator.GenerateSubsidyData(vaultID, epochNumber)
-		distribution := SubsidyDistribution{
+		distribution := subsidy.SubsidyDistribution{
 			ID:                subsidyData.ID,
 			EpochNumber:       subsidyData.EpochNumber,
 			VaultID:           subsidyData.VaultID,
@@ -747,7 +746,7 @@ func testEdgeCases(t *testing.T, ctx context.Context, generator *infratesting.Te
 	t.Run("EmptyTxHash", func(t *testing.T) {
 		epochNumber := big.NewInt(1)
 		subsidyData := generator.GenerateSubsidyData(vaultID, epochNumber)
-		distribution := SubsidyDistribution{
+		distribution := subsidy.SubsidyDistribution{
 			ID:                subsidyData.ID,
 			EpochNumber:       subsidyData.EpochNumber,
 			VaultID:           subsidyData.VaultID,
@@ -797,7 +796,7 @@ func testEdgeCases(t *testing.T, ctx context.Context, generator *infratesting.Te
 		epochNumber := big.NewInt(1)
 		subsidyData := generator.GenerateSubsidyData(vaultID, epochNumber)
 
-		distribution1 := SubsidyDistribution{
+		distribution1 := subsidy.SubsidyDistribution{
 			ID:                subsidyData.ID,
 			EpochNumber:       subsidyData.EpochNumber,
 			VaultID:           subsidyData.VaultID,
@@ -845,7 +844,7 @@ func testTransactionIsolation(t *testing.T, ctx context.Context, generator *infr
 
 	// Create initial distribution
 	subsidyData := generator.GenerateSubsidyData(vaultID, epochNumber)
-	distribution := SubsidyDistribution{
+	distribution := subsidy.SubsidyDistribution{
 		ID:                subsidyData.ID,
 		EpochNumber:       subsidyData.EpochNumber,
 		VaultID:           subsidyData.VaultID,

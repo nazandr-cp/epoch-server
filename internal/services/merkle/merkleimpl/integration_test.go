@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/andrey/epoch-server/internal/infra/subgraph"
+	"github.com/andrey/epoch-server/internal/services/merkle"
 	"github.com/dgraph-io/badger/v4"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/go-pkgz/lgr"
@@ -15,7 +16,7 @@ import (
 // implementation produces compatible proofs with OpenZeppelin's Solidity implementation
 func TestMerkleCompatibility_CrossSystemIntegration(t *testing.T) {
 	// Test data that would be typical in the lend.fam system
-	testEntries := []Entry{
+	testEntries := []merkle.Entry{
 		{Address: "0x742d35Cc6bF8E65f8b95E6c5CB15F5C5D5b8DbC3", TotalEarned: big.NewInt(1500000000000000000)}, // 1.5 ETH worth
 		{Address: "0x1234567890123456789012345678901234567890", TotalEarned: big.NewInt(750000000000000000)},  // 0.75 ETH worth
 		{Address: "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd", TotalEarned: big.NewInt(2000000000000000000)}, // 2 ETH worth
@@ -108,7 +109,7 @@ func createTestServiceForBenchmark(b *testing.B) *Service {
 // TestZeroValueHandling ensures that zero values are handled correctly
 func TestZeroValueHandling(t *testing.T) {
 	// Test with zero amounts (should still be included in tree)
-	entries := []Entry{
+	entries := []merkle.Entry{
 		{Address: "0x742d35Cc6bF8E65f8b95E6c5CB15F5C5D5b8DbC3", TotalEarned: big.NewInt(0)},
 		{Address: "0x1234567890123456789012345678901234567890", TotalEarned: big.NewInt(1000000000000000000)},
 	}
@@ -137,7 +138,7 @@ func TestLargeAmountHandling(t *testing.T) {
 	largeAmount := new(big.Int)
 	largeAmount.SetString("115792089237316195423570985008687907853269984665640564039457584007913129639935", 10)
 
-	entries := []Entry{
+	entries := []merkle.Entry{
 		{Address: "0x742d35Cc6bF8E65f8b95E6c5CB15F5C5D5b8DbC3", TotalEarned: big.NewInt(1000000000000000000)},
 		{Address: "0x1234567890123456789012345678901234567890", TotalEarned: largeAmount},
 	}
@@ -163,11 +164,11 @@ func TestLargeAmountHandling(t *testing.T) {
 // BenchmarkMerkleOperations benchmarks key Merkle operations
 func BenchmarkMerkleOperations(b *testing.B) {
 	// Prepare test data
-	entries := make([]Entry, 1000)
+	entries := make([]merkle.Entry, 1000)
 	for i := 0; i < 1000; i++ {
 		addr := common.BigToAddress(big.NewInt(int64(i)))
 		amount := big.NewInt(int64((i + 1) * 1000000000000000000)) // (i+1) ETH
-		entries[i] = Entry{Address: addr.Hex(), TotalEarned: amount}
+		entries[i] = merkle.Entry{Address: addr.Hex(), TotalEarned: amount}
 	}
 
 	service := createTestServiceForBenchmark(b)

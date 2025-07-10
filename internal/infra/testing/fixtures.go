@@ -1,10 +1,10 @@
 package testing
 
 import (
+	"crypto/rand"
 	"encoding/json"
 	"fmt"
 	"math/big"
-	"math/rand"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -13,14 +13,46 @@ import (
 
 // TestDataGenerator generates realistic test data for BadgerDB integration tests
 type TestDataGenerator struct {
-	rand *rand.Rand
+	// removed rand field as we use crypto/rand directly
+}
+
+// secureRandomInt generates a secure random integer in range [0, max)
+func (g *TestDataGenerator) secureRandomInt(max int) int {
+	if max <= 0 {
+		return 0
+	}
+
+	// use crypto/rand for secure random generation
+	randomBytes := make([]byte, 4)
+	if _, err := rand.Read(randomBytes); err != nil {
+		// fallback to simple hash-based approach if crypto/rand fails
+		return int(time.Now().UnixNano()) % max
+	}
+
+	// convert bytes to uint32 and mod by max
+	randomValue := uint32(randomBytes[0])<<24 | uint32(randomBytes[1])<<16 | uint32(randomBytes[2])<<8 | uint32(randomBytes[3])
+	return int(randomValue) % max
+}
+
+// secureRandomBigInt generates a secure random big.Int in range [0, max)
+func (g *TestDataGenerator) secureRandomBigInt(max *big.Int) *big.Int {
+	if max.Sign() <= 0 {
+		return big.NewInt(0)
+	}
+
+	// use crypto/rand for secure random generation
+	random, err := rand.Int(rand.Reader, max)
+	if err != nil {
+		// fallback to zero if crypto/rand fails
+		return big.NewInt(0)
+	}
+
+	return random
 }
 
 // NewTestDataGenerator creates a new test data generator
 func NewTestDataGenerator(seed int64) *TestDataGenerator {
-	return &TestDataGenerator{
-		rand: rand.New(rand.NewSource(seed)),
-	}
+	return &TestDataGenerator{}
 }
 
 // EpochData represents epoch test data
@@ -69,20 +101,20 @@ type SubsidyData struct {
 // GenerateEpochData generates realistic epoch test data
 func (g *TestDataGenerator) GenerateEpochData(vaultID string, epochNumber *big.Int) EpochData {
 	now := time.Now()
-	startTime := now.Add(-time.Duration(g.rand.Intn(3600)) * time.Second)
-	endTime := startTime.Add(time.Duration(g.rand.Intn(3600)+1800) * time.Second)
+	startTime := now.Add(-time.Duration(g.secureRandomInt(3600)) * time.Second)
+	endTime := startTime.Add(time.Duration(g.secureRandomInt(3600)+1800) * time.Second)
 
 	statuses := []string{"pending", "active", "completed"}
-	status := statuses[g.rand.Intn(len(statuses))]
+	status := statuses[g.secureRandomInt(len(statuses))]
 
 	return EpochData{
 		Number:      epochNumber,
 		StartTime:   startTime,
 		EndTime:     endTime,
-		BlockNumber: g.rand.Int63n(1000000) + 18000000, // Realistic block number
+		BlockNumber: int64(g.secureRandomInt(1000000)) + 18000000, // Realistic block number
 		Status:      status,
 		VaultID:     vaultID,
-		CreatedAt:   now.Add(-time.Duration(g.rand.Intn(86400)) * time.Second),
+		CreatedAt:   now.Add(-time.Duration(g.secureRandomInt(86400)) * time.Second),
 		UpdatedAt:   now,
 	}
 }
@@ -114,7 +146,7 @@ func (g *TestDataGenerator) GenerateMerkleData(vaultID string, epochNumber *big.
 		MerkleRoot:  g.GenerateRandomHash(),
 		Timestamp:   time.Now().Unix(),
 		VaultID:     vaultID,
-		BlockNumber: g.rand.Int63n(1000000) + 18000000,
+		BlockNumber: int64(g.secureRandomInt(1000000)) + 18000000,
 		EpochNumber: epochNumber,
 		CreatedAt:   time.Now(),
 	}
@@ -123,7 +155,7 @@ func (g *TestDataGenerator) GenerateMerkleData(vaultID string, epochNumber *big.
 // GenerateSubsidyData generates realistic subsidy distribution test data
 func (g *TestDataGenerator) GenerateSubsidyData(vaultID string, epochNumber *big.Int) SubsidyData {
 	statuses := []string{"pending", "distributed", "failed"}
-	status := statuses[g.rand.Intn(len(statuses))]
+	status := statuses[g.secureRandomInt(len(statuses))]
 
 	now := time.Now()
 
@@ -134,14 +166,14 @@ func (g *TestDataGenerator) GenerateSubsidyData(vaultID string, epochNumber *big
 		CollectionAddress: g.GenerateRandomAddress(),
 		Amount:            g.GenerateRandomAmount(),
 		Status:            status,
-		CreatedAt:         now.Add(-time.Duration(g.rand.Intn(86400)) * time.Second),
+		CreatedAt:         now.Add(-time.Duration(g.secureRandomInt(86400)) * time.Second),
 		UpdatedAt:         now,
 	}
 
 	// Add tx hash and block number for distributed status
 	if status == "distributed" {
 		data.TxHash = g.GenerateRandomHash()
-		data.BlockNumber = g.rand.Int63n(1000000) + 18000000
+		data.BlockNumber = int64(g.secureRandomInt(1000000)) + 18000000
 	}
 
 	return data
@@ -150,14 +182,20 @@ func (g *TestDataGenerator) GenerateSubsidyData(vaultID string, epochNumber *big
 // GenerateRandomAddress generates a random Ethereum address
 func (g *TestDataGenerator) GenerateRandomAddress() string {
 	bytes := make([]byte, 20)
-	g.rand.Read(bytes)
+	if _, err := rand.Read(bytes); err != nil {
+		// fallback to zero address if crypto/rand fails
+		return common.Address{}.Hex()
+	}
 	return common.BytesToAddress(bytes).Hex()
 }
 
 // GenerateRandomHash generates a random hash
 func (g *TestDataGenerator) GenerateRandomHash() string {
 	bytes := make([]byte, 32)
-	g.rand.Read(bytes)
+	if _, err := rand.Read(bytes); err != nil {
+		// fallback to zero hash if crypto/rand fails
+		return hexutil.Encode(make([]byte, 32))
+	}
 	return hexutil.Encode(bytes)
 }
 
@@ -169,13 +207,13 @@ func (g *TestDataGenerator) GenerateRandomAmount() *big.Int {
 	max.SetString("1000000000000000000000", 10) // 1000 ETH
 
 	diff := new(big.Int).Sub(max, min)
-	random := new(big.Int).Rand(g.rand, diff)
+	random := g.secureRandomBigInt(diff)
 	return random.Add(random, min)
 }
 
 // GenerateRandomID generates a random ID
 func (g *TestDataGenerator) GenerateRandomID() string {
-	return fmt.Sprintf("test-%d-%d", time.Now().UnixNano(), g.rand.Intn(1000000))
+	return fmt.Sprintf("test-%d-%d", time.Now().UnixNano(), g.secureRandomInt(1000000))
 }
 
 // GenerateVaultID generates a random vault ID

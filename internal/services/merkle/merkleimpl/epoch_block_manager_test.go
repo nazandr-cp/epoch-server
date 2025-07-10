@@ -21,7 +21,9 @@ func TestService_New(t *testing.T) {
 	opts.Logger = nil
 	db, err := badger.Open(opts)
 	require.NoError(t, err)
-	defer db.Close()
+	defer func() {
+		assert.NoError(t, db.Close())
+	}()
 
 	mockClient := &testServiceSubgraphClient{}
 

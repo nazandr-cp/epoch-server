@@ -9,20 +9,15 @@ import (
 	"github.com/go-pkgz/lgr"
 )
 
-// LazyDistributor interface for subsidy distribution
-type LazyDistributor interface {
-	Run(ctx context.Context, vaultId string) error
-}
-
 // Service implements the subsidy service interface
 type Service struct {
-	lazyDistributor LazyDistributor
+	lazyDistributor subsidy.LazyDistributor
 	logger          lgr.L
 	config          *config.Config
 }
 
 // New creates a new subsidy service implementation
-func New(lazyDistributor LazyDistributor, logger lgr.L, cfg *config.Config) *Service {
+func New(lazyDistributor subsidy.LazyDistributor, logger lgr.L, cfg *config.Config) *Service {
 	return &Service{
 		lazyDistributor: lazyDistributor,
 		logger:          logger,

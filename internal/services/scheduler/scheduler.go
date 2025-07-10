@@ -10,24 +10,6 @@ import (
 	"github.com/go-pkgz/lgr"
 )
 
-//go:generate moq -out scheduler_mocks.go . EpochService SubsidyService
-
-type EpochService interface {
-	StartEpoch(ctx context.Context) error
-}
-
-type SubsidyService interface {
-	DistributeSubsidies(ctx context.Context, vaultId string) error
-}
-
-type Scheduler struct {
-	epochService   EpochService
-	subsidyService SubsidyService
-	logger         lgr.L
-	interval       time.Duration
-	config         *config.Config
-}
-
 func NewScheduler(epochService epoch.Service, subsidyService subsidy.Service, interval time.Duration, logger lgr.L, cfg *config.Config) *Scheduler {
 	return &Scheduler{
 		epochService:   epochService,

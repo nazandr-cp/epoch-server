@@ -20,10 +20,12 @@ func Recovery(logger lgr.L) func(http.Handler) http.Handler {
 					// Return a 500 error response
 					w.Header().Set("Content-Type", "application/json")
 					w.WriteHeader(http.StatusInternalServerError)
-					json.NewEncoder(w).Encode(map[string]interface{}{
+					if err := json.NewEncoder(w).Encode(map[string]interface{}{
 						"error": "Internal server error",
 						"code":  http.StatusInternalServerError,
-					})
+					}); err != nil {
+						logger.Logf("ERROR failed to encode recovery error response: %v", err)
+					}
 				}
 			}()
 

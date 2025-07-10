@@ -54,9 +54,11 @@ func (h *SubsidyHandler) HandleDistributeSubsidies(w http.ResponseWriter, r *htt
 		return
 	}
 
-	rest.EncodeJSON(w, http.StatusAccepted, DistributeSubsidiesResponse{
+	if err := rest.EncodeJSON(w, http.StatusAccepted, DistributeSubsidiesResponse{
 		Status:  "accepted",
 		VaultID: vaultId,
 		Message: "Subsidy distribution initiated successfully",
-	})
+	}); err != nil {
+		h.logger.Logf("ERROR failed to encode JSON response: %v", err)
+	}
 }

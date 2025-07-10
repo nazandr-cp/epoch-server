@@ -1,0 +1,206 @@
+# golangci-lint v2 configuration for epoch-server
+version: "2"
+
+# Timeout for analysis, e.g. 30s, 5m, default is 1m
+timeout: 5m
+
+# Exit code when at least one issue was found, default is 1
+issues-exit-code: 1
+
+# Include test files or not, default is true
+tests: true
+
+# List of build tags, all linters use it. Default is empty list.
+build-tags:
+  - integration
+
+# Go version to target
+go: '1.22'
+
+# Which dirs to skip: issues from them won't be reported;
+# can use regexp here: generated.*, regexp is applied on full path.
+skip-dirs:
+  - vendor
+  - node_modules
+  - .git
+  - build
+  - dist
+
+# Which files to skip: they will be analyzed, but issues from them
+# won't be reported. Default value is empty list.
+skip-files:
+  - ".*\\.pb\\.go$"
+  - ".*\\.gen\\.go$"
+  - ".*_mock\\.go$"
+  - ".*_mocks\\.go$"
+
+# output configuration options
+output:
+  formats:
+    colored-line-number:
+      path: stdout
+  print-issued-lines: true
+  print-linter-name: true
+  uniq-by-line: true
+  sort-results: true
+
+# all available settings of specific linters
+linters-settings:
+  cyclop:
+    max-complexity: 15
+    package-average: 0.0
+    skip-tests: false
+
+  errcheck:
+    check-type-assertions: true
+    check-blank: true
+    ignore: fmt:.*,io/ioutil:^Read.*
+
+  funlen:
+    lines: 100
+    statements: 50
+
+  gocognit:
+    min-complexity: 20
+
+  goconst:
+    min-len: 3
+    min-occurrences: 3
+
+  gocritic:
+    enabled-checks:
+      - nestingReduce
+      - unnamedResult
+      - ruleguard
+      - truncateCmp
+
+  gocyclo:
+    min-complexity: 15
+
+  gosec:
+    includes:
+      - G101 # Look for hard coded credentials
+      - G104 # Audit errors not checked
+      - G204 # Audit use of command execution
+      - G401 # Detect the usage of DES, RC4, MD5 or SHA1
+      - G402 # Look for bad TLS connection settings
+      - G404 # Insecure random number source (rand)
+    exclude-generated: true
+    severity: "low"
+    confidence: "low"
+
+  govet:
+    check-shadowing: true
+    enable:
+      - atomicalign
+    disable:
+      - shadow
+
+  lll:
+    line-length: 120
+    tab-width: 1
+
+  misspell:
+    locale: US
+
+  nakedret:
+    max-func-lines: 30
+
+  nolintlint:
+    allow-unused: false
+    allow-leading-space: true
+    require-explanation: false
+    require-specific: false
+
+  unparam:
+    check-exported: false
+
+  whitespace:
+    multi-if: false
+    multi-func: false
+
+linters:
+  # Enable default linters (errcheck, govet, ineffassign, staticcheck, unused)
+  disable-all: false
+  
+  # Additional linters to enable
+  enable:
+    - bodyclose
+    - dupl
+    - funlen
+    - gochecknoinits
+    - goconst
+    - gocritic
+    - gocyclo
+    - gosec
+    - lll
+    - misspell
+    - nakedret
+    - noctx
+    - nolintlint
+    - unconvert
+    - unparam
+    - whitespace
+
+  # Linters to disable (if they are enabled by default)
+  disable:
+    - gochecknoglobals
+    - gocognit
+    - godot
+    - godox
+    - err113
+    - nestif
+    - prealloc
+    - testpackage
+    - revive
+    - wsl_v5
+
+issues:
+  # Excluding configuration per-path, per-linter, per-text and per-source
+  exclude-rules:
+    # Exclude some linters from running on tests files.
+    - path: _test\.go
+      linters:
+        - funlen
+        - goconst
+        - gocyclo
+        - errcheck
+        - dupl
+        - gosec
+
+    # Exclude some linters from running on mock files.
+    - path: _mock\.go
+      linters:
+        - unused
+
+    # Exclude some linters from running on mocks files.
+    - path: _mocks\.go
+      linters:
+        - unused
+
+    # Exclude lll issues for long lines with go:generate
+    - linters:
+        - lll
+      source: "^//go:generate "
+
+  # Maximum issues count per one linter. Set to 0 to disable. Default is 50.
+  max-issues-per-linter: 0
+
+  # Maximum count of issues with the same text. Set to 0 to disable. Default is 3.
+  max-same-issues: 0
+
+  # Show only new issues: if there are unstaged changes or untracked files,
+  # only those changes are analyzed, e.g. `--new-from-rev=HEAD~1`. Not recommended for CI.
+  new: false
+
+  # Fix found issues (if it's supported by the linter)
+  fix: false
+
+severity:
+  # Default value is empty string.
+  # Set the default severity for issues.
+  default-severity: error
+
+  # The default value is false.
+  # If set to true severity-rules regular expressions become case sensitive.
+  case-sensitive: false

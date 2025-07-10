@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	infratesting "github.com/andrey/epoch-server/internal/infra/testing"
+	"github.com/andrey/epoch-server/internal/services/epoch"
 )
 
 // TestEpochStore_Integration runs comprehensive integration tests for EpochStore using testcontainers
@@ -95,7 +96,7 @@ func testContainerLifecycle(t *testing.T, ctx context.Context, generator *infrat
 	vaultID := generator.GenerateVaultID()
 	epochData := generator.GenerateEpochData(vaultID, big.NewInt(1))
 
-	epoch := EpochInfo{
+	epoch := epoch.EpochInfo{
 		Number:      epochData.Number,
 		StartTime:   epochData.StartTime,
 		EndTime:     epochData.EndTime,
@@ -134,7 +135,7 @@ func testDataPersistence(t *testing.T, ctx context.Context, generator *infratest
 
 	// Create test data
 	epochData := generator.GenerateEpochData(vaultID, epochNumber)
-	epoch := EpochInfo{
+	epoch := epoch.EpochInfo{
 		Number:      epochData.Number,
 		StartTime:   epochData.StartTime,
 		EndTime:     epochData.EndTime,
@@ -183,7 +184,7 @@ func testEpochLifecycleManagement(t *testing.T, ctx context.Context, generator *
 
 	// Create initial epoch with "pending" status
 	epochData := generator.GenerateEpochData(vaultID, epochNumber)
-	epoch := EpochInfo{
+	epoch := epoch.EpochInfo{
 		Number:      epochData.Number,
 		StartTime:   epochData.StartTime,
 		EndTime:     epochData.EndTime,
@@ -240,14 +241,12 @@ func testCurrentEpochPointer(t *testing.T, ctx context.Context, generator *infra
 	vaultID := generator.GenerateVaultID()
 	numEpochs := 10
 
-	var savedEpochs []EpochInfo
-
 	// Save multiple epochs
 	for i := 1; i <= numEpochs; i++ {
 		epochNumber := big.NewInt(int64(i))
 		epochData := generator.GenerateEpochData(vaultID, epochNumber)
 
-		epoch := EpochInfo{
+		epoch := epoch.EpochInfo{
 			Number:      epochData.Number,
 			StartTime:   epochData.StartTime.Add(time.Duration(i) * time.Hour), // Ensure different times
 			EndTime:     epochData.EndTime.Add(time.Duration(i) * time.Hour),
@@ -258,7 +257,6 @@ func testCurrentEpochPointer(t *testing.T, ctx context.Context, generator *infra
 
 		err = store.SaveEpoch(ctx, epoch)
 		require.NoError(t, err)
-		savedEpochs = append(savedEpochs, epoch)
 
 		// Verify current epoch pointer is updated to latest
 		current, err := store.GetCurrentEpoch(ctx, vaultID)
@@ -322,7 +320,7 @@ func testMultiVaultCoordination(t *testing.T, ctx context.Context, generator *in
 			epochNumber := big.NewInt(int64(j))
 			epochData := generator.GenerateEpochData(vaultID, epochNumber)
 
-			epoch := EpochInfo{
+			epoch := epoch.EpochInfo{
 				Number:      epochData.Number,
 				StartTime:   epochData.StartTime,
 				EndTime:     epochData.EndTime,
@@ -397,7 +395,7 @@ func testConcurrentOperations(t *testing.T, ctx context.Context, generator *infr
 				epochNumber := big.NewInt(int64(workerID*operationsPerGoroutine + j))
 				epochData := generator.GenerateEpochData(vaultID, epochNumber)
 
-				epoch := EpochInfo{
+				epoch := epoch.EpochInfo{
 					Number:      epochData.Number,
 					StartTime:   epochData.StartTime,
 					EndTime:     epochData.EndTime,
@@ -494,7 +492,7 @@ func testStatusUpdateAtomicity(t *testing.T, ctx context.Context, generator *inf
 
 	// Create initial epoch
 	epochData := generator.GenerateEpochData(vaultID, epochNumber)
-	epoch := EpochInfo{
+	epoch := epoch.EpochInfo{
 		Number:      epochData.Number,
 		StartTime:   epochData.StartTime,
 		EndTime:     epochData.EndTime,
@@ -568,7 +566,7 @@ func testPerformanceBenchmarks(t *testing.T, ctx context.Context, generator *inf
 			epochNumber := big.NewInt(int64(i))
 			epochData := generator.GenerateEpochData(vaultID, epochNumber)
 
-			epoch := EpochInfo{
+			epoch := epoch.EpochInfo{
 				Number:      epochData.Number,
 				StartTime:   epochData.StartTime,
 				EndTime:     epochData.EndTime,
@@ -647,7 +645,7 @@ func testEdgeCases(t *testing.T, ctx context.Context, generator *infratesting.Te
 		epochNumber := big.NewInt(0)
 		epochData := generator.GenerateEpochData(vaultID, epochNumber)
 
-		epoch := EpochInfo{
+		epoch := epoch.EpochInfo{
 			Number:      epochData.Number,
 			StartTime:   epochData.StartTime,
 			EndTime:     epochData.EndTime,
@@ -670,7 +668,7 @@ func testEdgeCases(t *testing.T, ctx context.Context, generator *infratesting.Te
 		epochNumber.SetString("999999999999999999999", 10)
 
 		epochData := generator.GenerateEpochData(vaultID, epochNumber)
-		epoch := EpochInfo{
+		epoch := epoch.EpochInfo{
 			Number:      epochData.Number,
 			StartTime:   epochData.StartTime,
 			EndTime:     epochData.EndTime,
@@ -691,7 +689,7 @@ func testEdgeCases(t *testing.T, ctx context.Context, generator *infratesting.Te
 		epochNumber := big.NewInt(99)
 		epochData := generator.GenerateEpochData(vaultID, epochNumber)
 
-		epoch := EpochInfo{
+		epoch := epoch.EpochInfo{
 			Number:      epochData.Number,
 			StartTime:   epochData.StartTime,
 			EndTime:     epochData.EndTime,
@@ -736,7 +734,7 @@ func testEdgeCases(t *testing.T, ctx context.Context, generator *infratesting.Te
 
 	t.Run("TimeZeroValues", func(t *testing.T) {
 		epochNumber := big.NewInt(100)
-		epoch := EpochInfo{
+		epoch := epoch.EpochInfo{
 			Number:      epochNumber,
 			StartTime:   time.Time{}, // Zero time
 			EndTime:     time.Time{}, // Zero time
@@ -773,7 +771,7 @@ func testTransactionIsolation(t *testing.T, ctx context.Context, generator *infr
 
 	// Create initial epoch
 	epochData := generator.GenerateEpochData(vaultID, epochNumber)
-	epoch := EpochInfo{
+	epoch := epoch.EpochInfo{
 		Number:      epochData.Number,
 		StartTime:   epochData.StartTime,
 		EndTime:     epochData.EndTime,

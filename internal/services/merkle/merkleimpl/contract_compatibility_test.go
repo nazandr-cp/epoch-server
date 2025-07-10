@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/andrey/epoch-server/internal/infra/subgraph"
+	"github.com/andrey/epoch-server/internal/services/merkle"
 	"github.com/dgraph-io/badger/v4"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -19,11 +20,11 @@ func TestContractCompatibility_ExactSolidityMatching(t *testing.T) {
 	// Test data that exactly matches what would be used in production
 	testCases := []struct {
 		name    string
-		entries []Entry
+		entries []merkle.Entry
 	}{
 		{
 			name: "Production-like data with mixed case addresses",
-			entries: []Entry{
+			entries: []merkle.Entry{
 				{Address: "0x742d35Cc6bF8E65f8b95E6c5CB15F5C5D5b8DbC3", TotalEarned: big.NewInt(1500000000000000000)},
 				{Address: "0x1234567890123456789012345678901234567890", TotalEarned: big.NewInt(750000000000000000)},
 				{Address: "0xAbCdEfAbCdEfAbCdEfAbCdEfAbCdEfAbCdEfAbCd", TotalEarned: big.NewInt(2000000000000000000)},
@@ -32,7 +33,7 @@ func TestContractCompatibility_ExactSolidityMatching(t *testing.T) {
 		},
 		{
 			name: "Edge cases - zero amounts and max values",
-			entries: []Entry{
+			entries: []merkle.Entry{
 				{Address: "0x0000000000000000000000000000000000000000", TotalEarned: big.NewInt(0)},
 				{Address: "0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF", TotalEarned: func() *big.Int {
 					val, _ := new(big.Int).SetString("115792089237316195423570985008687907853269984665640564039457584007913129639935", 10)
@@ -42,7 +43,7 @@ func TestContractCompatibility_ExactSolidityMatching(t *testing.T) {
 		},
 		{
 			name: "Single entry",
-			entries: []Entry{
+			entries: []merkle.Entry{
 				{Address: "0x742d35Cc6bF8E65f8b95E6c5CB15F5C5D5b8DbC3", TotalEarned: big.NewInt(1000000000000000000)},
 			},
 		},
@@ -135,19 +136,19 @@ func TestSortingConsistency(t *testing.T) {
 	service := createTestServiceForContract(t)
 
 	// Same entries in different orders
-	entries1 := []Entry{
+	entries1 := []merkle.Entry{
 		{Address: "0x742d35Cc6bF8E65f8b95E6c5CB15F5C5D5b8DbC3", TotalEarned: big.NewInt(1000000000000000000)},
 		{Address: "0x1234567890123456789012345678901234567890", TotalEarned: big.NewInt(2000000000000000000)},
 		{Address: "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd", TotalEarned: big.NewInt(500000000000000000)},
 	}
 
-	entries2 := []Entry{
+	entries2 := []merkle.Entry{
 		{Address: "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd", TotalEarned: big.NewInt(500000000000000000)},
 		{Address: "0x742d35Cc6bF8E65f8b95E6c5CB15F5C5D5b8DbC3", TotalEarned: big.NewInt(1000000000000000000)},
 		{Address: "0x1234567890123456789012345678901234567890", TotalEarned: big.NewInt(2000000000000000000)},
 	}
 
-	entries3 := []Entry{
+	entries3 := []merkle.Entry{
 		{Address: "0x1234567890123456789012345678901234567890", TotalEarned: big.NewInt(2000000000000000000)},
 		{Address: "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd", TotalEarned: big.NewInt(500000000000000000)},
 		{Address: "0x742d35Cc6bF8E65f8b95E6c5CB15F5C5D5b8DbC3", TotalEarned: big.NewInt(1000000000000000000)},
@@ -171,7 +172,7 @@ func TestLazyDistributorCompatibility(t *testing.T) {
 	service := createTestServiceForContract(t)
 
 	// Test the core leaf hashing function compatibility
-	testEntries := []Entry{
+	testEntries := []merkle.Entry{
 		{Address: "0x742d35Cc6bF8E65f8b95E6c5CB15F5C5D5b8DbC3", TotalEarned: big.NewInt(1500000000000000000)},
 		{Address: "0x1234567890123456789012345678901234567890", TotalEarned: big.NewInt(750000000000000000)},
 	}
@@ -199,11 +200,11 @@ func TestLazyDistributorCompatibility(t *testing.T) {
 // BenchmarkContractCompatibility benchmarks the contract-compatible operations
 func BenchmarkContractCompatibility(b *testing.B) {
 	// Prepare test data
-	entries := make([]Entry, 100)
+	entries := make([]merkle.Entry, 100)
 	for i := 0; i < 100; i++ {
 		addr := common.BigToAddress(big.NewInt(int64(i)))
 		amount := big.NewInt(int64((i + 1) * 1000000000000000000))
-		entries[i] = Entry{Address: addr.Hex(), TotalEarned: amount}
+		entries[i] = merkle.Entry{Address: addr.Hex(), TotalEarned: amount}
 	}
 
 	service := createTestServiceForContractBenchmark(b)

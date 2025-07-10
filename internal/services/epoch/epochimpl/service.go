@@ -14,35 +14,17 @@ import (
 	"github.com/go-pkgz/lgr"
 )
 
-// ContractClient interface for blockchain operations
-type ContractClient interface {
-	StartEpoch(ctx context.Context) error
-	GetCurrentEpochId(ctx context.Context) (*big.Int, error)
-	ForceEndEpochWithZeroYield(ctx context.Context, epochId *big.Int, vaultAddress string) error
-}
-
-// SubgraphClient interface for querying subgraph data
-type SubgraphClient interface {
-	QueryAccounts(ctx context.Context) ([]subgraph.Account, error)
-	ExecuteQuery(ctx context.Context, request subgraph.GraphQLRequest, response interface{}) error
-}
-
-// Calculator interface for earnings calculations
-type Calculator interface {
-	CalculateTotalEarned(subsidy subgraph.AccountSubsidy, epochEndTime int64) (*big.Int, error)
-}
-
 // Service implements the epoch service interface
 type Service struct {
-	contractClient ContractClient
-	subgraphClient SubgraphClient
-	calculator     Calculator
+	contractClient epoch.ContractClient
+	subgraphClient epoch.SubgraphClient
+	calculator     epoch.Calculator
 	logger         lgr.L
 	config         *config.Config
 }
 
 // New creates a new epoch service implementation
-func New(contractClient ContractClient, subgraphClient SubgraphClient, calculator Calculator, logger lgr.L, cfg *config.Config) *Service {
+func New(contractClient epoch.ContractClient, subgraphClient epoch.SubgraphClient, calculator epoch.Calculator, logger lgr.L, cfg *config.Config) *Service {
 	return &Service{
 		contractClient: contractClient,
 		subgraphClient: subgraphClient,
@@ -111,7 +93,11 @@ func (s *Service) ForceEndEpoch(ctx context.Context, epochId uint64, vaultId str
 		}
 	}
 
-	// Convert epochId to big.Int
+	// Convert epochId to big.Int with overflow protection
+	const maxInt64 = 9223372036854775807
+	if epochId > maxInt64 {
+		return fmt.Errorf("epoch ID %d exceeds maximum supported value", epochId)
+	}
 	epochIdBig := big.NewInt(int64(epochId))
 
 	s.logger.Logf("INFO calling ForceEndEpochWithZeroYield for epoch %d", epochId)

@@ -12,8 +12,19 @@ type ContractClient interface {
 	GetCurrentEpochId(ctx context.Context) (*big.Int, error)
 	UpdateExchangeRate(ctx context.Context, lendingManagerAddress string) error
 	AllocateYieldToEpoch(ctx context.Context, epochId *big.Int, vaultAddress string) error
-	AllocateCumulativeYieldToEpoch(ctx context.Context, epochId *big.Int, vaultAddress string, amount *big.Int) error
-	EndEpochWithSubsidies(ctx context.Context, epochId *big.Int, vaultAddress string, merkleRoot [32]byte, subsidiesDistributed *big.Int) error
+	AllocateCumulativeYieldToEpoch(
+		ctx context.Context,
+		epochId *big.Int,
+		vaultAddress string,
+		amount *big.Int,
+	) error
+	EndEpochWithSubsidies(
+		ctx context.Context,
+		epochId *big.Int,
+		vaultAddress string,
+		merkleRoot [32]byte,
+		subsidiesDistributed *big.Int,
+	) error
 }
 
 type EpochClient struct {
@@ -82,8 +93,18 @@ func (c *EpochClient) AllocateYieldToEpoch(ctx context.Context, epochId *big.Int
 	return c.contractClient.AllocateYieldToEpoch(ctx, epochId, vaultAddress)
 }
 
-func (c *EpochClient) AllocateCumulativeYieldToEpoch(ctx context.Context, epochId *big.Int, vaultAddress string, amount *big.Int) error {
-	c.logger.Logf("INFO allocating cumulative yield %s to epoch %s for vault %s", amount.String(), epochId.String(), vaultAddress)
+func (c *EpochClient) AllocateCumulativeYieldToEpoch(
+	ctx context.Context,
+	epochId *big.Int,
+	vaultAddress string,
+	amount *big.Int,
+) error {
+	c.logger.Logf(
+		"INFO allocating cumulative yield %s to epoch %s for vault %s",
+		amount.String(),
+		epochId.String(),
+		vaultAddress,
+	)
 
 	if c.contractClient == nil {
 		c.logger.Logf("WARN contract client not initialized, skipping allocateCumulativeYieldToEpoch call")
@@ -93,7 +114,13 @@ func (c *EpochClient) AllocateCumulativeYieldToEpoch(ctx context.Context, epochI
 	return c.contractClient.AllocateCumulativeYieldToEpoch(ctx, epochId, vaultAddress, amount)
 }
 
-func (c *EpochClient) EndEpochWithSubsidies(ctx context.Context, epochId *big.Int, vaultAddress string, merkleRoot [32]byte, subsidiesDistributed *big.Int) error {
+func (c *EpochClient) EndEpochWithSubsidies(
+	ctx context.Context,
+	epochId *big.Int,
+	vaultAddress string,
+	merkleRoot [32]byte,
+	subsidiesDistributed *big.Int,
+) error {
 
 	if c.contractClient == nil {
 		c.logger.Logf("WARN contract client not initialized, skipping endEpochWithSubsidies call")

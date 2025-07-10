@@ -8,26 +8,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/andrey/epoch-server/internal/services/merkle"
 	"github.com/dgraph-io/badger/v4"
 	"github.com/go-pkgz/lgr"
 )
-
-// MerkleEntry represents a leaf entry in the Merkle tree
-type MerkleEntry struct {
-	Address     string   `json:"address"`
-	TotalEarned *big.Int `json:"totalEarned"`
-}
-
-// MerkleSnapshot represents a complete snapshot of merkle tree data for an epoch
-type MerkleSnapshot struct {
-	EpochNumber *big.Int      `json:"epochNumber"`
-	Entries     []MerkleEntry `json:"entries"`
-	MerkleRoot  string        `json:"merkleRoot"`
-	Timestamp   int64         `json:"timestamp"`
-	VaultID     string        `json:"vaultId"`
-	BlockNumber int64         `json:"blockNumber"`
-	CreatedAt   time.Time     `json:"createdAt"`
-}
 
 // Store handles storage operations for merkle service
 type Store struct {
@@ -44,7 +28,7 @@ func NewStore(db *badger.DB, logger lgr.L) *Store {
 }
 
 // SaveSnapshot saves a merkle snapshot for an epoch
-func (s *Store) SaveSnapshot(ctx context.Context, epochNumber *big.Int, snapshot MerkleSnapshot) error {
+func (s *Store) SaveSnapshot(ctx context.Context, epochNumber *big.Int, snapshot merkle.MerkleSnapshot) error {
 	snapshot.EpochNumber = epochNumber
 	snapshot.CreatedAt = time.Now()
 
@@ -76,10 +60,10 @@ func (s *Store) SaveSnapshot(ctx context.Context, epochNumber *big.Int, snapshot
 }
 
 // GetSnapshot retrieves a merkle snapshot for a specific epoch
-func (s *Store) GetSnapshot(ctx context.Context, epochNumber *big.Int, vaultID string) (*MerkleSnapshot, error) {
+func (s *Store) GetSnapshot(ctx context.Context, epochNumber *big.Int, vaultID string) (*merkle.MerkleSnapshot, error) {
 	key := s.buildSnapshotKey(epochNumber, vaultID)
 
-	var snapshot MerkleSnapshot
+	var snapshot merkle.MerkleSnapshot
 	err := s.db.View(func(txn *badger.Txn) error {
 		item, err := txn.Get([]byte(key))
 		if err != nil {
@@ -102,7 +86,7 @@ func (s *Store) GetSnapshot(ctx context.Context, epochNumber *big.Int, vaultID s
 }
 
 // GetLatestSnapshot retrieves the latest merkle snapshot for a vault
-func (s *Store) GetLatestSnapshot(ctx context.Context, vaultID string) (*MerkleSnapshot, error) {
+func (s *Store) GetLatestSnapshot(ctx context.Context, vaultID string) (*merkle.MerkleSnapshot, error) {
 	latestKey := s.buildLatestKey(vaultID)
 
 	var latestEpochStr string
@@ -134,9 +118,9 @@ func (s *Store) GetLatestSnapshot(ctx context.Context, vaultID string) (*MerkleS
 }
 
 // ListSnapshots retrieves multiple snapshots for a vault
-func (s *Store) ListSnapshots(ctx context.Context, vaultID string, limit int) ([]MerkleSnapshot, error) {
+func (s *Store) ListSnapshots(ctx context.Context, vaultID string, limit int) ([]merkle.MerkleSnapshot, error) {
 	prefix := s.buildVaultPrefix(vaultID)
-	var snapshots []MerkleSnapshot
+	var snapshots []merkle.MerkleSnapshot
 
 	err := s.db.View(func(txn *badger.Txn) error {
 		opts := badger.DefaultIteratorOptions
@@ -162,7 +146,7 @@ func (s *Store) ListSnapshots(ctx context.Context, vaultID string, limit int) ([
 			}
 
 			err := item.Value(func(val []byte) error {
-				var snapshot MerkleSnapshot
+				var snapshot merkle.MerkleSnapshot
 				if err := json.Unmarshal(val, &snapshot); err != nil {
 					s.logger.Logf("WARN failed to unmarshal snapshot: %v", err)
 					return nil // Continue iteration

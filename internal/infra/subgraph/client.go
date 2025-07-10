@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"net/http"
 	"time"
+
+	"github.com/go-pkgz/lgr"
 )
 
 //go:generate moq -out subgraph_mocks.go . SubgraphClient
@@ -20,29 +22,62 @@ type SubgraphClient interface {
 	QueryEpochByNumber(ctx context.Context, epochNumber string) (*Epoch, error)
 	QueryCurrentActiveEpoch(ctx context.Context) (*Epoch, error)
 	QueryEpochWithBlockInfo(ctx context.Context, epochNumber string) (*Epoch, error)
-	QueryMerkleDistributionForEpoch(ctx context.Context, epochNumber string, vaultAddress string) (*MerkleDistribution, error)
-	QueryAccountSubsidiesAtBlock(ctx context.Context, vaultAddress string, blockNumber int64) ([]AccountSubsidy, error)
-	QueryAccountSubsidiesForEpoch(ctx context.Context, vaultAddress string, epochEndTimestamp string) ([]AccountSubsidy, error)
+	QueryMerkleDistributionForEpoch(
+		ctx context.Context,
+		epochNumber string,
+		vaultAddress string,
+	) (*MerkleDistribution, error)
+	QueryAccountSubsidiesAtBlock(
+		ctx context.Context,
+		vaultAddress string,
+		blockNumber int64,
+	) ([]AccountSubsidy, error)
+	QueryAccountSubsidiesForEpoch(
+		ctx context.Context,
+		vaultAddress string,
+		epochEndTimestamp string,
+	) ([]AccountSubsidy, error)
 	HealthCheck(ctx context.Context) error
-	ExecutePaginatedQuery(ctx context.Context, queryTemplate string, variables map[string]interface{}, entityField string, response interface{}) error
-	ExecuteQueryAtBlock(ctx context.Context, query string, variables map[string]interface{}, blockNumber int64, response interface{}) error
-	ExecutePaginatedQueryAtBlock(ctx context.Context, queryTemplate string, variables map[string]interface{}, entityField string, blockNumber int64, response interface{}) error
+	ExecutePaginatedQuery(
+		ctx context.Context,
+		queryTemplate string,
+		variables map[string]interface{},
+		entityField string,
+		response interface{},
+	) error
+	ExecuteQueryAtBlock(
+		ctx context.Context,
+		query string,
+		variables map[string]interface{},
+		blockNumber int64,
+		response interface{},
+	) error
+	ExecutePaginatedQueryAtBlock(
+		ctx context.Context,
+		queryTemplate string,
+		variables map[string]interface{},
+		entityField string,
+		blockNumber int64,
+		response interface{},
+	) error
 }
 
 type Client struct {
 	httpClient *http.Client
 	endpoint   string
+	logger     lgr.L
 }
 
 // Ensure Client implements SubgraphClient
 var _ SubgraphClient = (*Client)(nil)
 
-func NewClient(endpoint string) *Client {
+func NewClient(endpoint string, logger lgr.L) *Client {
 	return &Client{
 		httpClient: &http.Client{
 			Timeout: 30 * time.Second,
 		},
 		endpoint: endpoint,
+		logger:   logger,
 	}
 }
 
@@ -258,7 +293,11 @@ func (c *Client) executeQuery(ctx context.Context, request GraphQLRequest, respo
 	if err != nil {
 		return fmt.Errorf("failed to execute request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			c.logger.Logf("WARN failed to close response body: %v", closeErr)
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
@@ -290,172 +329,40 @@ func (c *Client) ExecuteQuery(ctx context.Context, request GraphQLRequest, respo
 }
 
 // ExecutePaginatedQuery executes a GraphQL query with pagination, automatically fetching all pages
-func (c *Client) ExecutePaginatedQuery(ctx context.Context, queryTemplate string, variables map[string]interface{}, entityField string, response interface{}) error {
-	const pageSize = 1000
-	var allResults []json.RawMessage
-	skip := 0
-
-	for {
-		// Add pagination variables
-		paginatedVars := make(map[string]interface{})
-		for k, v := range variables {
-			paginatedVars[k] = v
-		}
-		paginatedVars["first"] = pageSize
-		paginatedVars["skip"] = skip
-
-		req := GraphQLRequest{
-			Query:     queryTemplate,
-			Variables: paginatedVars,
-		}
-
-		var data map[string]json.RawMessage
-
-		if err := c.executeQuery(ctx, req, &data); err != nil {
-			return fmt.Errorf("failed to execute paginated query at skip %d: %w", skip, err)
-		}
-
-		entitiesRaw, ok := data[entityField]
-		if !ok {
-			return fmt.Errorf("missing %s field in response", entityField)
-		}
-
-		// Parse entities as array
-		var entities []json.RawMessage
-		if err := json.Unmarshal(entitiesRaw, &entities); err != nil {
-			return fmt.Errorf("failed to parse %s array: %w", entityField, err)
-		}
-
-		// If this page is empty, we've reached the end
-		if len(entities) == 0 {
-			break
-		}
-
-		allResults = append(allResults, entities...)
-
-		// If this page has fewer results than pageSize, we've reached the end
-		if len(entities) < pageSize {
-			break
-		}
-
-		skip += pageSize
-	}
-
-	// Reconstruct the full response with nested data field to match GraphQL standard
-	allEntitiesJson, err := json.Marshal(allResults)
+func (c *Client) ExecutePaginatedQuery(
+	ctx context.Context,
+	queryTemplate string,
+	variables map[string]interface{},
+	entityField string,
+	response interface{},
+) error {
+	allResults, err := c.fetchAllPages(ctx, queryTemplate, variables, entityField, nil)
 	if err != nil {
-		return fmt.Errorf("failed to marshal accumulated results: %w", err)
+		return err
 	}
 
-	dataField := map[string]json.RawMessage{
-		entityField: allEntitiesJson,
-	}
-
-	dataFieldJson, err := json.Marshal(dataField)
-	if err != nil {
-		return fmt.Errorf("failed to marshal data field: %w", err)
-	}
-
-	fullResponse := map[string]json.RawMessage{
-		"data": dataFieldJson,
-	}
-
-	fullResponseJson, err := json.Marshal(fullResponse)
-	if err != nil {
-		return fmt.Errorf("failed to marshal full response: %w", err)
-	}
-
-	if err := json.Unmarshal(fullResponseJson, response); err != nil {
-		return fmt.Errorf("failed to unmarshal into response type: %w", err)
-	}
-
-	return nil
+	return c.reconstructResponse(allResults, entityField, response)
 }
 
 // ExecutePaginatedQueryAtBlock executes a GraphQL query with pagination at a specific block
-func (c *Client) ExecutePaginatedQueryAtBlock(ctx context.Context, queryTemplate string, variables map[string]interface{}, entityField string, blockNumber int64, response interface{}) error {
-	const pageSize = 1000
-	var allResults []json.RawMessage
-	skip := 0
-
-	for {
-		// Add pagination variables
-		paginatedVars := make(map[string]interface{})
-		for k, v := range variables {
-			paginatedVars[k] = v
-		}
-		paginatedVars["first"] = pageSize
-		paginatedVars["skip"] = skip
-
-		req := GraphQLRequest{
-			Query:     queryTemplate,
-			Variables: paginatedVars,
-			Block: &BlockParameter{
-				Number: &blockNumber,
-			},
-		}
-
-		var data map[string]json.RawMessage
-
-		if err := c.executeQuery(ctx, req, &data); err != nil {
-			return fmt.Errorf("failed to execute paginated query at block %d skip %d: %w", blockNumber, skip, err)
-		}
-
-		entitiesRaw, ok := data[entityField]
-		if !ok {
-			return fmt.Errorf("missing %s field in response", entityField)
-		}
-
-		// Parse entities as array
-		var entities []json.RawMessage
-		if err := json.Unmarshal(entitiesRaw, &entities); err != nil {
-			return fmt.Errorf("failed to parse %s array: %w", entityField, err)
-		}
-
-		// If this page is empty, we've reached the end
-		if len(entities) == 0 {
-			break
-		}
-
-		allResults = append(allResults, entities...)
-
-		// If this page has fewer results than pageSize, we've reached the end
-		if len(entities) < pageSize {
-			break
-		}
-
-		skip += pageSize
+func (c *Client) ExecutePaginatedQueryAtBlock(
+	ctx context.Context,
+	queryTemplate string,
+	variables map[string]interface{},
+	entityField string,
+	blockNumber int64,
+	response interface{},
+) error {
+	blockParam := &BlockParameter{
+		Number: &blockNumber,
 	}
 
-	// Reconstruct the full response with nested data field to match GraphQL standard
-	allEntitiesJson, err := json.Marshal(allResults)
+	allResults, err := c.fetchAllPages(ctx, queryTemplate, variables, entityField, blockParam)
 	if err != nil {
-		return fmt.Errorf("failed to marshal accumulated results: %w", err)
+		return err
 	}
 
-	dataField := map[string]json.RawMessage{
-		entityField: allEntitiesJson,
-	}
-
-	dataFieldJson, err := json.Marshal(dataField)
-	if err != nil {
-		return fmt.Errorf("failed to marshal data field: %w", err)
-	}
-
-	fullResponse := map[string]json.RawMessage{
-		"data": dataFieldJson,
-	}
-
-	fullResponseJson, err := json.Marshal(fullResponse)
-	if err != nil {
-		return fmt.Errorf("failed to marshal full response: %w", err)
-	}
-
-	if err := json.Unmarshal(fullResponseJson, response); err != nil {
-		return fmt.Errorf("failed to unmarshal into response type: %w", err)
-	}
-
-	return nil
+	return c.reconstructResponse(allResults, entityField, response)
 }
 
 // ExecuteQueryAtBlock executes a GraphQL query at a specific block
@@ -812,4 +719,96 @@ func (c *Client) QueryAccountSubsidiesForEpoch(ctx context.Context, vaultAddress
 	}
 
 	return response.AccountSubsidies, nil
+}
+
+// fetchAllPages fetches all pages of a paginated GraphQL query
+func (c *Client) fetchAllPages(ctx context.Context, queryTemplate string, variables map[string]interface{}, entityField string, blockParam *BlockParameter) ([]json.RawMessage, error) {
+	const pageSize = 1000
+	var allResults []json.RawMessage
+	skip := 0
+
+	for {
+		// Add pagination variables
+		paginatedVars := make(map[string]interface{})
+		for k, v := range variables {
+			paginatedVars[k] = v
+		}
+		paginatedVars["first"] = pageSize
+		paginatedVars["skip"] = skip
+
+		req := GraphQLRequest{
+			Query:     queryTemplate,
+			Variables: paginatedVars,
+			Block:     blockParam,
+		}
+
+		var data map[string]json.RawMessage
+
+		if err := c.executeQuery(ctx, req, &data); err != nil {
+			if blockParam != nil {
+				return nil, fmt.Errorf("failed to execute paginated query at block %d skip %d: %w", *blockParam.Number, skip, err)
+			}
+			return nil, fmt.Errorf("failed to execute paginated query at skip %d: %w", skip, err)
+		}
+
+		entitiesRaw, ok := data[entityField]
+		if !ok {
+			return nil, fmt.Errorf("missing %s field in response", entityField)
+		}
+
+		// Parse entities as array
+		var entities []json.RawMessage
+		if err := json.Unmarshal(entitiesRaw, &entities); err != nil {
+			return nil, fmt.Errorf("failed to parse %s array: %w", entityField, err)
+		}
+
+		// If this page is empty, we've reached the end
+		if len(entities) == 0 {
+			break
+		}
+
+		allResults = append(allResults, entities...)
+
+		// If this page has fewer results than pageSize, we've reached the end
+		if len(entities) < pageSize {
+			break
+		}
+
+		skip += pageSize
+	}
+
+	return allResults, nil
+}
+
+// reconstructResponse reconstructs the full GraphQL response from accumulated results
+func (c *Client) reconstructResponse(allResults []json.RawMessage, entityField string, response interface{}) error {
+	// Reconstruct the full response with nested data field to match GraphQL standard
+	allEntitiesJson, err := json.Marshal(allResults)
+	if err != nil {
+		return fmt.Errorf("failed to marshal accumulated results: %w", err)
+	}
+
+	dataField := map[string]json.RawMessage{
+		entityField: allEntitiesJson,
+	}
+
+	dataFieldJson, err := json.Marshal(dataField)
+	if err != nil {
+		return fmt.Errorf("failed to marshal data field: %w", err)
+	}
+
+	fullResponse := map[string]json.RawMessage{
+		"data": dataFieldJson,
+	}
+
+	fullResponseJson, err := json.Marshal(fullResponse)
+	if err != nil {
+		return fmt.Errorf("failed to marshal full response: %w", err)
+	}
+
+	if err := json.Unmarshal(fullResponseJson, response); err != nil {
+		return fmt.Errorf("failed to unmarshal into response type: %w", err)
+	}
+
+	return nil
 }

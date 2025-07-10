@@ -318,8 +318,18 @@ func (c *Client) AllocateYieldToEpoch(ctx context.Context, epochId *big.Int, vau
 	return nil
 }
 
-func (c *Client) AllocateCumulativeYieldToEpoch(ctx context.Context, epochId *big.Int, vaultAddress string, amount *big.Int) error {
-	c.logger.Logf("INFO allocating cumulative yield %s to epoch %s for vault %s", amount.String(), epochId.String(), vaultAddress)
+func (c *Client) AllocateCumulativeYieldToEpoch(
+	ctx context.Context,
+	epochId *big.Int,
+	vaultAddress string,
+	amount *big.Int,
+) error {
+	c.logger.Logf(
+		"INFO allocating cumulative yield %s to epoch %s for vault %s",
+		amount.String(),
+		epochId.String(),
+		vaultAddress,
+	)
 
 	if c.ethClient == nil || c.privateKey == nil {
 		c.logger.Logf("WARN Ethereum client not initialized, skipping allocateCumulativeYieldToEpoch call")
@@ -381,7 +391,13 @@ func (c *Client) AllocateCumulativeYieldToEpoch(ctx context.Context, epochId *bi
 	return nil
 }
 
-func (c *Client) EndEpochWithSubsidies(ctx context.Context, epochId *big.Int, vaultAddress string, merkleRoot [32]byte, subsidiesDistributed *big.Int) error {
+func (c *Client) EndEpochWithSubsidies(
+	ctx context.Context,
+	epochId *big.Int,
+	vaultAddress string,
+	merkleRoot [32]byte,
+	subsidiesDistributed *big.Int,
+) error {
 	c.logger.Logf("INFO ending epoch %s with subsidies: vault=%s, merkleRoot=%x, subsidies=%s",
 		epochId.String(), vaultAddress, merkleRoot, subsidiesDistributed.String())
 

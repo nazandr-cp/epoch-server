@@ -51,7 +51,9 @@ func SetupTestDB(ctx context.Context) (*badger.DB, func(), error) {
 	// Get the database instance
 	db := container.GetDB()
 	if db == nil {
-		container.Close(ctx)
+		if closeErr := container.Close(ctx); closeErr != nil {
+			logger.Logf("WARN failed to close BadgerDB container during cleanup: %v", closeErr)
+		}
 		return nil, nil, fmt.Errorf("failed to get database instance from container")
 	}
 
@@ -93,7 +95,9 @@ func SetupTestDBWithConfig(ctx context.Context, config TestConfig) (*badger.DB, 
 	// Get the database instance
 	db := container.GetDB()
 	if db == nil {
-		container.Close(ctx)
+		if closeErr := container.Close(ctx); closeErr != nil {
+			logger.Logf("WARN failed to close BadgerDB container during cleanup: %v", closeErr)
+		}
 		return nil, nil, fmt.Errorf("failed to get database instance from container")
 	}
 
@@ -135,7 +139,9 @@ func SetupTestDBAndHelper(ctx context.Context) (*badger.DB, *BadgerTestHelper, f
 	// Get the database instance
 	db := container.GetDB()
 	if db == nil {
-		container.Close(ctx)
+		if closeErr := container.Close(ctx); closeErr != nil {
+			logger.Logf("WARN failed to close BadgerDB container during cleanup: %v", closeErr)
+		}
 		return nil, nil, nil, fmt.Errorf("failed to get database instance from container")
 	}
 

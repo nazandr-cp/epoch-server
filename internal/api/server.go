@@ -3,6 +3,7 @@ package api
 import (
 	"fmt"
 	"net/http"
+	"time"
 
 	_ "github.com/andrey/epoch-server/docs"
 	"github.com/andrey/epoch-server/internal/api/handlers"
@@ -83,18 +84,30 @@ func (s *Server) SetupRoutes() http.Handler {
 	userRouter := apiRouter.Mount("/users")
 	userRouter.HandleFunc("GET /{address}/total-earned", epochHandler.HandleGetUserTotalEarned)
 	userRouter.HandleFunc("GET /{address}/merkle-proof", merkleHandler.HandleGetUserMerkleProof)
-	userRouter.HandleFunc("GET /{address}/merkle-proof/epoch/{epochNumber}", merkleHandler.HandleGetUserHistoricalMerkleProof)
+	userRouter.HandleFunc(
+		"GET /{address}/merkle-proof/epoch/{epochNumber}",
+		merkleHandler.HandleGetUserHistoricalMerkleProof,
+	)
 
 	return router
 }
 
-// Start starts the HTTP server
+// Start starts the HTTP server with proper timeouts
 func (s *Server) Start() error {
 	handler := s.SetupRoutes()
 	addr := fmt.Sprintf("%s:%d", s.config.Server.Host, s.config.Server.Port)
 	s.logger.Logf("INFO starting server on %s", addr)
 
-	return http.ListenAndServe(addr, handler)
+	// Create server with security timeouts
+	server := &http.Server{
+		Addr:         addr,
+		Handler:      handler,
+		ReadTimeout:  15 * time.Second,
+		WriteTimeout: 15 * time.Second,
+		IdleTimeout:  60 * time.Second,
+	}
+
+	return server.ListenAndServe()
 }
 
 // Health check functions for services

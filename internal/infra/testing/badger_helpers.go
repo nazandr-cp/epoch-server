@@ -2,9 +2,9 @@ package testing
 
 import (
 	"context"
+	"crypto/rand"
 	"fmt"
 	"math/big"
-	"math/rand"
 	"strings"
 	"sync"
 	"testing"
@@ -190,14 +190,23 @@ func (h *BadgerTestHelper) BenchmarkOperations(b *testing.B, operations func(db 
 
 // GenerateRandomKey generates a random key for testing
 func (h *BadgerTestHelper) GenerateRandomKey(prefix string) string {
-	return fmt.Sprintf("%s:%d:%d", prefix, time.Now().UnixNano(), rand.Intn(1000000))
+	// use crypto/rand for better security
+	randomBytes := make([]byte, 4)
+	if _, err := rand.Read(randomBytes); err != nil {
+		// fallback to timestamp-based key if crypto/rand fails
+		return fmt.Sprintf("%s:%d", prefix, time.Now().UnixNano())
+	}
+	// convert bytes to uint32 for consistent formatting
+	randomValue := uint32(randomBytes[0])<<24 | uint32(randomBytes[1])<<16 | uint32(randomBytes[2])<<8 | uint32(randomBytes[3])
+	return fmt.Sprintf("%s:%d:%d", prefix, time.Now().UnixNano(), randomValue)
 }
 
 // GenerateRandomValue generates random value data for testing
 func (h *BadgerTestHelper) GenerateRandomValue(size int) []byte {
 	data := make([]byte, size)
-	for i := range data {
-		data[i] = byte(rand.Intn(256))
+	if _, err := rand.Read(data); err != nil {
+		// fallback to zero bytes if crypto/rand fails
+		return make([]byte, size)
 	}
 	return data
 }

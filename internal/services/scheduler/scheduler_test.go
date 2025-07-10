@@ -9,6 +9,8 @@ import (
 	"github.com/andrey/epoch-server/internal/infra/config"
 	"github.com/andrey/epoch-server/internal/services/epoch"
 	"github.com/go-pkgz/lgr"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestScheduler_NewScheduler(t *testing.T) {
@@ -38,29 +40,13 @@ func TestScheduler_NewScheduler(t *testing.T) {
 
 	scheduler := NewScheduler(mockEpochService, mockSubsidyService, interval, logger, cfg)
 
-	if scheduler == nil {
-		t.Error("NewScheduler returned nil")
-	}
+	require.NotNil(t, scheduler, "NewScheduler returned nil")
+	require.NotNil(t, scheduler.epochService, "Scheduler epochService is nil")
+	require.NotNil(t, scheduler.subsidyService, "Scheduler subsidyService is nil")
+	require.NotNil(t, scheduler.logger, "Scheduler logger is nil")
+	require.NotNil(t, scheduler.config, "Scheduler config is nil")
 
-	if scheduler.epochService == nil {
-		t.Error("Scheduler epochService is nil")
-	}
-
-	if scheduler.subsidyService == nil {
-		t.Error("Scheduler subsidyService is nil")
-	}
-
-	if scheduler.logger == nil {
-		t.Error("Scheduler logger is nil")
-	}
-
-	if scheduler.interval != interval {
-		t.Errorf("Expected interval %v, got %v", interval, scheduler.interval)
-	}
-
-	if scheduler.config == nil {
-		t.Error("Scheduler config is nil")
-	}
+	assert.Equal(t, interval, scheduler.interval, "Interval mismatch")
 }
 
 func TestScheduler_runEpochCycle(t *testing.T) {

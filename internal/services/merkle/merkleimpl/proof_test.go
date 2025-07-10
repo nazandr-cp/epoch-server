@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/andrey/epoch-server/internal/infra/subgraph"
+	"github.com/andrey/epoch-server/internal/services/merkle"
 	"github.com/dgraph-io/badger/v4"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -17,7 +18,7 @@ func TestProofGenerator_OpenZeppelinCompatibility(t *testing.T) {
 	service := createTestService(t)
 
 	// Test with sample data similar to what the contracts would use
-	entries := []Entry{
+	entries := []merkle.Entry{
 		{Address: "0x742d35Cc6bF8E65f8b95E6c5CB15F5C5D5b8DbC3", TotalEarned: big.NewInt(1000000000000000000)}, // 1 ETH equivalent
 		{Address: "0x1234567890123456789012345678901234567890", TotalEarned: big.NewInt(2000000000000000000)}, // 2 ETH equivalent
 		{Address: "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd", TotalEarned: big.NewInt(500000000000000000)},  // 0.5 ETH equivalent
@@ -94,13 +95,13 @@ func TestProofGenerator_EmptyAndSingleEntry(t *testing.T) {
 	service := createTestService(t)
 
 	// Test empty entries
-	emptyRoot := service.BuildMerkleRootFromEntries([]Entry{})
+	emptyRoot := service.BuildMerkleRootFromEntries([]merkle.Entry{})
 	if emptyRoot != [32]byte{} {
 		t.Error("Empty entries should produce zero root")
 	}
 
 	// Test single entry
-	singleEntry := []Entry{
+	singleEntry := []merkle.Entry{
 		{Address: "0x742d35Cc6bF8E65f8b95E6c5CB15F5C5D5b8DbC3", TotalEarned: big.NewInt(1000000000000000000)},
 	}
 
@@ -131,13 +132,13 @@ func TestProofGenerator_DeterministicSorting(t *testing.T) {
 	service := createTestService(t)
 
 	// Test that different input orders produce the same root
-	entries1 := []Entry{
+	entries1 := []merkle.Entry{
 		{Address: "0x742d35Cc6bF8E65f8b95E6c5CB15F5C5D5b8DbC3", TotalEarned: big.NewInt(1000000000000000000)},
 		{Address: "0x1234567890123456789012345678901234567890", TotalEarned: big.NewInt(2000000000000000000)},
 		{Address: "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd", TotalEarned: big.NewInt(500000000000000000)},
 	}
 
-	entries2 := []Entry{
+	entries2 := []merkle.Entry{
 		{Address: "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd", TotalEarned: big.NewInt(500000000000000000)},
 		{Address: "0x742d35Cc6bF8E65f8b95E6c5CB15F5C5D5b8DbC3", TotalEarned: big.NewInt(1000000000000000000)},
 		{Address: "0x1234567890123456789012345678901234567890", TotalEarned: big.NewInt(2000000000000000000)},
@@ -150,7 +151,6 @@ func TestProofGenerator_DeterministicSorting(t *testing.T) {
 		t.Errorf("Different input orders should produce same root: %s vs %s",
 			common.Bytes2Hex(root1[:]), common.Bytes2Hex(root2[:]))
 	}
-
 }
 
 // verifyProof simulates OpenZeppelin's MerkleProof.verify function
@@ -184,12 +184,12 @@ func TestProofGenerator_LargeDataset(t *testing.T) {
 	service := createTestService(t)
 
 	// Generate a larger dataset to test performance and correctness
-	entries := make([]Entry, 100)
+	entries := make([]merkle.Entry, 100)
 	for i := 0; i < 100; i++ {
 		// Generate deterministic but varied addresses and amounts
 		addr := common.BigToAddress(big.NewInt(int64(i * 12345)))
 		amount := big.NewInt(int64((i + 1) * 1000000000000000000)) // i+1 ETH
-		entries[i] = Entry{
+		entries[i] = merkle.Entry{
 			Address:     addr.Hex(),
 			TotalEarned: amount,
 		}
@@ -214,7 +214,6 @@ func TestProofGenerator_LargeDataset(t *testing.T) {
 		if !service.verifyProof(proof, root, entry.Address, entry.TotalEarned) {
 			t.Errorf("Proof verification failed for entry %d", idx)
 		}
-
 	}
 }
 

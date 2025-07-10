@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/andrey/epoch-server/internal/infra/subgraph"
+	"github.com/andrey/epoch-server/internal/services/merkle"
 	"github.com/dgraph-io/badger/v4"
 	"github.com/go-pkgz/lgr"
 	"github.com/stretchr/testify/assert"
@@ -22,7 +23,9 @@ func TestMerkleStore(t *testing.T) {
 	opts.Logger = &testLogger{logger}
 	db, err := badger.Open(opts)
 	require.NoError(t, err)
-	defer db.Close()
+	defer func() {
+		assert.NoError(t, db.Close())
+	}()
 
 	// Create mock subgraph client
 	mockClient := &mockSubgraphClient{}
@@ -33,8 +36,8 @@ func TestMerkleStore(t *testing.T) {
 	epochNumber := big.NewInt(16)
 	vaultID := "0xf82b93f3d6a703b8b5949809771b1e725708590a"
 
-	testSnapshot := MerkleSnapshot{
-		Entries: []MerkleEntry{
+	testSnapshot := merkle.MerkleSnapshot{
+		Entries: []merkle.MerkleEntry{
 			{
 				Address:     "0x3575b992c5337226aecf4e7f93dfbe80c576ce15",
 				TotalEarned: big.NewInt(1000),
@@ -151,7 +154,7 @@ func (l *testLogger) Debugf(format string, args ...interface{}) {
 	l.lgr.Logf("DEBUG "+format, args...)
 }
 
-// mockSubgraphClient implements SubgraphClient for testing
+// mockSubgraphClient implements merkle.SubgraphClient for testing
 type mockSubgraphClient struct{}
 
 func (m *mockSubgraphClient) QueryEpochWithBlockInfo(ctx context.Context, epochNumber string) (*subgraph.Epoch, error) {

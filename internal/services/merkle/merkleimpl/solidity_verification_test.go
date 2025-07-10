@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/andrey/epoch-server/internal/infra/subgraph"
+	"github.com/andrey/epoch-server/internal/services/merkle"
 	"github.com/dgraph-io/badger/v4"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -19,7 +20,7 @@ func TestExactSolidityCompatibility(t *testing.T) {
 
 	// Test case that exactly matches DebtSubsidizer.sol expected format
 	// This mimics the exact data that would come from the lazy distributor
-	entries := []Entry{
+	entries := []merkle.Entry{
 		{Address: "0x742d35Cc6bF8E65f8b95E6c5CB15F5C5D5b8DbC3", TotalEarned: big.NewInt(1500000000000000000)}, // 1.5 ETH
 		{Address: "0x1234567890123456789012345678901234567890", TotalEarned: big.NewInt(750000000000000000)},  // 0.75 ETH
 		{Address: "0xAbCdEfAbCdEfAbCdEfAbCdEfAbCdEfAbCdEfAbCd", TotalEarned: big.NewInt(2000000000000000000)}, // 2 ETH
@@ -211,7 +212,7 @@ func BenchmarkSolidityCompatibleOperations(b *testing.B) {
 	})
 
 	// Test with multiple entries
-	entries := []Entry{
+	entries := []merkle.Entry{
 		{Address: "0x742d35Cc6bF8E65f8b95E6c5CB15F5C5D5b8DbC3", TotalEarned: big.NewInt(1000000000000000000)},
 		{Address: "0x1234567890123456789012345678901234567890", TotalEarned: big.NewInt(2000000000000000000)},
 		{Address: "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd", TotalEarned: big.NewInt(500000000000000000)},

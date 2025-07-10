@@ -39,7 +39,11 @@ func NewSubsidizerClient(logger lgr.L) *SubsidizerClient {
 }
 
 // NewClientWithConfig creates a real blockchain client
-func NewSubsidizerClientWithConfig(logger lgr.L, ethConfig SubsidizerEthereumConfig, contractAddr string) (*SubsidizerClient, error) {
+func NewSubsidizerClientWithConfig(
+	logger lgr.L,
+	ethConfig SubsidizerEthereumConfig,
+	contractAddr string,
+) (*SubsidizerClient, error) {
 	client := &SubsidizerClient{
 		logger:       logger,
 		ethConfig:    ethConfig,
@@ -92,7 +96,12 @@ func (c *SubsidizerClient) initialize() error {
 	return nil
 }
 
-func (c *SubsidizerClient) UpdateMerkleRoot(ctx context.Context, vaultId string, root [32]byte, totalSubsidies *big.Int) error {
+func (c *SubsidizerClient) UpdateMerkleRoot(
+	ctx context.Context,
+	vaultId string,
+	root [32]byte,
+	totalSubsidies *big.Int,
+) error {
 	// If not initialized (mock mode), just log
 	if c.ethClient == nil {
 		c.logger.Logf("INFO [MOCK] updating merkle root for vault %s: %x", vaultId, root)
@@ -138,7 +147,12 @@ func (c *SubsidizerClient) UpdateMerkleRoot(ctx context.Context, vaultId string,
 	return nil
 }
 
-func (c *SubsidizerClient) UpdateMerkleRootAndWaitForConfirmation(ctx context.Context, vaultId string, root [32]byte, totalSubsidies *big.Int) error {
+func (c *SubsidizerClient) UpdateMerkleRootAndWaitForConfirmation(
+	ctx context.Context,
+	vaultId string,
+	root [32]byte,
+	totalSubsidies *big.Int,
+) error {
 	// If not initialized (mock mode), simulate the old behavior
 	if c.ethClient == nil {
 		c.logger.Logf("INFO [MOCK] updating merkle root for vault %s: %x", vaultId, root)
@@ -204,6 +218,11 @@ func (c *SubsidizerClient) UpdateMerkleRootAndWaitForConfirmation(ctx context.Co
 		return fmt.Errorf("updateMerkleRoot transaction failed with hash %s", tx.Hash().Hex())
 	}
 
-	c.logger.Logf("INFO transaction confirmed for vault %s (block: %d, gas used: %d)", vaultId, receipt.BlockNumber.Uint64(), receipt.GasUsed)
+	c.logger.Logf(
+		"INFO transaction confirmed for vault %s (block: %d, gas used: %d)",
+		vaultId,
+		receipt.BlockNumber.Uint64(),
+		receipt.GasUsed,
+	)
 	return nil
 }

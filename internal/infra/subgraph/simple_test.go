@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/go-pkgz/lgr"
 )
 
 func TestClient_DirectQuery(t *testing.T) {
@@ -36,7 +38,7 @@ func TestClient_DirectQuery(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(server.URL)
+	client := NewClient(server.URL, lgr.NoOp)
 
 	// Test ExecuteQuery directly
 	request := GraphQLRequest{

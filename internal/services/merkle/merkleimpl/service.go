@@ -16,46 +16,15 @@ import (
 	"github.com/go-pkgz/lgr"
 )
 
-// SubgraphClient interface for subgraph operations
-type SubgraphClient interface {
-	QueryEpochWithBlockInfo(ctx context.Context, epochNumber string) (*subgraph.Epoch, error)
-	QueryCurrentActiveEpoch(ctx context.Context) (*subgraph.Epoch, error)
-	ExecuteQuery(ctx context.Context, request subgraph.GraphQLRequest, response interface{}) error
-}
-
-// Entry represents a leaf entry in the Merkle tree
-type Entry struct {
-	Address     string
-	TotalEarned *big.Int
-}
-
-// EpochTimestamp represents epoch timing and block information
-type EpochTimestamp struct {
-	EpochNumber                  string
-	ProcessingCompletedTimestamp int64
-	StartTimestamp               int64
-	EndTimestamp                 int64
-	CreatedAtBlock               int64 // Block number where epoch was created
-	UpdatedAtBlock               int64 // Block number where epoch was last updated
-}
-
-// TreeResult contains the result of merkle tree generation
-type TreeResult struct {
-	Entries     []Entry
-	MerkleRoot  [32]byte
-	Timestamp   int64
-	BlockNumber int64 // Block number used for data consistency
-}
-
 // Service implements the merkle service interface with all functionality consolidated
 type Service struct {
 	store       *Store
-	graphClient SubgraphClient
+	graphClient merkle.SubgraphClient
 	logger      lgr.L
 }
 
 // New creates a new unified merkle service implementation
-func New(db *badger.DB, graphClient SubgraphClient, logger lgr.L) *Service {
+func New(db *badger.DB, graphClient merkle.SubgraphClient, logger lgr.L) *Service {
 	return &Service{
 		store:       NewStore(db, logger),
 		graphClient: graphClient,
@@ -104,7 +73,7 @@ func (s *Service) GenerateUserMerkleProof(ctx context.Context, userAddress, vaul
 
 	// Find the user's entry
 	normalizedUserAddress := strings.ToLower(userAddress)
-	var userEntry *Entry
+	var userEntry *merkle.Entry
 	for _, entry := range entries {
 		if strings.ToLower(entry.Address) == normalizedUserAddress {
 			userEntry = &entry
@@ -203,7 +172,7 @@ func (s *Service) GenerateHistoricalMerkleProof(ctx context.Context, userAddress
 
 	// Find the user's entry
 	normalizedUserAddress := strings.ToLower(userAddress)
-	var userEntry *Entry
+	var userEntry *merkle.Entry
 	for _, entry := range entries {
 		if strings.ToLower(entry.Address) == normalizedUserAddress {
 			userEntry = &entry
@@ -280,8 +249,8 @@ func (s *Service) secondsToTokens(seconds *big.Int) *big.Int {
 }
 
 // processAccountSubsidies processes account subsidies and returns entries with positive earnings
-func (s *Service) processAccountSubsidies(subsidies []subgraph.AccountSubsidy, endTimestamp int64) ([]Entry, error) {
-	var entries []Entry
+func (s *Service) processAccountSubsidies(subsidies []subgraph.AccountSubsidy, endTimestamp int64) ([]merkle.Entry, error) {
+	var entries []merkle.Entry
 
 	for _, subsidy := range subsidies {
 		totalEarned, err := s.CalculateTotalEarned(subsidy, endTimestamp)
@@ -291,7 +260,7 @@ func (s *Service) processAccountSubsidies(subsidies []subgraph.AccountSubsidy, e
 
 		// Only include accounts with positive earnings
 		if totalEarned.Cmp(big.NewInt(0)) > 0 {
-			entries = append(entries, Entry{
+			entries = append(entries, merkle.Entry{
 				Address:     subsidy.Account.ID,
 				TotalEarned: totalEarned,
 			})
@@ -304,13 +273,13 @@ func (s *Service) processAccountSubsidies(subsidies []subgraph.AccountSubsidy, e
 // === Proof Generation Methods ===
 
 // GenerateProof generates a Merkle proof for a specific entry (public for testing)
-func (s *Service) GenerateProof(entries []Entry, targetAddress string, targetAmount *big.Int) ([][32]byte, [32]byte, error) {
+func (s *Service) GenerateProof(entries []merkle.Entry, targetAddress string, targetAmount *big.Int) ([][32]byte, [32]byte, error) {
 	if len(entries) == 0 {
 		return nil, [32]byte{}, nil
 	}
 
 	// Sort entries deterministically by address
-	sortedEntries := make([]Entry, len(entries))
+	sortedEntries := make([]merkle.Entry, len(entries))
 	copy(sortedEntries, entries)
 	s.sortEntries(sortedEntries)
 
@@ -342,13 +311,13 @@ func (s *Service) GenerateProof(entries []Entry, targetAddress string, targetAmo
 }
 
 // BuildMerkleRootFromEntries builds the Merkle root from entries (public for testing)
-func (s *Service) BuildMerkleRootFromEntries(entries []Entry) [32]byte {
+func (s *Service) BuildMerkleRootFromEntries(entries []merkle.Entry) [32]byte {
 	if len(entries) == 0 {
 		return [32]byte{}
 	}
 
 	// Sort entries deterministically by address
-	sortedEntries := make([]Entry, len(entries))
+	sortedEntries := make([]merkle.Entry, len(entries))
 	copy(sortedEntries, entries)
 	s.sortEntries(sortedEntries)
 
@@ -362,7 +331,7 @@ func (s *Service) BuildMerkleRootFromEntries(entries []Entry) [32]byte {
 }
 
 // sortEntries sorts entries by address to ensure deterministic ordering
-func (s *Service) sortEntries(entries []Entry) {
+func (s *Service) sortEntries(entries []merkle.Entry) {
 	for i := 1; i < len(entries); i++ {
 		key := entries[i]
 		j := i - 1
@@ -495,9 +464,9 @@ func (s *Service) IsLeftSmaller(left, right [32]byte) bool {
 }
 
 // findLeafIndex finds the index of a leaf in the sorted entries
-func (s *Service) findLeafIndex(entries []Entry, targetAddress string, targetAmount *big.Int) int {
+func (s *Service) findLeafIndex(entries []merkle.Entry, targetAddress string, targetAmount *big.Int) int {
 	// Sort entries deterministically by address
-	sortedEntries := make([]Entry, len(entries))
+	sortedEntries := make([]merkle.Entry, len(entries))
 	copy(sortedEntries, entries)
 	s.sortEntries(sortedEntries)
 
@@ -513,7 +482,7 @@ func (s *Service) findLeafIndex(entries []Entry, targetAddress string, targetAmo
 // === Epoch Block Manager Methods ===
 
 // parseEpochTimestamp parses epoch timing information from a subgraph epoch
-func (s *Service) parseEpochTimestamp(epoch *subgraph.Epoch) (*EpochTimestamp, error) {
+func (s *Service) parseEpochTimestamp(epoch *subgraph.Epoch) (*merkle.EpochTimestamp, error) {
 	// Parse processingCompletedTimestamp (preferred) or fallback to startTimestamp
 	var processingTime int64
 	var err error
@@ -557,7 +526,7 @@ func (s *Service) parseEpochTimestamp(epoch *subgraph.Epoch) (*EpochTimestamp, e
 	s.logger.Logf("INFO resolved epoch %s timestamp: processingCompleted=%d, start=%d, end=%d",
 		epoch.EpochNumber, processingTime, startTime, endTime)
 
-	return &EpochTimestamp{
+	return &merkle.EpochTimestamp{
 		EpochNumber:                  epoch.EpochNumber,
 		ProcessingCompletedTimestamp: processingTime,
 		StartTimestamp:               startTime,
@@ -629,19 +598,16 @@ func (s *Service) getEpochByNumber(ctx context.Context, epochNumber string) (*su
 }
 
 // generateProofFromSnapshot generates a proof from a stored snapshot
-func (s *Service) generateProofFromSnapshot(snapshot *MerkleSnapshot, userAddress string) (*merkle.UserMerkleProofResponse, error) {
+func (s *Service) generateProofFromSnapshot(snapshot *merkle.MerkleSnapshot, userAddress string) (*merkle.UserMerkleProofResponse, error) {
 	// Convert MerkleEntry to Entry
-	entries := make([]Entry, len(snapshot.Entries))
+	entries := make([]merkle.Entry, len(snapshot.Entries))
 	for i, entry := range snapshot.Entries {
-		entries[i] = Entry{
-			Address:     entry.Address,
-			TotalEarned: entry.TotalEarned,
-		}
+		entries[i] = merkle.Entry(entry)
 	}
 
 	// Find the user's entry
 	normalizedUserAddress := strings.ToLower(userAddress)
-	var userEntry *Entry
+	var userEntry *merkle.Entry
 	for _, entry := range entries {
 		if strings.ToLower(entry.Address) == normalizedUserAddress {
 			userEntry = &entry

@@ -91,7 +91,9 @@ func NewBadgerContainer(ctx context.Context, config BadgerContainerConfig) (*Bad
 
 	db, err := badger.Open(opts)
 	if err != nil {
-		container.Terminate(ctx)
+		if termErr := container.Terminate(ctx); termErr != nil {
+			return nil, fmt.Errorf("failed to open BadgerDB: %w, failed to terminate container: %v", err, termErr)
+		}
 		return nil, fmt.Errorf("failed to open BadgerDB: %w", err)
 	}
 
@@ -205,7 +207,7 @@ func (bc *BadgerContainer) GetKeysWithPrefix(prefix string) ([]string, error) {
 		for it.Rewind(); it.Valid(); it.Next() {
 			item := it.Item()
 			key := string(item.Key())
-			if len(prefix) == 0 || string(key[:len(prefix)]) == prefix {
+			if len(prefix) == 0 || key[:len(prefix)] == prefix {
 				keys = append(keys, key)
 			}
 		}

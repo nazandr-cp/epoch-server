@@ -52,10 +52,12 @@ func (h *EpochHandler) HandleStartEpoch(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	rest.EncodeJSON(w, http.StatusAccepted, StartEpochResponse{
+	if err := rest.EncodeJSON(w, http.StatusAccepted, StartEpochResponse{
 		Status:  "accepted",
 		Message: "Epoch start initiated successfully",
-	})
+	}); err != nil {
+		h.logger.Logf("ERROR failed to encode JSON response: %v", err)
+	}
 }
 
 // ForceEndEpochResponse represents the response for force ending an epoch
@@ -104,12 +106,14 @@ func (h *EpochHandler) HandleForceEndEpoch(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	rest.EncodeJSON(w, http.StatusAccepted, ForceEndEpochResponse{
+	if err := rest.EncodeJSON(w, http.StatusAccepted, ForceEndEpochResponse{
 		Status:  "accepted",
 		EpochId: epochId,
 		VaultID: vaultId,
 		Message: "Force end epoch initiated successfully",
-	})
+	}); err != nil {
+		h.logger.Logf("ERROR failed to encode JSON response: %v", err)
+	}
 }
 
 // HandleGetUserTotalEarned handles user total earned requests

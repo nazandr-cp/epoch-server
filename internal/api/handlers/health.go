@@ -56,7 +56,9 @@ func (h *HealthHandler) HandleHealth(w http.ResponseWriter, r *http.Request) {
 
 	if !healthy {
 		response.Status = "unhealthy"
-		rest.EncodeJSON(w, http.StatusServiceUnavailable, response)
+		if err := rest.EncodeJSON(w, http.StatusServiceUnavailable, response); err != nil {
+			h.logger.Logf("ERROR failed to encode JSON response: %v", err)
+		}
 		return
 	}
 

@@ -8,23 +8,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/andrey/epoch-server/internal/services/subsidy"
 	"github.com/dgraph-io/badger/v4"
 	"github.com/go-pkgz/lgr"
 )
-
-// SubsidyDistribution represents a subsidy distribution record
-type SubsidyDistribution struct {
-	ID                string    `json:"id"`
-	EpochNumber       *big.Int  `json:"epochNumber"`
-	VaultID           string    `json:"vaultId"`
-	CollectionAddress string    `json:"collectionAddress"`
-	Amount            *big.Int  `json:"amount"`
-	Status            string    `json:"status"` // "pending", "distributed", "failed"
-	TxHash            string    `json:"txHash,omitempty"`
-	BlockNumber       int64     `json:"blockNumber,omitempty"`
-	CreatedAt         time.Time `json:"createdAt"`
-	UpdatedAt         time.Time `json:"updatedAt"`
-}
 
 // Store handles storage operations for subsidy service
 type Store struct {
@@ -41,7 +28,7 @@ func NewStore(db *badger.DB, logger lgr.L) *Store {
 }
 
 // SaveDistribution saves a subsidy distribution record
-func (s *Store) SaveDistribution(ctx context.Context, distribution SubsidyDistribution) error {
+func (s *Store) SaveDistribution(ctx context.Context, distribution subsidy.SubsidyDistribution) error {
 	distribution.UpdatedAt = time.Now()
 	if distribution.CreatedAt.IsZero() {
 		distribution.CreatedAt = time.Now()
@@ -75,10 +62,10 @@ func (s *Store) SaveDistribution(ctx context.Context, distribution SubsidyDistri
 }
 
 // GetDistribution retrieves a subsidy distribution by ID
-func (s *Store) GetDistribution(ctx context.Context, distributionID string) (*SubsidyDistribution, error) {
+func (s *Store) GetDistribution(ctx context.Context, distributionID string) (*subsidy.SubsidyDistribution, error) {
 	key := s.buildDistributionKey(distributionID)
 
-	var distribution SubsidyDistribution
+	var distribution subsidy.SubsidyDistribution
 	err := s.db.View(func(txn *badger.Txn) error {
 		item, err := txn.Get([]byte(key))
 		if err != nil {
@@ -101,9 +88,9 @@ func (s *Store) GetDistribution(ctx context.Context, distributionID string) (*Su
 }
 
 // ListDistributionsByEpoch retrieves all distributions for a specific epoch and vault
-func (s *Store) ListDistributionsByEpoch(ctx context.Context, epochNumber *big.Int, vaultID string) ([]SubsidyDistribution, error) {
+func (s *Store) ListDistributionsByEpoch(ctx context.Context, epochNumber *big.Int, vaultID string) ([]subsidy.SubsidyDistribution, error) {
 	prefix := s.buildEpochVaultPrefix(epochNumber, vaultID)
-	var distributions []SubsidyDistribution
+	var distributions []subsidy.SubsidyDistribution
 
 	err := s.db.View(func(txn *badger.Txn) error {
 		opts := badger.DefaultIteratorOptions
@@ -140,8 +127,8 @@ func (s *Store) ListDistributionsByEpoch(ctx context.Context, epochNumber *big.I
 }
 
 // ListDistributionsByStatus retrieves all distributions with a specific status
-func (s *Store) ListDistributionsByStatus(ctx context.Context, status string, limit int) ([]SubsidyDistribution, error) {
-	var distributions []SubsidyDistribution
+func (s *Store) ListDistributionsByStatus(ctx context.Context, status string, limit int) ([]subsidy.SubsidyDistribution, error) {
+	var distributions []subsidy.SubsidyDistribution
 
 	err := s.db.View(func(txn *badger.Txn) error {
 		opts := badger.DefaultIteratorOptions
@@ -155,7 +142,7 @@ func (s *Store) ListDistributionsByStatus(ctx context.Context, status string, li
 			item := it.Item()
 
 			err := item.Value(func(val []byte) error {
-				var distribution SubsidyDistribution
+				var distribution subsidy.SubsidyDistribution
 				if err := json.Unmarshal(val, &distribution); err != nil {
 					s.logger.Logf("WARN failed to unmarshal distribution: %v", err)
 					return nil // Continue iteration
