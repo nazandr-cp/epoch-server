@@ -28,6 +28,7 @@ import (
 	"github.com/andrey/epoch-server/internal/services/epoch/epochimpl"
 	"github.com/andrey/epoch-server/internal/services/merkle/merkleimpl"
 	"github.com/andrey/epoch-server/internal/services/scheduler"
+	"github.com/andrey/epoch-server/internal/services/subsidy/subsidyimpl"
 	"github.com/go-pkgz/lgr"
 )
 
@@ -135,15 +136,18 @@ func setupServices(
 	contractClient *blockchain.Client,
 	subgraphClient *subgraph.Client,
 	dbWrapper *storage.DatabaseWrapper,
-) (*epochimpl.Service, *mockSubsidyService, *merkleimpl.Service) {
+) (*epochimpl.Service, *subsidyimpl.Service, *merkleimpl.Service) {
 	// Setup merkle service with unified implementation
 	merkleService := merkleimpl.New(dbWrapper.GetDB(), subgraphClient, logger)
 
 	// Setup services
 	epochService := epochimpl.New(contractClient, subgraphClient, merkleService, logger, cfg)
 
-	// Create a mock subsidy service for now
-	subsidyService := &mockSubsidyService{logger: logger}
+	// Create lazy distributor for real subsidy service
+	lazyDistributor := subsidyimpl.NewLazyDistributor(contractClient, merkleService, subgraphClient, logger)
+
+	// Create real subsidy service
+	subsidyService := subsidyimpl.New(lazyDistributor, logger, cfg)
 
 	return epochService, subsidyService, merkleService
 }
@@ -154,7 +158,7 @@ func setupScheduler(
 	logger lgr.L,
 	ctx context.Context,
 	epochService *epochimpl.Service,
-	subsidyService *mockSubsidyService,
+	subsidyService *subsidyimpl.Service,
 ) {
 	schedulerInterval := cfg.Scheduler.Interval
 	schedulerInstance := scheduler.NewScheduler(epochService, subsidyService, schedulerInterval, logger, cfg)
@@ -166,7 +170,7 @@ func startServer(
 	cfg *config.Config,
 	logger lgr.L,
 	epochService *epochimpl.Service,
-	subsidyService *mockSubsidyService,
+	subsidyService *subsidyimpl.Service,
 	merkleService *merkleimpl.Service,
 ) {
 	server := api.NewServer(epochService, subsidyService, merkleService, logger, cfg)
@@ -174,14 +178,4 @@ func startServer(
 	if err := server.Start(); err != nil {
 		logger.Logf("ERROR server failed to start: %v", err)
 	}
-}
-
-// Mock subsidy service for now - this will be replaced with proper implementation
-
-type mockSubsidyService struct {
-	logger interface{}
-}
-
-func (m *mockSubsidyService) DistributeSubsidies(ctx context.Context, vaultId string) error {
-	return fmt.Errorf("mock service not implemented")
 }

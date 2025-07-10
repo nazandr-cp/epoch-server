@@ -1,3 +1,32 @@
+# Environment files
 .env
+
+# Generated Go files
 *_mocks.go
+
+# Binaries
 server
+*.test
+*.exe
+
+# Test and coverage files
+coverage.out
+coverage.html
+*.coverage
+
+# Profiling files
+*.prof
+*.pprof
+
+# Temporary files
+tmp/
+temp/
+
+# IDE/Editor files
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
