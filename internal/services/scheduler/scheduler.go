@@ -39,17 +39,17 @@ func (s *Scheduler) Start(ctx context.Context) {
 
 func (s *Scheduler) runEpochCycle(ctx context.Context) {
 	// Start epoch if needed
-	if err := s.epochService.StartEpoch(ctx); err != nil {
+	if response, err := s.epochService.StartEpoch(ctx); err != nil {
 		s.logger.Logf("ERROR failed to start epoch: %v", err)
 	} else {
-		s.logger.Logf("INFO successfully started epoch")
+		s.logger.Logf("INFO successfully started epoch: %s", response.EpochID)
 	}
 
 	// Use vault address from configuration for subsidy distribution
 	vaultId := s.config.Contracts.CollectionsVault
-	if err := s.subsidyService.DistributeSubsidies(ctx, vaultId); err != nil {
+	if response, err := s.subsidyService.DistributeSubsidies(ctx, vaultId); err != nil {
 		s.logger.Logf("ERROR failed to distribute subsidies: %v", err)
 	} else {
-		s.logger.Logf("INFO successfully distributed subsidies")
+		s.logger.Logf("INFO successfully distributed subsidies: %s", response.Status)
 	}
 }

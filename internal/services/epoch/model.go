@@ -17,6 +17,27 @@ type UserEarningsResponse struct {
 	DataTimestamp int64  `json:"dataTimestamp"` // Timestamp used for calculations
 }
 
+// StartEpochResponse represents the response from starting a new epoch
+type StartEpochResponse struct {
+	EpochID         string `json:"epochId"`
+	VaultAddress    string `json:"vaultAddress"`
+	Status          string `json:"status"`
+	TransactionHash string `json:"transactionHash,omitempty"`
+	Message         string `json:"message"`
+	StartedAt       int64  `json:"startedAt"`
+}
+
+// ForceEndEpochResponse represents the response from force ending an epoch
+type ForceEndEpochResponse struct {
+	EpochID          string `json:"epochId"`
+	VaultAddress     string `json:"vaultAddress"`
+	Status           string `json:"status"`
+	TransactionHash  string `json:"transactionHash,omitempty"`
+	Message          string `json:"message"`
+	EndedAt          int64  `json:"endedAt"`
+	ZeroYieldApplied bool   `json:"zeroYieldApplied"`
+}
+
 // ContractClient interface for blockchain operations
 type ContractClient interface {
 	StartEpoch(ctx context.Context) error

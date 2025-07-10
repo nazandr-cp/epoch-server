@@ -7,7 +7,7 @@
 // @contact.email support@lend.fam
 // @license.name MIT
 // @license.url https://opensource.org/licenses/MIT
-// @host localhost:8080
+// @host localhost:8088
 // @BasePath /
 // @schemes http https
 // @accept json

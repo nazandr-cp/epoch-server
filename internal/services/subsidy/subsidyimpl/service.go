@@ -26,10 +26,10 @@ func New(lazyDistributor subsidy.LazyDistributor, logger lgr.L, cfg *config.Conf
 }
 
 // DistributeSubsidies manages the distribution of subsidies for a vault
-func (s *Service) DistributeSubsidies(ctx context.Context, vaultId string) error {
+func (s *Service) DistributeSubsidies(ctx context.Context, vaultId string) (*subsidy.SubsidyDistributionResponse, error) {
 	// Validate input
 	if vaultId == "" {
-		return fmt.Errorf("%w: vaultId cannot be empty", subsidy.ErrInvalidInput)
+		return nil, fmt.Errorf("%w: vaultId cannot be empty", subsidy.ErrInvalidInput)
 	}
 
 	s.logger.Logf("INFO starting subsidy distribution for vault %s", vaultId)
@@ -38,13 +38,21 @@ func (s *Service) DistributeSubsidies(ctx context.Context, vaultId string) error
 		s.logger.Logf("ERROR subsidy distribution failed for vault %s: %v", vaultId, err)
 		// Check if the error is transaction-related
 		if isTransactionError(err) {
-			return fmt.Errorf("%w: failed to run lazy distributor for vault %s: %v", subsidy.ErrTransactionFailed, vaultId, err)
+			return nil, fmt.Errorf("%w: failed to run lazy distributor for vault %s: %v", subsidy.ErrTransactionFailed, vaultId, err)
 		}
-		return fmt.Errorf("failed to run lazy distributor for vault %s: %w", vaultId, err)
+		return nil, fmt.Errorf("failed to run lazy distributor for vault %s: %w", vaultId, err)
 	}
 
 	s.logger.Logf("INFO successfully completed subsidy distribution for vault %s", vaultId)
-	return nil
+
+	return &subsidy.SubsidyDistributionResponse{
+		VaultID:           vaultId,
+		EpochID:           "current",
+		TotalSubsidies:    "0",
+		AccountsProcessed: 0,
+		MerkleRoot:        "",
+		Status:            "completed",
+	}, nil
 }
 
 // isTransactionError determines if an error is related to blockchain transaction failures

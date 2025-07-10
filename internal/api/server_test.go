@@ -16,11 +16,11 @@ import (
 func TestServerRoutes(t *testing.T) {
 	// Create mock services
 	mockEpochService := &epoch.ServiceMock{
-		StartEpochFunc: func(ctx context.Context) error {
-			return nil
+		StartEpochFunc: func(ctx context.Context) (*epoch.StartEpochResponse, error) {
+			return &epoch.StartEpochResponse{Status: "started"}, nil
 		},
-		ForceEndEpochFunc: func(ctx context.Context, epochId uint64, vaultId string) error {
-			return nil
+		ForceEndEpochFunc: func(ctx context.Context, epochId uint64, vaultId string) (*epoch.ForceEndEpochResponse, error) {
+			return &epoch.ForceEndEpochResponse{Status: "force_ended"}, nil
 		},
 		GetUserTotalEarnedFunc: func(ctx context.Context, userAddress, vaultId string) (*epoch.UserEarningsResponse, error) {
 			return &epoch.UserEarningsResponse{}, nil
@@ -28,8 +28,8 @@ func TestServerRoutes(t *testing.T) {
 	}
 
 	mockSubsidyService := &subsidy.ServiceMock{
-		DistributeSubsidiesFunc: func(ctx context.Context, vaultId string) error {
-			return nil
+		DistributeSubsidiesFunc: func(ctx context.Context, vaultId string) (*subsidy.SubsidyDistributionResponse, error) {
+			return &subsidy.SubsidyDistributionResponse{Status: "completed"}, nil
 		},
 	}
 

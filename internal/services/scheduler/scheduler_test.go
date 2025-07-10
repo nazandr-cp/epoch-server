@@ -8,6 +8,7 @@ import (
 
 	"github.com/andrey/epoch-server/internal/infra/config"
 	"github.com/andrey/epoch-server/internal/services/epoch"
+	"github.com/andrey/epoch-server/internal/services/subsidy"
 	"github.com/go-pkgz/lgr"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -15,20 +16,20 @@ import (
 
 func TestScheduler_NewScheduler(t *testing.T) {
 	mockEpochService := &epoch.ServiceMock{
-		StartEpochFunc: func(ctx context.Context) error {
-			return nil
+		StartEpochFunc: func(ctx context.Context) (*epoch.StartEpochResponse, error) {
+			return &epoch.StartEpochResponse{Status: "started"}, nil
 		},
-		ForceEndEpochFunc: func(ctx context.Context, epochId uint64, vaultId string) error {
-			return nil
+		ForceEndEpochFunc: func(ctx context.Context, epochId uint64, vaultId string) (*epoch.ForceEndEpochResponse, error) {
+			return &epoch.ForceEndEpochResponse{Status: "force_ended"}, nil
 		},
 		GetUserTotalEarnedFunc: func(ctx context.Context, userAddress, vaultId string) (*epoch.UserEarningsResponse, error) {
 			return nil, nil
 		},
 	}
 
-	mockSubsidyService := &SubsidyServiceMock{
-		DistributeSubsidiesFunc: func(ctx context.Context, vaultId string) error {
-			return nil
+	mockSubsidyService := &subsidy.ServiceMock{
+		DistributeSubsidiesFunc: func(ctx context.Context, vaultId string) (*subsidy.SubsidyDistributionResponse, error) {
+			return &subsidy.SubsidyDistributionResponse{Status: "completed"}, nil
 		},
 	}
 
@@ -54,25 +55,25 @@ func TestScheduler_runEpochCycle(t *testing.T) {
 	subsidyDistributeCalled := false
 
 	mockEpochService := &epoch.ServiceMock{
-		StartEpochFunc: func(ctx context.Context) error {
+		StartEpochFunc: func(ctx context.Context) (*epoch.StartEpochResponse, error) {
 			epochStartCalled = true
-			return nil
+			return &epoch.StartEpochResponse{Status: "started"}, nil
 		},
-		ForceEndEpochFunc: func(ctx context.Context, epochId uint64, vaultId string) error {
-			return nil
+		ForceEndEpochFunc: func(ctx context.Context, epochId uint64, vaultId string) (*epoch.ForceEndEpochResponse, error) {
+			return &epoch.ForceEndEpochResponse{Status: "force_ended"}, nil
 		},
 		GetUserTotalEarnedFunc: func(ctx context.Context, userAddress, vaultId string) (*epoch.UserEarningsResponse, error) {
 			return nil, nil
 		},
 	}
 
-	mockSubsidyService := &SubsidyServiceMock{
-		DistributeSubsidiesFunc: func(ctx context.Context, vaultId string) error {
+	mockSubsidyService := &subsidy.ServiceMock{
+		DistributeSubsidiesFunc: func(ctx context.Context, vaultId string) (*subsidy.SubsidyDistributionResponse, error) {
 			subsidyDistributeCalled = true
 			if vaultId != "0x1234567890123456789012345678901234567890" {
 				t.Errorf("Expected vaultId 0x1234567890123456789012345678901234567890, got %s", vaultId)
 			}
-			return nil
+			return &subsidy.SubsidyDistributionResponse{Status: "completed"}, nil
 		},
 	}
 
@@ -101,22 +102,22 @@ func TestScheduler_runEpochCycle_WithErrors(t *testing.T) {
 	subsidyDistributeCalled := false
 
 	mockEpochService := &epoch.ServiceMock{
-		StartEpochFunc: func(ctx context.Context) error {
+		StartEpochFunc: func(ctx context.Context) (*epoch.StartEpochResponse, error) {
 			epochStartCalled = true
-			return fmt.Errorf("epoch start error")
+			return nil, fmt.Errorf("epoch start error")
 		},
-		ForceEndEpochFunc: func(ctx context.Context, epochId uint64, vaultId string) error {
-			return nil
+		ForceEndEpochFunc: func(ctx context.Context, epochId uint64, vaultId string) (*epoch.ForceEndEpochResponse, error) {
+			return &epoch.ForceEndEpochResponse{Status: "force_ended"}, nil
 		},
 		GetUserTotalEarnedFunc: func(ctx context.Context, userAddress, vaultId string) (*epoch.UserEarningsResponse, error) {
 			return nil, nil
 		},
 	}
 
-	mockSubsidyService := &SubsidyServiceMock{
-		DistributeSubsidiesFunc: func(ctx context.Context, vaultId string) error {
+	mockSubsidyService := &subsidy.ServiceMock{
+		DistributeSubsidiesFunc: func(ctx context.Context, vaultId string) (*subsidy.SubsidyDistributionResponse, error) {
 			subsidyDistributeCalled = true
-			return fmt.Errorf("subsidy distribute error")
+			return nil, fmt.Errorf("subsidy distribute error")
 		},
 	}
 

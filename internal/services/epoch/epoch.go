@@ -9,10 +9,10 @@ import (
 // Service defines the interface for epoch management operations
 type Service interface {
 	// StartEpoch initiates a new epoch
-	StartEpoch(ctx context.Context) error
+	StartEpoch(ctx context.Context) (*StartEpochResponse, error)
 
 	// ForceEndEpoch forcibly ends an epoch with zero yield
-	ForceEndEpoch(ctx context.Context, epochId uint64, vaultId string) error
+	ForceEndEpoch(ctx context.Context, epochId uint64, vaultId string) (*ForceEndEpochResponse, error)
 
 	// GetUserTotalEarned calculates total earned subsidies for a user
 	GetUserTotalEarned(ctx context.Context, userAddress, vaultId string) (*UserEarningsResponse, error)

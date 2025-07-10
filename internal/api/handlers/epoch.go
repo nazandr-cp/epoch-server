@@ -27,45 +27,29 @@ func NewEpochHandler(epochService epoch.Service, logger lgr.L, cfg *config.Confi
 	}
 }
 
-// StartEpochResponse represents the response for starting an epoch
-type StartEpochResponse struct {
-	Status  string `json:"status" example:"accepted"`
-	Message string `json:"message" example:"Epoch start initiated successfully"`
-}
-
 // HandleStartEpoch handles epoch start requests
 // @Summary Start epoch
 // @Description Initiates the start of a new epoch for yield distribution
 // @Tags epochs
 // @Accept json
 // @Produce json
-// @Success 202 {object} StartEpochResponse "Epoch start accepted"
+// @Success 202 {object} epoch.StartEpochResponse "Epoch start accepted"
 // @Failure 400 {object} ErrorResponse "Bad request"
 // @Failure 500 {object} ErrorResponse "Internal server error"
 // @Router /api/epochs/start [post]
 func (h *EpochHandler) HandleStartEpoch(w http.ResponseWriter, r *http.Request) {
 	h.logger.Logf("INFO received start epoch request")
 
-	if err := h.epochService.StartEpoch(r.Context()); err != nil {
+	response, err := h.epochService.StartEpoch(r.Context())
+	if err != nil {
 		h.logger.Logf("ERROR failed to start epoch: %v", err)
 		writeErrorResponse(w, r, h.logger, err, "Failed to start epoch")
 		return
 	}
 
-	if err := rest.EncodeJSON(w, http.StatusAccepted, StartEpochResponse{
-		Status:  "accepted",
-		Message: "Epoch start initiated successfully",
-	}); err != nil {
+	if err := rest.EncodeJSON(w, http.StatusAccepted, response); err != nil {
 		h.logger.Logf("ERROR failed to encode JSON response: %v", err)
 	}
-}
-
-// ForceEndEpochResponse represents the response for force ending an epoch
-type ForceEndEpochResponse struct {
-	Status  string `json:"status" example:"accepted"`
-	EpochId uint64 `json:"epochId" example:"1"`
-	VaultID string `json:"vaultID" example:"0x1234567890123456789012345678901234567890"`
-	Message string `json:"message" example:"Force end epoch initiated successfully"`
 }
 
 // HandleForceEndEpoch handles force end epoch requests
@@ -75,7 +59,7 @@ type ForceEndEpochResponse struct {
 // @Accept json
 // @Produce json
 // @Param epochId query uint64 true "Epoch ID to force end"
-// @Success 202 {object} ForceEndEpochResponse "Epoch force end accepted"
+// @Success 202 {object} epoch.ForceEndEpochResponse "Epoch force end accepted"
 // @Failure 400 {object} ErrorResponse "Bad request - missing or invalid epochId"
 // @Failure 500 {object} ErrorResponse "Internal server error"
 // @Router /api/epochs/force-end [post]
@@ -100,18 +84,14 @@ func (h *EpochHandler) HandleForceEndEpoch(w http.ResponseWriter, r *http.Reques
 
 	h.logger.Logf("INFO received force end epoch request for epoch %d, vault %s", epochId, vaultId)
 
-	if err := h.epochService.ForceEndEpoch(r.Context(), epochId, vaultId); err != nil {
+	response, err := h.epochService.ForceEndEpoch(r.Context(), epochId, vaultId)
+	if err != nil {
 		h.logger.Logf("ERROR failed to force end epoch %d for vault %s: %v", epochId, vaultId, err)
 		writeErrorResponse(w, r, h.logger, err, "Failed to force end epoch")
 		return
 	}
 
-	if err := rest.EncodeJSON(w, http.StatusAccepted, ForceEndEpochResponse{
-		Status:  "accepted",
-		EpochId: epochId,
-		VaultID: vaultId,
-		Message: "Force end epoch initiated successfully",
-	}); err != nil {
+	if err := rest.EncodeJSON(w, http.StatusAccepted, response); err != nil {
 		h.logger.Logf("ERROR failed to encode JSON response: %v", err)
 	}
 }

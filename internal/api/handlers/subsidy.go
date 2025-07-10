@@ -25,20 +25,13 @@ func NewSubsidyHandler(subsidyService subsidy.Service, logger lgr.L, cfg *config
 	}
 }
 
-// DistributeSubsidiesResponse represents the response for subsidy distribution
-type DistributeSubsidiesResponse struct {
-	Status  string `json:"status" example:"accepted"`
-	VaultID string `json:"vaultID" example:"0x1234567890123456789012345678901234567890"`
-	Message string `json:"message" example:"Subsidy distribution initiated successfully"`
-}
-
 // HandleDistributeSubsidies handles subsidy distribution requests
 // @Summary Distribute subsidies
 // @Description Initiates the distribution of subsidies for the current epoch
 // @Tags epochs
 // @Accept json
 // @Produce json
-// @Success 202 {object} DistributeSubsidiesResponse "Subsidy distribution accepted"
+// @Success 202 {object} subsidy.SubsidyDistributionResponse "Subsidy distribution accepted"
 // @Failure 400 {object} ErrorResponse "Bad request"
 // @Failure 500 {object} ErrorResponse "Internal server error"
 // @Router /api/epochs/distribute [post]
@@ -48,17 +41,14 @@ func (h *SubsidyHandler) HandleDistributeSubsidies(w http.ResponseWriter, r *htt
 
 	h.logger.Logf("INFO received distribute subsidies request for vault %s", vaultId)
 
-	if err := h.subsidyService.DistributeSubsidies(r.Context(), vaultId); err != nil {
+	response, err := h.subsidyService.DistributeSubsidies(r.Context(), vaultId)
+	if err != nil {
 		h.logger.Logf("ERROR failed to distribute subsidies for vault %s: %v", vaultId, err)
 		writeErrorResponse(w, r, h.logger, err, "Failed to distribute subsidies")
 		return
 	}
 
-	if err := rest.EncodeJSON(w, http.StatusAccepted, DistributeSubsidiesResponse{
-		Status:  "accepted",
-		VaultID: vaultId,
-		Message: "Subsidy distribution initiated successfully",
-	}); err != nil {
+	if err := rest.EncodeJSON(w, http.StatusAccepted, response); err != nil {
 		h.logger.Logf("ERROR failed to encode JSON response: %v", err)
 	}
 }

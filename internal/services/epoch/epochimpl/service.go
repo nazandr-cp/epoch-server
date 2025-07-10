@@ -35,12 +35,12 @@ func New(contractClient epoch.ContractClient, subgraphClient epoch.SubgraphClien
 }
 
 // StartEpoch initiates a new epoch
-func (s *Service) StartEpoch(ctx context.Context) error {
+func (s *Service) StartEpoch(ctx context.Context) (*epoch.StartEpochResponse, error) {
 	// Check if there's an active epoch that needs to be completed first
 	currentEpochId, err := s.contractClient.GetCurrentEpochId(ctx)
 	if err != nil {
 		s.logger.Logf("ERROR failed to get current epoch ID: %v", err)
-		return fmt.Errorf("failed to get current epoch ID: %w", err)
+		return nil, fmt.Errorf("failed to get current epoch ID: %w", err)
 	}
 
 	// If there's a current epoch (ID > 0), we need to validate it's completed
@@ -51,7 +51,7 @@ func (s *Service) StartEpoch(ctx context.Context) error {
 	accounts, err := s.subgraphClient.QueryAccounts(ctx)
 	if err != nil {
 		s.logger.Logf("ERROR failed to query accounts: %v", err)
-		return fmt.Errorf("failed to query accounts: %w", err)
+		return nil, fmt.Errorf("failed to query accounts: %w", err)
 	}
 
 	s.logger.Logf("INFO found %d accounts for starting new epoch", len(accounts))
@@ -60,20 +60,33 @@ func (s *Service) StartEpoch(ctx context.Context) error {
 		s.logger.Logf("ERROR blockchain transaction failed for startEpoch: %v", err)
 		// Check if the error is specifically about epoch still being active
 		if isEpochStillActiveError(err) {
-			return fmt.Errorf("%w: cannot start new epoch - current epoch %s is still active and must be completed first", epoch.ErrTransactionFailed, currentEpochId.String())
+			return nil, fmt.Errorf("%w: cannot start new epoch - current epoch %s is still active and must be completed first", epoch.ErrTransactionFailed, currentEpochId.String())
 		}
-		return fmt.Errorf("%w: failed to start epoch: %v", epoch.ErrTransactionFailed, err)
+		return nil, fmt.Errorf("%w: failed to start epoch: %v", epoch.ErrTransactionFailed, err)
 	}
 
 	s.logger.Logf("INFO successfully initiated epoch start")
-	return nil
+
+	newEpochId, err := s.contractClient.GetCurrentEpochId(ctx)
+	if err != nil {
+		s.logger.Logf("WARN failed to get new epoch ID: %v", err)
+		newEpochId = big.NewInt(0)
+	}
+
+	return &epoch.StartEpochResponse{
+		EpochID:      newEpochId.String(),
+		VaultAddress: s.config.Contracts.CollectionsVault,
+		Status:       "started",
+		Message:      "epoch successfully started",
+		StartedAt:    time.Now().Unix(),
+	}, nil
 }
 
 // ForceEndEpoch forcibly ends an epoch with zero yield
-func (s *Service) ForceEndEpoch(ctx context.Context, epochId uint64, vaultId string) error {
+func (s *Service) ForceEndEpoch(ctx context.Context, epochId uint64, vaultId string) (*epoch.ForceEndEpochResponse, error) {
 	// Validate input
 	if vaultId == "" {
-		return fmt.Errorf("%w: vaultId cannot be empty", epoch.ErrInvalidInput)
+		return nil, fmt.Errorf("%w: vaultId cannot be empty", epoch.ErrInvalidInput)
 	}
 
 	s.logger.Logf("INFO force ending epoch %d for vault %s", epochId, vaultId)
@@ -86,17 +99,24 @@ func (s *Service) ForceEndEpoch(ctx context.Context, epochId uint64, vaultId str
 		currentEpochInt := currentEpochId.Uint64()
 		if epochId < currentEpochInt {
 			s.logger.Logf("INFO epoch %d is already past (current: %d), considering it completed", epochId, currentEpochInt)
-			return nil
+			return &epoch.ForceEndEpochResponse{
+				EpochID:          fmt.Sprintf("%d", epochId),
+				VaultAddress:     vaultId,
+				Status:           "already_completed",
+				Message:          "epoch already completed",
+				EndedAt:          time.Now().Unix(),
+				ZeroYieldApplied: false,
+			}, nil
 		}
 		if epochId > currentEpochInt {
-			return fmt.Errorf("%w: cannot force end future epoch %d (current: %d)", epoch.ErrInvalidInput, epochId, currentEpochInt)
+			return nil, fmt.Errorf("%w: cannot force end future epoch %d (current: %d)", epoch.ErrInvalidInput, epochId, currentEpochInt)
 		}
 	}
 
 	// Convert epochId to big.Int with overflow protection
 	const maxInt64 = 9223372036854775807
 	if epochId > maxInt64 {
-		return fmt.Errorf("epoch ID %d exceeds maximum supported value", epochId)
+		return nil, fmt.Errorf("epoch ID %d exceeds maximum supported value", epochId)
 	}
 	epochIdBig := big.NewInt(int64(epochId))
 
@@ -105,13 +125,21 @@ func (s *Service) ForceEndEpoch(ctx context.Context, epochId uint64, vaultId str
 	if err := s.contractClient.ForceEndEpochWithZeroYield(ctx, epochIdBig, vaultId); err != nil {
 		s.logger.Logf("ERROR ForceEndEpochWithZeroYield failed for epoch %d: %v", epochId, err)
 		if isTransactionError(err) {
-			return fmt.Errorf("%w: failed to force end epoch %d for vault %s: %v", epoch.ErrTransactionFailed, epochId, vaultId, err)
+			return nil, fmt.Errorf("%w: failed to force end epoch %d for vault %s: %v", epoch.ErrTransactionFailed, epochId, vaultId, err)
 		}
-		return fmt.Errorf("failed to force end epoch %d for vault %s: %w", epochId, vaultId, err)
+		return nil, fmt.Errorf("failed to force end epoch %d for vault %s: %w", epochId, vaultId, err)
 	}
 
 	s.logger.Logf("INFO successfully force ended epoch %d for vault %s with zero yield", epochId, vaultId)
-	return nil
+
+	return &epoch.ForceEndEpochResponse{
+		EpochID:          fmt.Sprintf("%d", epochId),
+		VaultAddress:     vaultId,
+		Status:           "force_ended",
+		Message:          "epoch force ended with zero yield",
+		EndedAt:          time.Now().Unix(),
+		ZeroYieldApplied: true,
+	}, nil
 }
 
 // GetUserTotalEarned calculates total earned subsidies for a user
