@@ -46,7 +46,7 @@ func (d *LazyDistributor) Run(ctx context.Context, vaultId string) error {
 	d.logger.Logf("INFO starting lazy distributor for vault %s", vaultId)
 
 	// Get account subsidies for the vault from subgraph
-	subsidies, err := d.subgraphClient.GetAccountSubsidies(ctx, vaultId, "", "")
+	subsidies, err := d.subgraphClient.QueryAccountSubsidiesForVault(ctx, vaultId)
 	if err != nil {
 		d.logger.Logf("ERROR failed to get account subsidies for vault %s: %v", vaultId, err)
 		return fmt.Errorf("failed to get account subsidies: %w", err)
@@ -90,15 +90,15 @@ func (d *LazyDistributor) Run(ctx context.Context, vaultId string) error {
 }
 
 // convertSubsidiesToEntries converts subgraph subsidies to merkle entries
-func (d *LazyDistributor) convertSubsidiesToEntries(subsidies []*subgraph.AccountSubsidy) ([]merkle.Entry, *big.Int, error) {
+func (d *LazyDistributor) convertSubsidiesToEntries(subsidies []subgraph.AccountSubsidy) ([]merkle.Entry, *big.Int, error) {
 	entries := make([]merkle.Entry, 0, len(subsidies))
 	totalSubsidies := big.NewInt(0)
 
 	for _, subsidy := range subsidies {
-		// Parse the total earned amount
-		amount, ok := new(big.Int).SetString(subsidy.TotalEarned, 10)
+		// Parse the total rewards earned amount
+		amount, ok := new(big.Int).SetString(subsidy.TotalRewardsEarned, 10)
 		if !ok {
-			d.logger.Logf("WARN invalid total earned amount for account %s: %s", subsidy.Account, subsidy.TotalEarned)
+			d.logger.Logf("WARN invalid total rewards earned amount for account %s: %s", subsidy.Account.ID, subsidy.TotalRewardsEarned)
 			continue
 		}
 
@@ -109,7 +109,7 @@ func (d *LazyDistributor) convertSubsidiesToEntries(subsidies []*subgraph.Accoun
 
 		// Create merkle entry
 		entry := merkle.Entry{
-			Address:     subsidy.Account,
+			Address:     subsidy.Account.ID,
 			TotalEarned: amount,
 		}
 
@@ -138,11 +138,11 @@ func (d *LazyDistributor) updateMerkleRoot(ctx context.Context, vaultId string, 
 	// For now, we'll use the existing subsidizer client pattern
 	// In a real implementation, we would need to add a method to the blockchain client
 	// to handle DebtSubsidizer contract calls
-	
+
 	// Create a subsidizer client using the same config as the main blockchain client
 	// This is a temporary approach until we integrate subsidizer into the main client
 	subsidizer := blockchain.NewSubsidizerClient(d.logger)
-	
+
 	// Call the subsidizer to update merkle root
 	return subsidizer.UpdateMerkleRootAndWaitForConfirmation(ctx, vaultId, merkleRoot, totalSubsidies)
 }

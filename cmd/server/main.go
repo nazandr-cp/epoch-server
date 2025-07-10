@@ -16,7 +16,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log"
 
 	"github.com/andrey/epoch-server/internal/api"
