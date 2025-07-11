@@ -59,7 +59,7 @@ func (s *Server) SetupRoutes() http.Handler {
 	router.Use(rest.RealIP)
 	router.Use(rest.Trace)                  // Add request tracing
 	router.Use(rest.SizeLimit(1024 * 1024)) // 1MB request size limit
-	router.Use(middleware.Auth(s.logger))
+	// router.Use(middleware.Auth(s.logger))
 	router.Use(middleware.Logging(s.logger)) // Keep custom logging middleware
 	router.Use(middleware.Recovery(s.logger))
 	router.Use(rest.AppInfo("epoch-server", "andrey", "1.0.0"))
@@ -72,22 +72,24 @@ func (s *Server) SetupRoutes() http.Handler {
 	router.HandleFunc("GET /swagger/*", httpSwagger.Handler())
 
 	// API routes group
-	apiRouter := router.Mount("/api")
+	router.Group().Mount("/api").Route(func(apiRouter *routegroup.Bundle) {
+		// Epoch management routes
+		apiRouter.Group().Mount("/epochs").Route(func(epochRouter *routegroup.Bundle) {
+			epochRouter.HandleFunc("POST /start", epochHandler.HandleStartEpoch)
+			epochRouter.HandleFunc("POST /force-end", epochHandler.HandleForceEndEpoch)
+			epochRouter.HandleFunc("POST /distribute", subsidyHandler.HandleDistributeSubsidies)
+		})
 
-	// Epoch management routes
-	epochRouter := apiRouter.Mount("/epochs")
-	epochRouter.HandleFunc("POST /start", epochHandler.HandleStartEpoch)
-	epochRouter.HandleFunc("POST /force-end", epochHandler.HandleForceEndEpoch)
-	epochRouter.HandleFunc("POST /distribute", subsidyHandler.HandleDistributeSubsidies)
-
-	// User-related routes
-	userRouter := apiRouter.Mount("/users")
-	userRouter.HandleFunc("GET /{address}/total-earned", epochHandler.HandleGetUserTotalEarned)
-	userRouter.HandleFunc("GET /{address}/merkle-proof", merkleHandler.HandleGetUserMerkleProof)
-	userRouter.HandleFunc(
-		"GET /{address}/merkle-proof/epoch/{epochNumber}",
-		merkleHandler.HandleGetUserHistoricalMerkleProof,
-	)
+		// User-related routes
+		apiRouter.Group().Mount("/users").Route(func(userRouter *routegroup.Bundle) {
+			userRouter.HandleFunc("GET /{address}/total-earned", epochHandler.HandleGetUserTotalEarned)
+			userRouter.HandleFunc("GET /{address}/merkle-proof", merkleHandler.HandleGetUserMerkleProof)
+			userRouter.HandleFunc(
+				"GET /{address}/merkle-proof/epoch/{epochNumber}",
+				merkleHandler.HandleGetUserHistoricalMerkleProof,
+			)
+		})
+	})
 
 	return router
 }
