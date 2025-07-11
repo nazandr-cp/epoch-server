@@ -12,21 +12,19 @@ import (
 	"github.com/go-pkgz/lgr"
 )
 
-// LazyDistributor implements the subsidy.LazyDistributor interface
-// It handles the actual distribution of subsidies by generating merkle roots
-// and updating the blockchain contract
+// LazyDistributor handles subsidy distribution by generating merkle roots
 type LazyDistributor struct {
-	blockchainClient *blockchain.Client
+	blockchainClient blockchain.BlockchainClient
 	merkleService    merkle.Service
-	subgraphClient   *subgraph.Client
+	subgraphClient   subgraph.SubgraphClient
 	logger           lgr.L
 }
 
-// NewLazyDistributor creates a new LazyDistributor instance
+// NewLazyDistributor creates a new LazyDistributor
 func NewLazyDistributor(
-	blockchainClient *blockchain.Client,
+	blockchainClient blockchain.BlockchainClient,
 	merkleService merkle.Service,
-	subgraphClient *subgraph.Client,
+	subgraphClient subgraph.SubgraphClient,
 	logger lgr.L,
 ) *LazyDistributor {
 	return &LazyDistributor{
@@ -37,7 +35,7 @@ func NewLazyDistributor(
 	}
 }
 
-// Run executes the subsidy distribution for a given vault
+// Run executes subsidy distribution for a vault
 func (d *LazyDistributor) Run(ctx context.Context, vaultId string) error {
 	if vaultId == "" {
 		return fmt.Errorf("vaultId cannot be empty")
@@ -45,7 +43,6 @@ func (d *LazyDistributor) Run(ctx context.Context, vaultId string) error {
 
 	d.logger.Logf("INFO starting lazy distributor for vault %s", vaultId)
 
-	// Get account subsidies for the vault from subgraph
 	subsidies, err := d.subgraphClient.QueryAccountSubsidiesForVault(ctx, vaultId)
 	if err != nil {
 		d.logger.Logf("ERROR failed to get account subsidies for vault %s: %v", vaultId, err)
@@ -57,7 +54,6 @@ func (d *LazyDistributor) Run(ctx context.Context, vaultId string) error {
 		return nil
 	}
 
-	// Convert subsidies to merkle entries
 	entries, totalSubsidies, err := d.convertSubsidiesToEntries(subsidies)
 	if err != nil {
 		d.logger.Logf("ERROR failed to convert subsidies to entries: %v", err)
@@ -69,7 +65,6 @@ func (d *LazyDistributor) Run(ctx context.Context, vaultId string) error {
 		return nil
 	}
 
-	// Generate merkle root from entries
 	merkleRoot, err := d.generateMerkleRoot(entries)
 	if err != nil {
 		d.logger.Logf("ERROR failed to generate merkle root: %v", err)
@@ -79,7 +74,6 @@ func (d *LazyDistributor) Run(ctx context.Context, vaultId string) error {
 	d.logger.Logf("INFO generated merkle root for vault %s: %x", vaultId, merkleRoot)
 	d.logger.Logf("INFO total subsidies for vault %s: %s", vaultId, totalSubsidies.String())
 
-	// Update merkle root on blockchain via DebtSubsidizer contract
 	if err := d.updateMerkleRoot(ctx, vaultId, merkleRoot, totalSubsidies); err != nil {
 		d.logger.Logf("ERROR failed to update merkle root on blockchain: %v", err)
 		return fmt.Errorf("failed to update merkle root on blockchain: %w", err)
@@ -89,25 +83,28 @@ func (d *LazyDistributor) Run(ctx context.Context, vaultId string) error {
 	return nil
 }
 
-// convertSubsidiesToEntries converts subgraph subsidies to merkle entries
-func (d *LazyDistributor) convertSubsidiesToEntries(subsidies []subgraph.AccountSubsidy) ([]merkle.Entry, *big.Int, error) {
+// convertSubsidiesToEntries converts subsidies to merkle entries
+func (d *LazyDistributor) convertSubsidiesToEntries(
+	subsidies []subgraph.AccountSubsidy,
+) ([]merkle.Entry, *big.Int, error) {
 	entries := make([]merkle.Entry, 0, len(subsidies))
 	totalSubsidies := big.NewInt(0)
 
 	for _, subsidy := range subsidies {
-		// Parse the total rewards earned amount
 		amount, ok := new(big.Int).SetString(subsidy.TotalRewardsEarned, 10)
 		if !ok {
-			d.logger.Logf("WARN invalid total rewards earned amount for account %s: %s", subsidy.Account.ID, subsidy.TotalRewardsEarned)
+			d.logger.Logf(
+				"WARN invalid total rewards earned amount for account %s: %s",
+				subsidy.Account.ID,
+				subsidy.TotalRewardsEarned,
+			)
 			continue
 		}
 
-		// Skip zero amounts
 		if amount.Sign() <= 0 {
 			continue
 		}
 
-		// Create merkle entry
 		entry := merkle.Entry{
 			Address:     subsidy.Account.ID,
 			TotalEarned: amount,
@@ -120,10 +117,8 @@ func (d *LazyDistributor) convertSubsidiesToEntries(subsidies []subgraph.Account
 	return entries, totalSubsidies, nil
 }
 
-// generateMerkleRoot generates the merkle root from entries using the merkle service
+// generateMerkleRoot generates merkle root from entries
 func (d *LazyDistributor) generateMerkleRoot(entries []merkle.Entry) ([32]byte, error) {
-	// Use the merkle service to build the merkle root
-	// We need to access the internal implementation to get the BuildMerkleRootFromEntries method
 	merkleImpl, ok := d.merkleService.(*merkleimpl.Service)
 	if !ok {
 		return [32]byte{}, fmt.Errorf("merkle service is not the expected implementation type")
@@ -133,16 +128,12 @@ func (d *LazyDistributor) generateMerkleRoot(entries []merkle.Entry) ([32]byte, 
 	return root, nil
 }
 
-// updateMerkleRoot updates the merkle root on the blockchain via DebtSubsidizer contract
-func (d *LazyDistributor) updateMerkleRoot(ctx context.Context, vaultId string, merkleRoot [32]byte, totalSubsidies *big.Int) error {
-	// For now, we'll use the existing subsidizer client pattern
-	// In a real implementation, we would need to add a method to the blockchain client
-	// to handle DebtSubsidizer contract calls
-
-	// Create a subsidizer client using the same config as the main blockchain client
-	// This is a temporary approach until we integrate subsidizer into the main client
-	subsidizer := blockchain.NewSubsidizerClient(d.logger)
-
-	// Call the subsidizer to update merkle root
-	return subsidizer.UpdateMerkleRootAndWaitForConfirmation(ctx, vaultId, merkleRoot, totalSubsidies)
+// updateMerkleRoot updates merkle root on blockchain
+func (d *LazyDistributor) updateMerkleRoot(
+	ctx context.Context,
+	vaultId string,
+	merkleRoot [32]byte,
+	totalSubsidies *big.Int,
+) error {
+	return d.blockchainClient.UpdateMerkleRootAndWaitForConfirmation(ctx, vaultId, merkleRoot, totalSubsidies)
 }

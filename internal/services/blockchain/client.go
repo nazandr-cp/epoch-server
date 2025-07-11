@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/big"
 
+	"github.com/andrey/epoch-server/internal/infra/blockchain"
 	"github.com/andrey/epoch-server/pkg/contracts"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	bind_v2 "github.com/ethereum/go-ethereum/accounts/abi/bind/v2"
@@ -15,44 +16,29 @@ import (
 	"github.com/go-pkgz/lgr"
 )
 
-type EthereumConfig struct {
-	RPCURL     string
-	PrivateKey string
-	GasLimit   uint64
-	GasPrice   string
-}
-
-type ContractAddresses struct {
-	Comptroller        string
-	EpochManager       string
-	DebtSubsidizer     string
-	LendingManager     string
-	CollectionRegistry string
-}
-
 type Client struct {
 	logger       lgr.L
-	ethConfig    EthereumConfig
-	contracts    ContractAddresses
+	ethConfig    blockchain.Config
 	ethClient    *ethclient.Client
 	privateKey   *ecdsa.PrivateKey
 	epochManager *contracts.IEpochManager
+	subsidizer   *contracts.IDebtSubsidizer
 }
 
-func NewClient(logger lgr.L) *Client {
+// ProvideClient creates a new blockchain client implementation
+func ProvideClient(logger lgr.L) blockchain.BlockchainClient {
 	return &Client{
 		logger: logger,
 	}
 }
 
-func NewClientWithConfig(logger lgr.L, ethConfig EthereumConfig, contracts ContractAddresses) (*Client, error) {
+// ProvideClientWithConfig creates a blockchain client with configuration
+func ProvideClientWithConfig(logger lgr.L, config blockchain.Config) (blockchain.BlockchainClient, error) {
 	client := &Client{
 		logger:    logger,
-		ethConfig: ethConfig,
-		contracts: contracts,
+		ethConfig: config,
 	}
 
-	// Initialize Ethereum client and contracts
 	if err := client.initialize(); err != nil {
 		logger.Logf("ERROR failed to initialize contract client: %v", err)
 		return nil, err
@@ -69,18 +55,16 @@ func (c *Client) initialize() error {
 	if c.ethConfig.PrivateKey == "" {
 		return fmt.Errorf("private key is required")
 	}
-	if c.contracts.EpochManager == "" {
+	if c.ethConfig.EpochManager == "" {
 		return fmt.Errorf("EpochManager contract address is required")
 	}
 
-	// Connect to Ethereum client
 	ethClient, err := ethclient.Dial(c.ethConfig.RPCURL)
 	if err != nil {
 		return fmt.Errorf("failed to connect to Ethereum RPC: %w", err)
 	}
 	c.ethClient = ethClient
 
-	// Parse private key (strip 0x prefix if present)
 	privateKeyHex := c.ethConfig.PrivateKey
 	if len(privateKeyHex) > 2 && privateKeyHex[:2] == "0x" {
 		privateKeyHex = privateKeyHex[2:]
@@ -90,9 +74,8 @@ func (c *Client) initialize() error {
 		return fmt.Errorf("failed to parse private key: %w", err)
 	}
 	c.privateKey = privateKey
-
-	// Initialize EpochManager contract
 	c.epochManager = contracts.NewIEpochManager()
+	c.subsidizer = contracts.NewIDebtSubsidizer()
 
 	return nil
 }
@@ -105,14 +88,12 @@ func (c *Client) StartEpoch(ctx context.Context) error {
 		return fmt.Errorf("ethereum client not initialized")
 	}
 
-	// Get chain ID for signing
 	chainID, err := c.ethClient.ChainID(ctx)
 	if err != nil {
 		c.logger.Logf("ERROR failed to get chain ID: %v", err)
 		return err
 	}
 
-	// Create transaction options with signer
 	gasPrice, _ := new(big.Int).SetString(c.ethConfig.GasPrice, 10)
 	opts, err := bind.NewKeyedTransactorWithChainID(c.privateKey, chainID)
 	if err != nil {
@@ -123,11 +104,9 @@ func (c *Client) StartEpoch(ctx context.Context) error {
 	opts.GasPrice = gasPrice
 	opts.Context = ctx
 
-	// Create contract instance and call function
-	contractAddr := common.HexToAddress(c.contracts.EpochManager)
+	contractAddr := common.HexToAddress(c.ethConfig.EpochManager)
 	contractInstance := c.epochManager.Instance(c.ethClient, contractAddr)
 
-	// Call startEpoch() function using simplified interface
 	data := c.epochManager.PackStartEpoch()
 	tx, err := contractInstance.RawTransact(opts, data)
 
@@ -138,9 +117,6 @@ func (c *Client) StartEpoch(ctx context.Context) error {
 
 	c.logger.Logf("INFO started epoch transaction sent: %s", tx.Hash().Hex())
 
-	// Wait for transaction to be mined and check if it was successful
-	c.logger.Logf("DEBUG about to call bind.WaitMined for transaction %s", tx.Hash().Hex())
-	c.logger.Logf("INFO waiting for transaction %s to be mined...", tx.Hash().Hex())
 	receipt, err := bind.WaitMined(ctx, c.ethClient, tx)
 	if err != nil {
 		c.logger.Logf("ERROR failed to wait for startEpoch transaction %s: %v", tx.Hash().Hex(), err)
@@ -164,18 +140,14 @@ func (c *Client) DistributeSubsidies(ctx context.Context, epochID string) error 
 }
 
 func (c *Client) GetCurrentEpochId(ctx context.Context) (*big.Int, error) {
-	c.logger.Logf("INFO getting current epoch ID")
-
 	if c.ethClient == nil || c.privateKey == nil {
 		c.logger.Logf("WARN Ethereum client not initialized, returning epoch ID 1")
 		return big.NewInt(1), nil
 	}
 
-	// Create contract instance for EpochManager
-	contractAddr := common.HexToAddress(c.contracts.EpochManager)
+	contractAddr := common.HexToAddress(c.ethConfig.EpochManager)
 	contractInstance := c.epochManager.Instance(c.ethClient, contractAddr)
 
-	// Call getCurrentEpochId() function using abigen v2
 	callOpts := &bind_v2.CallOpts{Context: ctx}
 	var result []interface{}
 	err := contractInstance.Call(callOpts, &result, "getCurrentEpochId")
@@ -184,7 +156,6 @@ func (c *Client) GetCurrentEpochId(ctx context.Context) (*big.Int, error) {
 		return nil, fmt.Errorf("failed to call getCurrentEpochId: %w", err)
 	}
 
-	// Extract epoch ID from result
 	if len(result) == 0 {
 		return nil, fmt.Errorf("no result returned from getCurrentEpochId")
 	}
@@ -205,14 +176,12 @@ func (c *Client) UpdateExchangeRate(ctx context.Context, lendingManagerAddress s
 		return fmt.Errorf("ethereum client not initialized")
 	}
 
-	// Get chain ID for signing
 	chainID, err := c.ethClient.ChainID(ctx)
 	if err != nil {
 		c.logger.Logf("ERROR failed to get chain ID: %v", err)
 		return err
 	}
 
-	// Create transaction options with signer
 	gasPrice, _ := new(big.Int).SetString(c.ethConfig.GasPrice, 10)
 	opts, err := bind.NewKeyedTransactorWithChainID(c.privateKey, chainID)
 	if err != nil {
@@ -223,14 +192,10 @@ func (c *Client) UpdateExchangeRate(ctx context.Context, lendingManagerAddress s
 	opts.GasPrice = gasPrice
 	opts.Context = ctx
 
-	// Create LendingManager contract instance and call updateExchangeRate function
 	lendingManagerAddr := common.HexToAddress(lendingManagerAddress)
-
-	// Create the function call data for updateExchangeRate()
 	methodID := crypto.Keccak256([]byte("updateExchangeRate()"))[:4]
 	data := methodID
 
-	// Create contract instance for LendingManager
 	contractInstance := c.epochManager.Instance(c.ethClient, lendingManagerAddr)
 	tx, err := contractInstance.RawTransact(opts, data)
 
@@ -241,7 +206,6 @@ func (c *Client) UpdateExchangeRate(ctx context.Context, lendingManagerAddress s
 
 	c.logger.Logf("INFO updateExchangeRate transaction sent: %s", tx.Hash().Hex())
 
-	// Wait for transaction to be mined and check if it was successful
 	receipt, err := bind.WaitMined(ctx, c.ethClient, tx)
 	if err != nil {
 		c.logger.Logf("ERROR failed to wait for updateExchangeRate transaction: %v", err)
@@ -265,14 +229,12 @@ func (c *Client) AllocateYieldToEpoch(ctx context.Context, epochId *big.Int, vau
 		return nil
 	}
 
-	// Get chain ID for signing
 	chainID, err := c.ethClient.ChainID(ctx)
 	if err != nil {
 		c.logger.Logf("ERROR failed to get chain ID: %v", err)
 		return err
 	}
 
-	// Create transaction options with signer
 	gasPrice, _ := new(big.Int).SetString(c.ethConfig.GasPrice, 10)
 	opts, err := bind.NewKeyedTransactorWithChainID(c.privateKey, chainID)
 	if err != nil {
@@ -283,15 +245,11 @@ func (c *Client) AllocateYieldToEpoch(ctx context.Context, epochId *big.Int, vau
 	opts.GasPrice = gasPrice
 	opts.Context = ctx
 
-	// Create vault contract instance and call allocateYieldToEpoch function
 	vaultAddr := common.HexToAddress(vaultAddress)
-
-	// Create the function call data for allocateYieldToEpoch(uint256)
 	methodID := crypto.Keccak256([]byte("allocateYieldToEpoch(uint256)"))[:4]
 	epochIdPacked := common.LeftPadBytes(epochId.Bytes(), 32)
 	data := append(methodID, epochIdPacked...)
 
-	// Create vault contract instance (not epoch manager) since allocateYieldToEpoch is on the vault
 	contractInstance := c.epochManager.Instance(c.ethClient, vaultAddr)
 	tx, err := contractInstance.RawTransact(opts, data)
 
@@ -302,7 +260,6 @@ func (c *Client) AllocateYieldToEpoch(ctx context.Context, epochId *big.Int, vau
 
 	c.logger.Logf("INFO allocateYieldToEpoch transaction sent: %s", tx.Hash().Hex())
 
-	// Wait for transaction to be mined and check if it was successful
 	receipt, err := bind.WaitMined(ctx, c.ethClient, tx)
 	if err != nil {
 		c.logger.Logf("ERROR failed to wait for allocateYieldToEpoch transaction: %v", err)
@@ -354,17 +311,13 @@ func (c *Client) AllocateCumulativeYieldToEpoch(
 	opts.GasPrice = gasPrice
 	opts.Context = ctx
 
-	// Create vault contract instance and call allocateCumulativeYieldToEpoch function
 	vaultAddr := common.HexToAddress(vaultAddress)
-
-	// Create the function call data for allocateCumulativeYieldToEpoch(uint256, uint256)
 	methodID := crypto.Keccak256([]byte("allocateCumulativeYieldToEpoch(uint256,uint256)"))[:4]
 	epochIdPacked := common.LeftPadBytes(epochId.Bytes(), 32)
 	amountPacked := common.LeftPadBytes(amount.Bytes(), 32)
 	data := append(methodID, epochIdPacked...)
 	data = append(data, amountPacked...)
 
-	// Create vault contract instance (not epoch manager) since allocateCumulativeYieldToEpoch is on the vault
 	contractInstance := c.epochManager.Instance(c.ethClient, vaultAddr)
 	tx, err := contractInstance.RawTransact(opts, data)
 
@@ -375,7 +328,6 @@ func (c *Client) AllocateCumulativeYieldToEpoch(
 
 	c.logger.Logf("INFO allocateCumulativeYieldToEpoch transaction sent: %s", tx.Hash().Hex())
 
-	// Wait for transaction to be mined and check if it was successful
 	receipt, err := bind.WaitMined(ctx, c.ethClient, tx)
 	if err != nil {
 		c.logger.Logf("ERROR failed to wait for allocateCumulativeYieldToEpoch transaction: %v", err)
@@ -406,14 +358,12 @@ func (c *Client) EndEpochWithSubsidies(
 		return fmt.Errorf("ethereum client not initialized")
 	}
 
-	// Get chain ID for signing
 	chainID, err := c.ethClient.ChainID(ctx)
 	if err != nil {
 		c.logger.Logf("ERROR failed to get chain ID: %v", err)
 		return err
 	}
 
-	// Create transaction options with signer
 	gasPrice, _ := new(big.Int).SetString(c.ethConfig.GasPrice, 10)
 	opts, err := bind.NewKeyedTransactorWithChainID(c.privateKey, chainID)
 	if err != nil {
@@ -424,14 +374,9 @@ func (c *Client) EndEpochWithSubsidies(
 	opts.GasPrice = gasPrice
 	opts.Context = ctx
 
-	// Create contract instance and call function
-	contractAddr := common.HexToAddress(c.contracts.EpochManager)
+	contractAddr := common.HexToAddress(c.ethConfig.EpochManager)
 	contractInstance := c.epochManager.Instance(c.ethClient, contractAddr)
-
-	// Convert vault address string to common.Address
 	vaultAddr := common.HexToAddress(vaultAddress)
-
-	// Call endEpochWithSubsidies function
 	data := c.epochManager.PackEndEpochWithSubsidies(epochId, vaultAddr, merkleRoot, subsidiesDistributed)
 	tx, err := contractInstance.RawTransact(opts, data)
 
@@ -442,7 +387,6 @@ func (c *Client) EndEpochWithSubsidies(
 
 	c.logger.Logf("INFO endEpochWithSubsidies transaction sent: %s", tx.Hash().Hex())
 
-	// Wait for transaction to be mined and check if it was successful
 	receipt, err := bind.WaitMined(ctx, c.ethClient, tx)
 	if err != nil {
 		c.logger.Logf("ERROR failed to wait for endEpochWithSubsidies transaction: %v", err)
@@ -466,14 +410,12 @@ func (c *Client) ForceEndEpochWithZeroYield(ctx context.Context, epochId *big.In
 		return fmt.Errorf("ethereum client not initialized")
 	}
 
-	// Get chain ID for signing
 	chainID, err := c.ethClient.ChainID(ctx)
 	if err != nil {
 		c.logger.Logf("ERROR failed to get chain ID: %v", err)
 		return err
 	}
 
-	// Create transaction options with signer
 	gasPrice, _ := new(big.Int).SetString(c.ethConfig.GasPrice, 10)
 	opts, err := bind.NewKeyedTransactorWithChainID(c.privateKey, chainID)
 	if err != nil {
@@ -484,12 +426,10 @@ func (c *Client) ForceEndEpochWithZeroYield(ctx context.Context, epochId *big.In
 	opts.GasPrice = gasPrice
 	opts.Context = ctx
 
-	// Build transaction data
 	vaultAddr := common.HexToAddress(vaultAddress)
 	data := c.epochManager.PackForceEndEpochWithZeroYield(epochId, vaultAddr)
 
-	// Create contract instance and submit transaction
-	contractAddr := common.HexToAddress(c.contracts.EpochManager)
+	contractAddr := common.HexToAddress(c.ethConfig.EpochManager)
 	contractInstance := c.epochManager.Instance(c.ethClient, contractAddr)
 	tx, err := contractInstance.RawTransact(opts, data)
 	if err != nil {
@@ -502,3 +442,116 @@ func (c *Client) ForceEndEpochWithZeroYield(ctx context.Context, epochId *big.In
 	c.logger.Logf("INFO forceEndEpochWithZeroYield transaction successful: %s", tx.Hash().Hex())
 	return nil
 }
+
+func (c *Client) UpdateMerkleRoot(
+	ctx context.Context,
+	vaultId string,
+	root [32]byte,
+	totalSubsidies *big.Int,
+) error {
+	if c.ethClient == nil {
+		c.logger.Logf("INFO [MOCK] updating merkle root for vault %s: %x", vaultId, root)
+		return nil
+	}
+
+	c.logger.Logf("INFO updating merkle root for vault %s: %x", vaultId, root)
+
+	chainID, err := c.ethClient.ChainID(ctx)
+	if err != nil {
+		c.logger.Logf("ERROR failed to get chain ID: %v", err)
+		return err
+	}
+
+	gasPrice, _ := new(big.Int).SetString(c.ethConfig.GasPrice, 10)
+	opts, err := bind.NewKeyedTransactorWithChainID(c.privateKey, chainID)
+	if err != nil {
+		c.logger.Logf("ERROR failed to create transactor: %v", err)
+		return err
+	}
+	opts.GasLimit = c.ethConfig.GasLimit
+	opts.GasPrice = gasPrice
+	opts.Context = ctx
+
+	vaultAddress := common.HexToAddress(vaultId)
+	data := c.subsidizer.PackUpdateMerkleRoot(vaultAddress, root, totalSubsidies)
+
+	contractAddr := common.HexToAddress(c.ethConfig.DebtSubsidizer)
+	contractInstance := c.subsidizer.Instance(c.ethClient, contractAddr)
+	tx, err := contractInstance.RawTransact(opts, data)
+
+	if err != nil {
+		c.logger.Logf("ERROR failed to call updateMerkleRoot: %v", err)
+		return fmt.Errorf("failed to call updateMerkleRoot: %w", err)
+	}
+
+	c.logger.Logf("INFO updateMerkleRoot transaction sent: %s", tx.Hash().Hex())
+	return nil
+}
+
+func (c *Client) UpdateMerkleRootAndWaitForConfirmation(
+	ctx context.Context,
+	vaultId string,
+	root [32]byte,
+	totalSubsidies *big.Int,
+) error {
+	if c.ethClient == nil {
+		c.logger.Logf("INFO [MOCK] updating merkle root for vault %s: %x", vaultId, root)
+		c.logger.Logf("INFO [MOCK] submitting UpdateMerkleRoot transaction for vault %s", vaultId)
+		c.logger.Logf("INFO [MOCK] waiting for transaction confirmation for vault %s", vaultId)
+		return nil
+	}
+
+	c.logger.Logf("INFO updating merkle root for vault %s: %x", vaultId, root)
+
+	chainID, err := c.ethClient.ChainID(ctx)
+	if err != nil {
+		c.logger.Logf("ERROR failed to get chain ID: %v", err)
+		return err
+	}
+
+	gasPrice, _ := new(big.Int).SetString(c.ethConfig.GasPrice, 10)
+	opts, err := bind.NewKeyedTransactorWithChainID(c.privateKey, chainID)
+	if err != nil {
+		c.logger.Logf("ERROR failed to create transactor: %v", err)
+		return err
+	}
+	opts.GasLimit = c.ethConfig.GasLimit
+	opts.GasPrice = gasPrice
+	opts.Context = ctx
+
+	vaultAddress := common.HexToAddress(vaultId)
+	data := c.subsidizer.PackUpdateMerkleRoot(vaultAddress, root, totalSubsidies)
+
+	contractAddr := common.HexToAddress(c.ethConfig.DebtSubsidizer)
+	contractInstance := c.subsidizer.Instance(c.ethClient, contractAddr)
+	tx, err := contractInstance.RawTransact(opts, data)
+
+	if err != nil {
+		c.logger.Logf("ERROR failed to call updateMerkleRoot: %v", err)
+		return fmt.Errorf("failed to call updateMerkleRoot: %w", err)
+	}
+
+	c.logger.Logf("INFO submitting UpdateMerkleRoot transaction for vault %s", vaultId)
+	c.logger.Logf("INFO updateMerkleRoot transaction sent: %s", tx.Hash().Hex())
+
+	c.logger.Logf("INFO waiting for transaction confirmation for vault %s", vaultId)
+	receipt, err := bind.WaitMined(ctx, c.ethClient, tx)
+	if err != nil {
+		c.logger.Logf("ERROR failed to wait for updateMerkleRoot transaction: %v", err)
+		return fmt.Errorf("failed to wait for updateMerkleRoot transaction: %w", err)
+	}
+
+	if receipt.Status == 0 {
+		c.logger.Logf("ERROR updateMerkleRoot transaction failed: %s", tx.Hash().Hex())
+		return fmt.Errorf("updateMerkleRoot transaction failed with hash %s", tx.Hash().Hex())
+	}
+
+	c.logger.Logf(
+		"INFO transaction confirmed for vault %s (block: %d, gas used: %d)",
+		vaultId,
+		receipt.BlockNumber.Uint64(),
+		receipt.GasUsed,
+	)
+	return nil
+}
+

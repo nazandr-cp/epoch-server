@@ -3,24 +3,18 @@ package storage
 import (
 	"fmt"
 
+	"github.com/andrey/epoch-server/internal/infra/storage"
 	"github.com/dgraph-io/badger/v4"
 	"github.com/go-pkgz/lgr"
 )
 
-// StorageConfig contains configuration for storage
-type StorageConfig struct {
-	Type string `yaml:"type"` // "badger" or "memory"
-	Path string `yaml:"path"` // Path for badger database
-}
-
-// DatabaseWrapper provides a database connection
-type DatabaseWrapper struct {
+type Client struct {
 	db     *badger.DB
 	logger lgr.L
 }
 
-// NewDatabaseWrapper creates a new database wrapper
-func NewDatabaseWrapper(config StorageConfig, logger lgr.L) (*DatabaseWrapper, error) {
+// ProvideClient creates a storage client implementation
+func ProvideClient(config storage.Config, logger lgr.L) (storage.StorageClient, error) {
 	switch config.Type {
 	case "badger":
 		opts := badger.DefaultOptions(config.Path)
@@ -31,7 +25,7 @@ func NewDatabaseWrapper(config StorageConfig, logger lgr.L) (*DatabaseWrapper, e
 			return nil, fmt.Errorf("failed to open badger database: %w", err)
 		}
 
-		return &DatabaseWrapper{
+		return &Client{
 			db:     db,
 			logger: logger,
 		}, nil
@@ -40,20 +34,17 @@ func NewDatabaseWrapper(config StorageConfig, logger lgr.L) (*DatabaseWrapper, e
 	}
 }
 
-// GetDB returns the database instance
-func (w *DatabaseWrapper) GetDB() *badger.DB {
-	return w.db
+func (c *Client) GetDB() *badger.DB {
+	return c.db
 }
 
-// Close closes the database connection
-func (w *DatabaseWrapper) Close() error {
-	if w.db != nil {
-		return w.db.Close()
+func (c *Client) Close() error {
+	if c.db != nil {
+		return c.db.Close()
 	}
 	return nil
 }
 
-// badgerLogger adapts lgr.L to badger's Logger interface
 type badgerLogger struct {
 	lgr lgr.L
 }
@@ -77,3 +68,4 @@ func (l *badgerLogger) Infof(format string, args ...interface{}) {
 func (l *badgerLogger) Debugf(format string, args ...interface{}) {
 	l.lgr.Logf("DEBUG "+format, args...)
 }
+

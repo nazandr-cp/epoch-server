@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/andrey/epoch-server/internal/infra/subgraph"
 	"github.com/go-pkgz/lgr"
 )
 
@@ -38,14 +39,14 @@ func TestClient_DirectQuery(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(server.URL, lgr.NoOp)
+	client := ProvideClient(server.URL, lgr.NoOp)
 
 	// Test ExecuteQuery directly
-	request := GraphQLRequest{
+	request := subgraph.GraphQLRequest{
 		Query: `query { accounts { id totalSecondsClaimed } }`,
 	}
 
-	var response AccountsResponse
+	var response subgraph.AccountsResponse
 
 	err := client.ExecuteQuery(context.Background(), request, &response)
 	if err != nil {
