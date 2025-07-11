@@ -41,11 +41,10 @@ func main() {
 	}
 
 	logger := setupLogging(cfg)
-
 	ctx := context.Background()
+
 	subgraphClient := setupSubgraphClient(cfg, logger, ctx)
 	contractClient := setupBlockchainClient(cfg, logger)
-
 	storageClient := setupDatabase(cfg, logger)
 	defer func() {
 		if closeErr := storageClient.Close(); closeErr != nil {
@@ -60,17 +59,20 @@ func main() {
 }
 
 func setupLogging(cfg *config.Config) lgr.L {
-	return logging.NewWithConfig(logging.Config{
+	logger, err := logging.NewWithConfig(logging.Config{
 		Level:  cfg.Logging.Level,
 		Format: cfg.Logging.Format,
 		Output: cfg.Logging.Output,
 	})
+	if err != nil {
+		log.Fatalf("Failed to setup logging: %v", err)
+	}
+	return logger
 }
 
 func setupSubgraphClient(cfg *config.Config, logger lgr.L, ctx context.Context) subgraph.SubgraphClient {
 	subgraphClient := subgraphService.ProvideClient(cfg.Subgraph.Endpoint, logger)
 
-	logger.Logf("INFO checking subgraph connectivity at %s", cfg.Subgraph.Endpoint)
 	if err := subgraphClient.HealthCheck(ctx); err != nil {
 		log.Fatalf("Failed to connect to subgraph: %v", err)
 	}
@@ -116,8 +118,11 @@ func setupServices(
 	subgraphClient subgraph.SubgraphClient,
 	storageClient storage.StorageClient,
 ) (*epochimpl.Service, *subsidyimpl.Service, *merkleimpl.Service) {
+	// merkle service handles proof generation and verification
 	merkleService := merkleimpl.New(storageClient.GetDB(), subgraphClient, logger)
 	epochService := epochimpl.New(contractClient, subgraphClient, merkleService, logger, cfg)
+	
+	// lazy distributor pattern for efficient subsidy distribution
 	lazyDistributor := subsidyimpl.NewLazyDistributor(contractClient, merkleService, subgraphClient, logger)
 	subsidyService := subsidyimpl.New(lazyDistributor, epochService, logger, cfg)
 
@@ -131,6 +136,7 @@ func setupScheduler(
 	epochService *epochimpl.Service,
 	subsidyService *subsidyimpl.Service,
 ) {
+	// start scheduler in goroutine for automated epoch operations
 	schedulerInstance := scheduler.NewScheduler(epochService, subsidyService, cfg.Scheduler.Interval, logger, cfg)
 	go schedulerInstance.Start(ctx)
 }
