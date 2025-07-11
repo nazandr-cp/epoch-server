@@ -143,6 +143,42 @@ SCHEDULER_TIMEZONE="UTC"
 
 ## Development Patterns
 
+### Infrastructure Layer Pattern
+
+The `/internal/infra/` directory provides infrastructure abstractions that decouple business logic from external dependencies. This pattern ensures testability, maintainability, and follows clean architecture principles.
+
+**Pattern Structure**:
+- **Infrastructure Interface Layer** (`/internal/infra/{service}/`): Define contracts for external dependencies
+- **Implementation Layer** (`/internal/services/{implementation}/`): Concrete implementations of infrastructure interfaces
+- **Integration Pattern**: Services depend on infrastructure interfaces, not implementations
+
+**Key Benefits**:
+- **Testability**: Mock generation for unit testing with `//go:generate moq`
+- **Flexibility**: Easy to swap implementations (PostgreSQL → MySQL, MinIO → AWS S3)
+- **Clean Architecture**: Business logic independent of infrastructure details
+- **Consistency**: Standardized patterns across all infrastructure components
+
+**Template Structure**:
+```
+internal/
+├── infra/
+│   └── {service}/
+│       ├── {service}.go          # Interface definition
+│       └── {service}_mock.go     # Generated mocks
+└── services/
+    └── {implementation}/
+        ├── {implementation}.go   # Interface implementation
+        └── config.go            # Configuration
+```
+
+**Implementation Guidelines**:
+- Always define interfaces first in `/internal/infra/`
+- Place concrete implementations in `/internal/services/`
+- Use `Provide{Name}()` constructors for dependency injection
+- Generate mocks with `//go:generate moq -out {service}_mock.go . {ServiceName}`
+- Follow error handling and logging patterns from existing implementations
+- Include configuration validation and connection retry logic
+
 ### Service Interface Design
 - All services implement interfaces for testability
 - Dependencies are injected via constructor functions
@@ -399,6 +435,82 @@ GET /swagger/                       - API documentation
 4. **Update contract addresses** in configuration after deployment
 
 5. **Test integration** with new contract methods
+
+### Adding New Infrastructure Service (Following Infrastructure Layer Pattern)
+
+1. **Define Infrastructure Interface**:
+   ```go
+   // /internal/infra/{service}/{service}.go
+   package {service}
+   
+   import "context"
+   
+   //go:generate moq -out {service}_mock.go . {ServiceName}
+   
+   type {ServiceName} interface {
+       Operation1(ctx context.Context, params Type) (ResultType, error)
+       Operation2(ctx context.Context, params Type) error
+   }
+   ```
+
+2. **Create Implementation**:
+   ```go
+   // /internal/services/{implementation}/{implementation}.go
+   package {implementation}
+   
+   import "github.com/andrey/epoch-server/internal/infra/{service}"
+   
+   type {Implementation} struct {
+       config Config
+       client ExternalClient
+   }
+   
+   func Provide{Implementation}(config Config) ({service}.{ServiceName}, error) {
+       // Initialize external client/connection
+       // Return implementation
+   }
+   
+   // Implement interface methods
+   func (impl *{Implementation}) Operation1(ctx context.Context, params Type) (ResultType, error) {
+       // Implementation logic
+   }
+   ```
+
+3. **Integration Pattern**:
+   ```go
+   // In service layer
+   type Service struct {
+       {service} {service}.{ServiceName}  // Infrastructure dependency
+   }
+   
+   func ProvideService({service} {service}.{ServiceName}) Service {
+       return &Service{
+           {service}: {service},
+       }
+   }
+   ```
+
+4. **Generate Mocks**:
+   ```bash
+   go generate ./internal/infra/{service}/
+   ```
+
+5. **Configuration Pattern**:
+   ```go
+   type Config struct {
+       Host     string
+       Port     int
+       Username string
+       Password string
+   }
+   
+   func ProvideService(config Config) (Interface, error) {
+       if config.Host == "" {
+           return nil, errors.New("host is required")
+       }
+       // Initialize and return implementation
+   }
+   ```
 
 ### Adding New Storage Backend
 1. Implement storage interface in `internal/infra/storage/`
