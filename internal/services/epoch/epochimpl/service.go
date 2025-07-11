@@ -14,7 +14,6 @@ import (
 	"github.com/go-pkgz/lgr"
 )
 
-// Service implements the epoch service interface
 type Service struct {
 	contractClient epoch.ContractClient
 	subgraphClient epoch.SubgraphClient
@@ -23,7 +22,6 @@ type Service struct {
 	config         *config.Config
 }
 
-// New creates a new epoch service implementation
 func New(contractClient epoch.ContractClient, subgraphClient epoch.SubgraphClient, calculator epoch.Calculator, logger lgr.L, cfg *config.Config) *Service {
 	return &Service{
 		contractClient: contractClient,
@@ -34,16 +32,13 @@ func New(contractClient epoch.ContractClient, subgraphClient epoch.SubgraphClien
 	}
 }
 
-// StartEpoch initiates a new epoch
 func (s *Service) StartEpoch(ctx context.Context) (*epoch.StartEpochResponse, error) {
-	// Check if there's an active epoch that needs to be completed first
 	currentEpochId, err := s.contractClient.GetCurrentEpochId(ctx)
 	if err != nil {
 		s.logger.Logf("ERROR failed to get current epoch ID: %v", err)
 		return nil, fmt.Errorf("failed to get current epoch ID: %w", err)
 	}
 
-	// If there's a current epoch (ID > 0), we need to validate it's completed
 	if currentEpochId.Cmp(big.NewInt(0)) > 0 {
 		s.logger.Logf("INFO current epoch ID is %s, attempting to start new epoch", currentEpochId.String())
 	}
@@ -58,7 +53,6 @@ func (s *Service) StartEpoch(ctx context.Context) (*epoch.StartEpochResponse, er
 
 	if err := s.contractClient.StartEpoch(ctx); err != nil {
 		s.logger.Logf("ERROR blockchain transaction failed for startEpoch: %v", err)
-		// Check if the error is specifically about epoch still being active
 		if isEpochStillActiveError(err) {
 			return nil, fmt.Errorf("%w: cannot start new epoch - current epoch %s is still active and must be completed first", epoch.ErrTransactionFailed, currentEpochId.String())
 		}
@@ -82,16 +76,13 @@ func (s *Service) StartEpoch(ctx context.Context) (*epoch.StartEpochResponse, er
 	}, nil
 }
 
-// ForceEndEpoch forcibly ends an epoch with zero yield
 func (s *Service) ForceEndEpoch(ctx context.Context, epochId uint64, vaultId string) (*epoch.ForceEndEpochResponse, error) {
-	// Validate input
 	if vaultId == "" {
 		return nil, fmt.Errorf("%w: vaultId cannot be empty", epoch.ErrInvalidInput)
 	}
 
 	s.logger.Logf("INFO force ending epoch %d for vault %s", epochId, vaultId)
 
-	// First, check current epoch to avoid trying to end an outdated epoch
 	currentEpochId, err := s.contractClient.GetCurrentEpochId(ctx)
 	if err != nil {
 		s.logger.Logf("WARN failed to get current epoch ID, proceeding anyway: %v", err)
@@ -113,7 +104,6 @@ func (s *Service) ForceEndEpoch(ctx context.Context, epochId uint64, vaultId str
 		}
 	}
 
-	// Convert epochId to big.Int with overflow protection
 	const maxInt64 = 9223372036854775807
 	if epochId > maxInt64 {
 		return nil, fmt.Errorf("epoch ID %d exceeds maximum supported value", epochId)
@@ -142,9 +132,7 @@ func (s *Service) ForceEndEpoch(ctx context.Context, epochId uint64, vaultId str
 	}, nil
 }
 
-// GetUserTotalEarned calculates total earned subsidies for a user
 func (s *Service) GetUserTotalEarned(ctx context.Context, userAddress, vaultId string) (*epoch.UserEarningsResponse, error) {
-	// Validate input
 	if userAddress == "" {
 		return nil, fmt.Errorf("%w: userAddress cannot be empty", epoch.ErrInvalidInput)
 	}
@@ -152,12 +140,10 @@ func (s *Service) GetUserTotalEarned(ctx context.Context, userAddress, vaultId s
 		return nil, fmt.Errorf("%w: vaultId cannot be empty", epoch.ErrInvalidInput)
 	}
 
-	// Normalize user address to lowercase
 	userAddress = utils.NormalizeAddress(userAddress)
 
 	s.logger.Logf("INFO getting total earned for user %s in vault %s", userAddress, vaultId)
 
-	// Query user's account subsidy data and latest epoch end timestamp from subgraph
 	query := fmt.Sprintf(`
 		query {
 			accountSubsidies(
@@ -218,7 +204,6 @@ func (s *Service) GetUserTotalEarned(ctx context.Context, userAddress, vaultId s
 
 	s.logger.Logf("DEBUG received %d account subsidies from subgraph", len(response.AccountSubsidies))
 
-	// Filter account subsidies by vault
 	var matchingSubsidy *struct {
 		Account struct {
 			ID string `json:"id"`
@@ -244,7 +229,6 @@ func (s *Service) GetUserTotalEarned(ctx context.Context, userAddress, vaultId s
 		return nil, fmt.Errorf("%w: no subsidy data found for user %s in vault %s", epoch.ErrNotFound, userAddress, vaultId)
 	}
 
-	// Get epoch end timestamp from the latest epoch
 	var epochEndTime int64
 	if len(response.Epoches) > 0 {
 		epochEndStr := response.Epoches[0].EndTimestamp
@@ -255,12 +239,10 @@ func (s *Service) GetUserTotalEarned(ctx context.Context, userAddress, vaultId s
 		}
 		s.logger.Logf("INFO using epoch end timestamp: %d", epochEndTime)
 	} else {
-		// Fallback to current time if no epoch found
 		epochEndTime = time.Now().Unix()
 		s.logger.Logf("WARN no epoch found, using current time: %d", epochEndTime)
 	}
 
-	// Convert to subgraph.AccountSubsidy format for calculation
 	subsidyForCalc := subgraph.AccountSubsidy{
 		Account: subgraph.Account{
 			ID: matchingSubsidy.Account.ID,
@@ -270,7 +252,6 @@ func (s *Service) GetUserTotalEarned(ctx context.Context, userAddress, vaultId s
 		UpdatedAtTimestamp: matchingSubsidy.UpdatedAtTimestamp,
 	}
 
-	// Calculate total earned using the unified calculator
 	totalEarned, err := s.calculator.CalculateTotalEarned(subsidyForCalc, epochEndTime)
 	if err != nil {
 		return nil, fmt.Errorf("failed to calculate total earned: %w", err)
@@ -288,12 +269,58 @@ func (s *Service) GetUserTotalEarned(ctx context.Context, userAddress, vaultId s
 	return response_data, nil
 }
 
-// Helper functions
+func (s *Service) GetCurrentEpochId(ctx context.Context) (uint64, error) {
+	epochIdBig, err := s.contractClient.GetCurrentEpochId(ctx)
+	if err != nil {
+		s.logger.Logf("ERROR failed to get current epoch ID from blockchain: %v", err)
+		return 0, fmt.Errorf("failed to get current epoch ID: %w", err)
+	}
+
+	epochId := epochIdBig.Uint64()
+	s.logger.Logf("DEBUG current epoch ID from blockchain: %d", epochId)
+	return epochId, nil
+}
+
+func (s *Service) CompleteEpochAfterDistribution(ctx context.Context, epochId uint64, vaultId string) (*epoch.CompleteEpochResponse, error) {
+	if vaultId == "" {
+		return nil, fmt.Errorf("%w: vaultId cannot be empty", epoch.ErrInvalidInput)
+	}
+	if epochId == 0 {
+		return nil, fmt.Errorf("%w: epochId cannot be zero", epoch.ErrInvalidInput)
+	}
+
+	s.logger.Logf("INFO completing epoch %d after distribution for vault %s", epochId, vaultId)
+
+	epochIdBig := big.NewInt(int64(epochId))
+
+	s.logger.Logf("INFO completing epoch %s for vault %s", epochIdBig.String(), vaultId)
+
+	var dummyMerkleRoot [32]byte
+	zeroSubsidies := big.NewInt(0)
+
+	if err := s.contractClient.EndEpochWithSubsidies(ctx, epochIdBig, vaultId, dummyMerkleRoot, zeroSubsidies); err != nil {
+		s.logger.Logf("ERROR EndEpochWithSubsidies failed for epoch %s: %v", epochIdBig.String(), err)
+		if isTransactionError(err) {
+			return nil, fmt.Errorf("%w: failed to complete epoch %s for vault %s: %v", epoch.ErrTransactionFailed, epochIdBig.String(), vaultId, err)
+		}
+		return nil, fmt.Errorf("failed to complete epoch %s for vault %s: %w", epochIdBig.String(), vaultId, err)
+	}
+
+	s.logger.Logf("INFO successfully completed epoch %s for vault %s", epochIdBig.String(), vaultId)
+
+	return &epoch.CompleteEpochResponse{
+		EpochID:          epochIdBig.String(),
+		VaultAddress:     vaultId,
+		Status:           "completed",
+		Message:          "epoch completed after subsidy distribution",
+		CompletedAt:      time.Now().Unix(),
+		YieldDistributed: true,
+	}, nil
+}
 
 // isTransactionError determines if an error is related to blockchain transaction failures
 func isTransactionError(err error) bool {
 	errStr := err.Error()
-	// Check for common blockchain transaction error patterns
 	transactionErrors := []string{
 		"failed to call",
 		"transaction failed",

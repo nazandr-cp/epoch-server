@@ -38,11 +38,23 @@ type ForceEndEpochResponse struct {
 	ZeroYieldApplied bool   `json:"zeroYieldApplied"`
 }
 
+// CompleteEpochResponse represents the response from completing an epoch after distribution
+type CompleteEpochResponse struct {
+	EpochID          string `json:"epochId"`
+	VaultAddress     string `json:"vaultAddress"`
+	Status           string `json:"status"`
+	TransactionHash  string `json:"transactionHash,omitempty"`
+	Message          string `json:"message"`
+	CompletedAt      int64  `json:"completedAt"`
+	YieldDistributed bool   `json:"yieldDistributed"`
+}
+
 // ContractClient interface for blockchain operations
 type ContractClient interface {
 	StartEpoch(ctx context.Context) error
 	GetCurrentEpochId(ctx context.Context) (*big.Int, error)
 	ForceEndEpochWithZeroYield(ctx context.Context, epochId *big.Int, vaultAddress string) error
+	EndEpochWithSubsidies(ctx context.Context, epochId *big.Int, vaultAddress string, merkleRoot [32]byte, subsidiesDistributed *big.Int) error
 }
 
 // SubgraphClient interface for querying subgraph data

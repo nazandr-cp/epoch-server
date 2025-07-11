@@ -35,23 +35,17 @@ import (
 )
 
 func main() {
-	// Load configuration
 	cfg, err := config.Load()
 	if err != nil {
 		log.Fatalf("Failed to load configuration: %v", err)
 	}
 
-	// Setup logging
 	logger := setupLogging(cfg)
 
-	// Setup infrastructure components
 	ctx := context.Background()
 	subgraphClient := setupSubgraphClient(cfg, logger, ctx)
-
-	// Setup blockchain clients
 	contractClient := setupBlockchainClient(cfg, logger)
 
-	// Setup database
 	storageClient := setupDatabase(cfg, logger)
 	defer func() {
 		if closeErr := storageClient.Close(); closeErr != nil {
@@ -59,23 +53,18 @@ func main() {
 		}
 	}()
 
-	// Setup services
 	epochService, subsidyService, merkleService := setupServices(cfg, logger, contractClient, subgraphClient, storageClient)
 
-	// Setup scheduler
 	setupScheduler(cfg, logger, ctx, epochService, subsidyService)
-
-	// Setup and start HTTP server
 	startServer(cfg, logger, epochService, subsidyService, merkleService)
 }
 
 func setupLogging(cfg *config.Config) lgr.L {
-	logConfig := logging.Config{
+	return logging.NewWithConfig(logging.Config{
 		Level:  cfg.Logging.Level,
 		Format: cfg.Logging.Format,
 		Output: cfg.Logging.Output,
-	}
-	return logging.NewWithConfig(logConfig)
+	})
 }
 
 func setupSubgraphClient(cfg *config.Config, logger lgr.L, ctx context.Context) subgraph.SubgraphClient {
@@ -91,7 +80,7 @@ func setupSubgraphClient(cfg *config.Config, logger lgr.L, ctx context.Context) 
 }
 
 func setupBlockchainClient(cfg *config.Config, logger lgr.L) blockchain.BlockchainClient {
-	config := blockchain.Config{
+	contractClient, err := blockchainService.ProvideClientWithConfig(logger, blockchain.Config{
 		RPCURL:             cfg.Ethereum.RPCURL,
 		PrivateKey:         cfg.Ethereum.PrivateKey,
 		GasLimit:           cfg.Ethereum.GasLimit,
@@ -101,9 +90,7 @@ func setupBlockchainClient(cfg *config.Config, logger lgr.L) blockchain.Blockcha
 		DebtSubsidizer:     cfg.Contracts.DebtSubsidizer,
 		LendingManager:     cfg.Contracts.LendingManager,
 		CollectionRegistry: cfg.Contracts.CollectionRegistry,
-	}
-
-	contractClient, err := blockchainService.ProvideClientWithConfig(logger, config)
+	})
 	if err != nil {
 		log.Fatalf("Failed to initialize contract client: %v", err)
 	}
@@ -112,11 +99,10 @@ func setupBlockchainClient(cfg *config.Config, logger lgr.L) blockchain.Blockcha
 }
 
 func setupDatabase(cfg *config.Config, logger lgr.L) storage.StorageClient {
-	config := storage.Config{
+	storageClient, err := storageService.ProvideClient(storage.Config{
 		Type: cfg.Database.Type,
 		Path: cfg.Database.ConnectionString,
-	}
-	storageClient, err := storageService.ProvideClient(config, logger)
+	}, logger)
 	if err != nil {
 		log.Fatalf("Failed to initialize database: %v", err)
 	}
@@ -133,7 +119,7 @@ func setupServices(
 	merkleService := merkleimpl.New(storageClient.GetDB(), subgraphClient, logger)
 	epochService := epochimpl.New(contractClient, subgraphClient, merkleService, logger, cfg)
 	lazyDistributor := subsidyimpl.NewLazyDistributor(contractClient, merkleService, subgraphClient, logger)
-	subsidyService := subsidyimpl.New(lazyDistributor, logger, cfg)
+	subsidyService := subsidyimpl.New(lazyDistributor, epochService, logger, cfg)
 
 	return epochService, subsidyService, merkleService
 }
@@ -145,8 +131,7 @@ func setupScheduler(
 	epochService *epochimpl.Service,
 	subsidyService *subsidyimpl.Service,
 ) {
-	schedulerInterval := cfg.Scheduler.Interval
-	schedulerInstance := scheduler.NewScheduler(epochService, subsidyService, schedulerInterval, logger, cfg)
+	schedulerInstance := scheduler.NewScheduler(epochService, subsidyService, cfg.Scheduler.Interval, logger, cfg)
 	go schedulerInstance.Start(ctx)
 }
 

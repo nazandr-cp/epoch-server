@@ -20,7 +20,6 @@ type Client struct {
 
 var _ subgraph.SubgraphClient = (*Client)(nil)
 
-// ProvideClient creates a subgraph client
 func ProvideClient(endpoint string, logger lgr.L) subgraph.SubgraphClient {
 	return &Client{
 		httpClient: &http.Client{
@@ -81,25 +80,73 @@ func (c *Client) QueryAccountSubsidiesForVault(
 				secondsClaimed
 				lastEffectiveValue
 				updatedAtTimestamp
-				collectionParticipation
+				totalRewardsEarned
+				subsidiesAccrued
+				subsidiesClaimed
+				collectionParticipation { id }
 			}
 		}
 	`
 
 	variables := map[string]interface{}{
 		"vaultId": vaultAddress,
+		"first":   1000,
+		"skip":    0,
 	}
 
-	var response subgraph.AccountSubsidiesResponse
+	type AccountSubsidyWithNestedParticipation struct {
+		ID                      string           `json:"id"`
+		Account                 subgraph.Account `json:"account"`
+		SecondsAccumulated      string           `json:"secondsAccumulated"`
+		SecondsClaimed          string           `json:"secondsClaimed"`
+		LastEffectiveValue      string           `json:"lastEffectiveValue"`
+		UpdatedAtTimestamp      string           `json:"updatedAtTimestamp"`
+		TotalRewardsEarned      string           `json:"totalRewardsEarned"`
+		SubsidiesAccrued        string           `json:"subsidiesAccrued"`
+		SubsidiesClaimed        string           `json:"subsidiesClaimed"`
+		CollectionParticipation struct {
+			ID string `json:"id"`
+		} `json:"collectionParticipation"`
+	}
 
-	if err := c.ExecutePaginatedQuery(ctx, query, variables, "accountSubsidies", &response); err != nil {
+	type CustomResponse struct {
+		AccountSubsidies []AccountSubsidyWithNestedParticipation `json:"accountSubsidies"`
+	}
+
+	var response CustomResponse
+
+	req := subgraph.GraphQLRequest{
+		Query:     query,
+		Variables: variables,
+	}
+
+	if err := c.executeQuery(ctx, req, &response); err != nil {
 		return nil, fmt.Errorf("failed to query account subsidies for vault %s: %w", vaultAddress, err)
 	}
 
-	return response.AccountSubsidies, nil
+	result := make([]subgraph.AccountSubsidy, len(response.AccountSubsidies))
+	for i, item := range response.AccountSubsidies {
+		result[i] = subgraph.AccountSubsidy{
+			ID:                      item.ID,
+			Account:                 item.Account,
+			SecondsAccumulated:      item.SecondsAccumulated,
+			SecondsClaimed:          item.SecondsClaimed,
+			LastEffectiveValue:      item.LastEffectiveValue,
+			UpdatedAtTimestamp:      item.UpdatedAtTimestamp,
+			TotalRewardsEarned:      item.TotalRewardsEarned,
+			SubsidiesAccrued:        item.SubsidiesAccrued,
+			SubsidiesClaimed:        item.SubsidiesClaimed,
+			CollectionParticipation: item.CollectionParticipation.ID,
+		}
+	}
+
+	return result, nil
 }
 
 func (c *Client) executeQuery(ctx context.Context, request subgraph.GraphQLRequest, response interface{}) error {
+	c.logger.Logf("DEBUG executing GraphQL query: %s", request.Query)
+	c.logger.Logf("DEBUG with variables: %+v", request.Variables)
+
 	jsonData, err := json.Marshal(request)
 	if err != nil {
 		return fmt.Errorf("failed to marshal request: %w", err)
@@ -132,8 +179,11 @@ func (c *Client) executeQuery(ctx context.Context, request subgraph.GraphQLReque
 	}
 
 	if len(graphQLResp.Errors) > 0 {
+		c.logger.Logf("ERROR GraphQL errors: %v", graphQLResp.Errors)
 		return fmt.Errorf("GraphQL errors: %v", graphQLResp.Errors)
 	}
+
+	c.logger.Logf("DEBUG GraphQL response data: %+v", graphQLResp.Data)
 
 	data, err := json.Marshal(graphQLResp.Data)
 	if err != nil {

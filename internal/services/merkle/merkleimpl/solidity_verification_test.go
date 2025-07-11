@@ -274,6 +274,10 @@ func (m *solidityTestSubgraphClient) QueryCurrentActiveEpoch(ctx context.Context
 	return &subgraph.Epoch{}, nil
 }
 
+func (m *solidityTestSubgraphClient) QueryAccountSubsidiesForVault(ctx context.Context, vaultAddress string) ([]subgraph.AccountSubsidy, error) {
+	return []subgraph.AccountSubsidy{}, nil
+}
+
 func (m *solidityTestSubgraphClient) ExecuteQuery(ctx context.Context, request subgraph.GraphQLRequest, response interface{}) error {
 	return nil
 }

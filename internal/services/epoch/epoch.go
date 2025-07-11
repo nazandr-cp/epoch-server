@@ -16,4 +16,10 @@ type Service interface {
 
 	// GetUserTotalEarned calculates total earned subsidies for a user
 	GetUserTotalEarned(ctx context.Context, userAddress, vaultId string) (*UserEarningsResponse, error)
+
+	// GetCurrentEpochId gets the current epoch ID from the blockchain
+	GetCurrentEpochId(ctx context.Context) (uint64, error)
+
+	// CompleteEpochAfterDistribution completes an epoch after successful subsidy distribution
+	CompleteEpochAfterDistribution(ctx context.Context, epochId uint64, vaultId string) (*CompleteEpochResponse, error)
 }

@@ -261,6 +261,10 @@ func (m *testSubgraphClient) QueryCurrentActiveEpoch(ctx context.Context) (*subg
 	}, nil
 }
 
+func (m *testSubgraphClient) QueryAccountSubsidiesForVault(ctx context.Context, vaultAddress string) ([]subgraph.AccountSubsidy, error) {
+	return []subgraph.AccountSubsidy{}, nil
+}
+
 func (m *testSubgraphClient) ExecuteQuery(ctx context.Context, request subgraph.GraphQLRequest, response interface{}) error {
 	return nil
 }

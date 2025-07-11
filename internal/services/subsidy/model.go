@@ -24,9 +24,17 @@ type SubsidyDistributionResponse struct {
 	Status            string `json:"status"`
 }
 
+// DistributionResult represents the result of a subsidy distribution
+type DistributionResult struct {
+	TotalSubsidies    *big.Int `json:"totalSubsidies"`
+	AccountsProcessed int      `json:"accountsProcessed"`
+	MerkleRoot        string   `json:"merkleRoot"`
+}
+
 // LazyDistributor interface for subsidy distribution
 type LazyDistributor interface {
-	Run(ctx context.Context, vaultId string) error
+	Run(ctx context.Context, vaultId string) (*DistributionResult, error)
+	RunWithEpoch(ctx context.Context, vaultId string, epochNumber *big.Int) (*DistributionResult, error)
 }
 
 // SubsidyDistribution represents a subsidy distribution record

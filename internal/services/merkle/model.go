@@ -35,6 +35,7 @@ type MerkleDistribution struct {
 type SubgraphClient interface {
 	QueryEpochWithBlockInfo(ctx context.Context, epochNumber string) (*subgraph.Epoch, error)
 	QueryCurrentActiveEpoch(ctx context.Context) (*subgraph.Epoch, error)
+	QueryAccountSubsidiesForVault(ctx context.Context, vaultAddress string) ([]subgraph.AccountSubsidy, error)
 	ExecuteQuery(ctx context.Context, request subgraph.GraphQLRequest, response interface{}) error
 }
 

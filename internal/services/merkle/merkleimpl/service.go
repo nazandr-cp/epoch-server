@@ -16,14 +16,12 @@ import (
 	"github.com/go-pkgz/lgr"
 )
 
-// Service implements the merkle service interface with all functionality consolidated
 type Service struct {
 	store       *Store
 	graphClient merkle.SubgraphClient
 	logger      lgr.L
 }
 
-// New creates a new unified merkle service implementation
 func New(db *badger.DB, graphClient merkle.SubgraphClient, logger lgr.L) *Service {
 	return &Service{
 		store:       NewStore(db, logger),
@@ -32,7 +30,6 @@ func New(db *badger.DB, graphClient merkle.SubgraphClient, logger lgr.L) *Servic
 	}
 }
 
-// GenerateUserMerkleProof generates a merkle proof for a user's current earnings
 func (s *Service) GenerateUserMerkleProof(ctx context.Context, userAddress, vaultAddress string) (*merkle.UserMerkleProofResponse, error) {
 	if userAddress == "" {
 		return nil, fmt.Errorf("%w: userAddress cannot be empty", merkle.ErrInvalidInput)
@@ -43,7 +40,20 @@ func (s *Service) GenerateUserMerkleProof(ctx context.Context, userAddress, vaul
 
 	s.logger.Logf("INFO generating merkle proof for user %s in vault %s", userAddress, vaultAddress)
 
-	// Get the latest processed epoch for this vault
+	// First try to get from stored snapshot (prioritize snapshot over subgraph)
+	latestSnapshot, err := s.store.GetLatestSnapshot(ctx, vaultAddress)
+	if err == nil && latestSnapshot != nil {
+		s.logger.Logf("INFO found latest snapshot for vault %s, epoch %s with %d entries, root: %s",
+			vaultAddress, latestSnapshot.EpochNumber.String(), len(latestSnapshot.Entries), latestSnapshot.MerkleRoot)
+		return s.generateProofFromSnapshot(latestSnapshot, userAddress)
+	}
+
+	s.logger.Logf("WARN no snapshot found for vault %s, falling back to subgraph: %v", vaultAddress, err)
+
+	// IMPORTANT: When using subgraph fallback, we must use the exact same epoch and data
+	// that was used during the last distribution to ensure merkle root consistency
+
+	// Fallback: Get the latest processed epoch for this vault from subgraph
 	latestEpoch, err := s.getLatestProcessedEpochForVault(ctx, vaultAddress)
 	if err != nil {
 		s.logger.Logf("ERROR failed to get latest processed epoch: %v", err)
@@ -114,7 +124,6 @@ func (s *Service) GenerateUserMerkleProof(ctx context.Context, userAddress, vaul
 	}, nil
 }
 
-// GenerateHistoricalMerkleProof generates a merkle proof for a user's earnings at a specific epoch
 func (s *Service) GenerateHistoricalMerkleProof(ctx context.Context, userAddress, vaultAddress, epochNumber string) (*merkle.UserMerkleProofResponse, error) {
 	if userAddress == "" {
 		return nil, fmt.Errorf("%w: userAddress cannot be empty", merkle.ErrInvalidInput)
@@ -213,9 +222,6 @@ func (s *Service) GenerateHistoricalMerkleProof(ctx context.Context, userAddress
 	}, nil
 }
 
-// === Calculator Methods ===
-
-// CalculateTotalEarned calculates the total earned for an account using the provided timestamp
 func (s *Service) CalculateTotalEarned(subsidy subgraph.AccountSubsidy, endTimestamp int64) (*big.Int, error) {
 	secondsAccumulated, ok := new(big.Int).SetString(subsidy.SecondsAccumulated, 10)
 	if !ok {
@@ -242,13 +248,11 @@ func (s *Service) CalculateTotalEarned(subsidy subgraph.AccountSubsidy, endTimes
 	return totalEarned, nil
 }
 
-// secondsToTokens converts seconds to token amounts using the standard conversion rate
 func (s *Service) secondsToTokens(seconds *big.Int) *big.Int {
 	conversionRate := big.NewInt(1000000000000000000) // 1e18
 	return new(big.Int).Div(seconds, conversionRate)
 }
 
-// processAccountSubsidies processes account subsidies and returns entries with positive earnings
 func (s *Service) processAccountSubsidies(subsidies []subgraph.AccountSubsidy, endTimestamp int64) ([]merkle.Entry, error) {
 	var entries []merkle.Entry
 
@@ -270,9 +274,6 @@ func (s *Service) processAccountSubsidies(subsidies []subgraph.AccountSubsidy, e
 	return entries, nil
 }
 
-// === Proof Generation Methods ===
-
-// GenerateProof generates a Merkle proof for a specific entry (public for testing)
 func (s *Service) GenerateProof(entries []merkle.Entry, targetAddress string, targetAmount *big.Int) ([][32]byte, [32]byte, error) {
 	if len(entries) == 0 {
 		return nil, [32]byte{}, nil
@@ -310,7 +311,6 @@ func (s *Service) GenerateProof(entries []merkle.Entry, targetAddress string, ta
 	return proof, root, nil
 }
 
-// BuildMerkleRootFromEntries builds the Merkle root from entries (public for testing)
 func (s *Service) BuildMerkleRootFromEntries(entries []merkle.Entry) [32]byte {
 	if len(entries) == 0 {
 		return [32]byte{}
@@ -330,7 +330,6 @@ func (s *Service) BuildMerkleRootFromEntries(entries []merkle.Entry) [32]byte {
 	return s.buildMerkleRoot(leafHashes)
 }
 
-// sortEntries sorts entries by address to ensure deterministic ordering
 func (s *Service) sortEntries(entries []merkle.Entry) {
 	for i := 1; i < len(entries); i++ {
 		key := entries[i]
@@ -345,7 +344,6 @@ func (s *Service) sortEntries(entries []merkle.Entry) {
 	}
 }
 
-// CreateLeafHash creates a leaf hash compatible with Solidity's abi.encodePacked(recipient, newTotal) (public for testing)
 func (s *Service) CreateLeafHash(address string, amount *big.Int) [32]byte {
 	// Convert address string to common.Address (normalize case first)
 	addr := common.HexToAddress(address)
@@ -363,7 +361,6 @@ func (s *Service) CreateLeafHash(address string, amount *big.Int) [32]byte {
 	return crypto.Keccak256Hash(packed)
 }
 
-// buildMerkleRoot builds the Merkle root from leaf hashes
 func (s *Service) buildMerkleRoot(leaves [][32]byte) [32]byte {
 	if len(leaves) == 0 {
 		return [32]byte{}
@@ -396,7 +393,6 @@ func (s *Service) buildMerkleRoot(leaves [][32]byte) [32]byte {
 	return currentLevel[0]
 }
 
-// generateMerkleProof generates a Merkle proof for a leaf at the given index
 func (s *Service) generateMerkleProof(leaves [][32]byte, leafIndex int) [][32]byte {
 	if len(leaves) == 0 || leafIndex < 0 || leafIndex >= len(leaves) {
 		return nil
@@ -450,7 +446,6 @@ func (s *Service) generateMerkleProof(leaves [][32]byte, leafIndex int) [][32]by
 	return proof
 }
 
-// IsLeftSmaller determines if left hash should come before right hash in OpenZeppelin ordering (public for testing)
 func (s *Service) IsLeftSmaller(left, right [32]byte) bool {
 	for i := 0; i < 32; i++ {
 		if left[i] < right[i] {
@@ -463,7 +458,6 @@ func (s *Service) IsLeftSmaller(left, right [32]byte) bool {
 	return false // Equal hashes, doesn't matter which comes first
 }
 
-// findLeafIndex finds the index of a leaf in the sorted entries
 func (s *Service) findLeafIndex(entries []merkle.Entry, targetAddress string, targetAmount *big.Int) int {
 	// Sort entries deterministically by address
 	sortedEntries := make([]merkle.Entry, len(entries))
@@ -479,9 +473,6 @@ func (s *Service) findLeafIndex(entries []merkle.Entry, targetAddress string, ta
 	return -1
 }
 
-// === Epoch Block Manager Methods ===
-
-// parseEpochTimestamp parses epoch timing information from a subgraph epoch
 func (s *Service) parseEpochTimestamp(epoch *subgraph.Epoch) (*merkle.EpochTimestamp, error) {
 	// Parse processingCompletedTimestamp (preferred) or fallback to startTimestamp
 	var processingTime int64
@@ -536,7 +527,6 @@ func (s *Service) parseEpochTimestamp(epoch *subgraph.Epoch) (*merkle.EpochTimes
 	}, nil
 }
 
-// getLatestProcessedEpochForVault retrieves the most recent epoch that has a merkle distribution for the vault
 func (s *Service) getLatestProcessedEpochForVault(ctx context.Context, vaultAddress string) (*subgraph.Epoch, error) {
 	query := `
 		query GetLatestProcessedEpoch($vaultAddress: String!) {
@@ -592,12 +582,10 @@ func (s *Service) getLatestProcessedEpochForVault(ctx context.Context, vaultAddr
 	return &response.MerkleDistributions[0].Epoch, nil
 }
 
-// getEpochByNumber retrieves epoch information by epoch number including block info
 func (s *Service) getEpochByNumber(ctx context.Context, epochNumber string) (*subgraph.Epoch, error) {
 	return s.graphClient.QueryEpochWithBlockInfo(ctx, epochNumber)
 }
 
-// generateProofFromSnapshot generates a proof from a stored snapshot
 func (s *Service) generateProofFromSnapshot(snapshot *merkle.MerkleSnapshot, userAddress string) (*merkle.UserMerkleProofResponse, error) {
 	// Convert MerkleEntry to Entry
 	entries := make([]merkle.Entry, len(snapshot.Entries))
@@ -646,18 +634,14 @@ func (s *Service) generateProofFromSnapshot(snapshot *merkle.MerkleSnapshot, use
 	}, nil
 }
 
-// === Subgraph Helper Methods ===
-
-// getAccountSubsidiesForVault retrieves account subsidies for the latest epoch of a vault
-func (s *Service) getAccountSubsidiesForVault(ctx context.Context, vaultAddress string) ([]subgraph.AccountSubsidy, error) {
-	// This would be implemented based on your subgraph query structure
-	// For now, return an empty slice - you'll need to implement the actual query
-	return []subgraph.AccountSubsidy{}, nil
+func (s *Service) SaveSnapshot(ctx context.Context, epochNumber *big.Int, snapshot merkle.MerkleSnapshot) error {
+	return s.store.SaveSnapshot(ctx, epochNumber, snapshot)
 }
 
-// getHistoricalAccountSubsidiesForVault retrieves historical account subsidies for a specific epoch
+func (s *Service) getAccountSubsidiesForVault(ctx context.Context, vaultAddress string) ([]subgraph.AccountSubsidy, error) {
+	return s.graphClient.QueryAccountSubsidiesForVault(ctx, vaultAddress)
+}
+
 func (s *Service) getHistoricalAccountSubsidiesForVault(ctx context.Context, vaultAddress, epochNumber string) ([]subgraph.AccountSubsidy, error) {
-	// This would be implemented based on your subgraph query structure
-	// For now, return an empty slice - you'll need to implement the actual query
 	return []subgraph.AccountSubsidy{}, nil
 }

@@ -179,6 +179,10 @@ func (m *mockSubgraphClient) QueryCurrentActiveEpoch(ctx context.Context) (*subg
 	}, nil
 }
 
+func (m *mockSubgraphClient) QueryAccountSubsidiesForVault(ctx context.Context, vaultAddress string) ([]subgraph.AccountSubsidy, error) {
+	return []subgraph.AccountSubsidy{}, nil
+}
+
 func (m *mockSubgraphClient) ExecuteQuery(ctx context.Context, request subgraph.GraphQLRequest, response interface{}) error {
 	return nil
 }

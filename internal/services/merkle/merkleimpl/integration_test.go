@@ -83,6 +83,10 @@ func (m *integrationTestSubgraphClient) QueryCurrentActiveEpoch(ctx context.Cont
 	return &subgraph.Epoch{}, nil
 }
 
+func (m *integrationTestSubgraphClient) QueryAccountSubsidiesForVault(ctx context.Context, vaultAddress string) ([]subgraph.AccountSubsidy, error) {
+	return []subgraph.AccountSubsidy{}, nil
+}
+
 func (m *integrationTestSubgraphClient) ExecuteQuery(ctx context.Context, request subgraph.GraphQLRequest, response interface{}) error {
 	return nil
 }
