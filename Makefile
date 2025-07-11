@@ -18,7 +18,7 @@ CMD_DIR=./cmd/server
 TIMEOUT=30m
 INTEGRATION_TIMEOUT=60m
 
-.PHONY: all build clean test coverage deps fmt vet lint run docker integration-test benchmark help
+.PHONY: all build clean test coverage deps fmt vet lint run docker integration-test benchmark gen help
 
 # Default target
 all: deps fmt vet test build
@@ -162,6 +162,11 @@ integration-test-race:
 generate-mocks:
 	$(GOCMD) generate ./...
 
+# Clean and generate mocks
+gen:
+	find . -name "*_mock.go" -delete
+	$(GOCMD) generate ./...
+
 # Security scan (requires gosec)
 security-scan:
 	gosec ./...
@@ -224,6 +229,7 @@ help:
 	@echo "  profile-cpu        - CPU profiling"
 	@echo "  profile-mem        - Memory profiling"
 	@echo "  generate-mocks     - Generate mocks"
+	@echo "  gen                - Clean and generate mocks"
 	@echo "  security-scan      - Security vulnerability scan"
 	@echo "  vuln-check         - Vulnerability check"
 	@echo "  ci                 - Full CI pipeline"
