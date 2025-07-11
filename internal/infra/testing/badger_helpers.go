@@ -5,11 +5,11 @@ import (
 	"crypto/rand"
 	"fmt"
 	"math/big"
-	"strings"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/andrey/epoch-server/internal/infra/utils"
 	"github.com/dgraph-io/badger/v4"
 	"github.com/go-pkgz/lgr"
 	"github.com/stretchr/testify/assert"
@@ -316,13 +316,13 @@ func (h *BadgerTestHelper) RunScenario(t require.TestingT, scenario TestScenario
 
 // CreateEpochKey creates a test epoch key
 func (h *BadgerTestHelper) CreateEpochKey(vaultID string, epochNumber *big.Int) string {
-	normalizedVaultID := strings.ToLower(vaultID)
+	normalizedVaultID := utils.NormalizeAddress(vaultID)
 	return fmt.Sprintf("epoch:vault:%s:epoch:%020s", normalizedVaultID, epochNumber.String())
 }
 
 // CreateMerkleKey creates a test merkle key
 func (h *BadgerTestHelper) CreateMerkleKey(vaultID string, epochNumber *big.Int) string {
-	normalizedVaultID := strings.ToLower(vaultID)
+	normalizedVaultID := utils.NormalizeAddress(vaultID)
 	return fmt.Sprintf("merkle:snapshot:vault:%s:epoch:%020s", normalizedVaultID, epochNumber.String())
 }
 
@@ -333,7 +333,7 @@ func (h *BadgerTestHelper) CreateSubsidyKey(distributionID string) string {
 
 // CreateSubsidyEpochKey creates a test subsidy epoch index key
 func (h *BadgerTestHelper) CreateSubsidyEpochKey(epochNumber *big.Int, vaultID string, distributionID string) string {
-	normalizedVaultID := strings.ToLower(vaultID)
+	normalizedVaultID := utils.NormalizeAddress(vaultID)
 	return fmt.Sprintf("subsidy:epoch:%020s:vault:%s:distribution:%s", epochNumber.String(), normalizedVaultID, distributionID)
 }
 

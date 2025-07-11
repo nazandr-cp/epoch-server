@@ -67,4 +67,3 @@ type Config struct {
 	Endpoint string
 	Timeout  string
 }
-

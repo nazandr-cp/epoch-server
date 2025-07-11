@@ -116,6 +116,14 @@ func (h *EpochHandler) HandleGetUserTotalEarned(w http.ResponseWriter, r *http.R
 		return
 	}
 
+	// Validate and normalize user address
+	var err error
+	userAddress, err = utils.ValidateAndNormalizeAddress(userAddress)
+	if err != nil {
+		writeErrorResponse(w, r, h.logger, epoch.ErrInvalidInput, "Invalid user address format")
+		return
+	}
+
 	// Use the vault address from configuration (normalize to lowercase)
 	vaultId := utils.NormalizeAddress(h.config.Contracts.CollectionsVault)
 

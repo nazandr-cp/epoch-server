@@ -3,6 +3,7 @@ package config
 import (
 	"time"
 
+	"github.com/andrey/epoch-server/internal/infra/utils"
 	"github.com/jessevdk/go-flags"
 )
 
@@ -73,6 +74,17 @@ func Load() (*Config, error) {
 	if _, err := parser.ParseArgs([]string{}); err != nil {
 		return nil, err
 	}
+
+	// Normalize all contract addresses to lowercase
+	cfg.Contracts.Comptroller = utils.NormalizeAddress(cfg.Contracts.Comptroller)
+	cfg.Contracts.EpochManager = utils.NormalizeAddress(cfg.Contracts.EpochManager)
+	cfg.Contracts.DebtSubsidizer = utils.NormalizeAddress(cfg.Contracts.DebtSubsidizer)
+	cfg.Contracts.LendingManager = utils.NormalizeAddress(cfg.Contracts.LendingManager)
+	cfg.Contracts.CollectionRegistry = utils.NormalizeAddress(cfg.Contracts.CollectionRegistry)
+	cfg.Contracts.CollectionsVault = utils.NormalizeAddress(cfg.Contracts.CollectionsVault)
+	cfg.Contracts.Asset = utils.NormalizeAddress(cfg.Contracts.Asset)
+	cfg.Contracts.NFT = utils.NormalizeAddress(cfg.Contracts.NFT)
+	cfg.Contracts.CToken = utils.NormalizeAddress(cfg.Contracts.CToken)
 
 	return &cfg, nil
 }

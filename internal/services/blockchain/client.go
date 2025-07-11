@@ -554,4 +554,3 @@ func (c *Client) UpdateMerkleRootAndWaitForConfirmation(
 	)
 	return nil
 }
-

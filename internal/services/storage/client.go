@@ -68,4 +68,3 @@ func (l *badgerLogger) Infof(format string, args ...interface{}) {
 func (l *badgerLogger) Debugf(format string, args ...interface{}) {
 	l.lgr.Logf("DEBUG "+format, args...)
 }
-

@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/andrey/epoch-server/internal/infra/utils"
 	"github.com/andrey/epoch-server/internal/services/epoch"
 	"github.com/dgraph-io/badger/v4"
 	"github.com/go-pkgz/lgr"
@@ -186,16 +187,16 @@ func (s *Store) UpdateEpochStatus(ctx context.Context, epochNumber *big.Int, vau
 
 // Key building functions
 func (s *Store) buildEpochKey(epochNumber *big.Int, vaultID string) string {
-	normalizedVaultID := strings.ToLower(vaultID)
+	normalizedVaultID := utils.NormalizeAddress(vaultID)
 	return fmt.Sprintf("epoch:vault:%s:epoch:%020s", normalizedVaultID, epochNumber.String())
 }
 
 func (s *Store) buildCurrentKey(vaultID string) string {
-	normalizedVaultID := strings.ToLower(vaultID)
+	normalizedVaultID := utils.NormalizeAddress(vaultID)
 	return fmt.Sprintf("epoch:current:vault:%s", normalizedVaultID)
 }
 
 func (s *Store) buildVaultPrefix(vaultID string) string {
-	normalizedVaultID := strings.ToLower(vaultID)
+	normalizedVaultID := utils.NormalizeAddress(vaultID)
 	return fmt.Sprintf("epoch:vault:%s:", normalizedVaultID)
 }

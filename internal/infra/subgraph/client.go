@@ -132,4 +132,3 @@ type MerkleDistributionsResponse struct {
 type UsersResponse struct {
 	Users []Account `json:"users"`
 }
-

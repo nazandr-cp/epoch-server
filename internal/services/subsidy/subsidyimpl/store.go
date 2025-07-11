@@ -5,9 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/big"
-	"strings"
 	"time"
 
+	"github.com/andrey/epoch-server/internal/infra/utils"
 	"github.com/andrey/epoch-server/internal/services/subsidy"
 	"github.com/dgraph-io/badger/v4"
 	"github.com/go-pkgz/lgr"
@@ -194,11 +194,11 @@ func (s *Store) buildDistributionKey(distributionID string) string {
 }
 
 func (s *Store) buildEpochDistributionKey(epochNumber *big.Int, vaultID string, distributionID string) string {
-	normalizedVaultID := strings.ToLower(vaultID)
+	normalizedVaultID := utils.NormalizeAddress(vaultID)
 	return fmt.Sprintf("subsidy:epoch:%020s:vault:%s:distribution:%s", epochNumber.String(), normalizedVaultID, distributionID)
 }
 
 func (s *Store) buildEpochVaultPrefix(epochNumber *big.Int, vaultID string) string {
-	normalizedVaultID := strings.ToLower(vaultID)
+	normalizedVaultID := utils.NormalizeAddress(vaultID)
 	return fmt.Sprintf("subsidy:epoch:%020s:vault:%s:", epochNumber.String(), normalizedVaultID)
 }

@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"math/big"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/andrey/epoch-server/internal/infra/subgraph"
+	"github.com/andrey/epoch-server/internal/infra/utils"
 	"github.com/andrey/epoch-server/internal/services/merkle"
 	"github.com/dgraph-io/badger/v4"
 	"github.com/ethereum/go-ethereum/common"
@@ -72,10 +72,10 @@ func (s *Service) GenerateUserMerkleProof(ctx context.Context, userAddress, vaul
 	}
 
 	// Find the user's entry
-	normalizedUserAddress := strings.ToLower(userAddress)
+	normalizedUserAddress := utils.NormalizeAddress(userAddress)
 	var userEntry *merkle.Entry
 	for _, entry := range entries {
-		if strings.ToLower(entry.Address) == normalizedUserAddress {
+		if utils.NormalizeAddress(entry.Address) == normalizedUserAddress {
 			userEntry = &entry
 			break
 		}
@@ -171,10 +171,10 @@ func (s *Service) GenerateHistoricalMerkleProof(ctx context.Context, userAddress
 	}
 
 	// Find the user's entry
-	normalizedUserAddress := strings.ToLower(userAddress)
+	normalizedUserAddress := utils.NormalizeAddress(userAddress)
 	var userEntry *merkle.Entry
 	for _, entry := range entries {
-		if strings.ToLower(entry.Address) == normalizedUserAddress {
+		if utils.NormalizeAddress(entry.Address) == normalizedUserAddress {
 			userEntry = &entry
 			break
 		}
@@ -285,9 +285,9 @@ func (s *Service) GenerateProof(entries []merkle.Entry, targetAddress string, ta
 
 	// Find target index
 	targetIndex := -1
-	normalizedTargetAddress := strings.ToLower(targetAddress)
+	normalizedTargetAddress := utils.NormalizeAddress(targetAddress)
 	for i, entry := range sortedEntries {
-		if strings.ToLower(entry.Address) == normalizedTargetAddress && entry.TotalEarned.Cmp(targetAmount) == 0 {
+		if utils.NormalizeAddress(entry.Address) == normalizedTargetAddress && entry.TotalEarned.Cmp(targetAmount) == 0 {
 			targetIndex = i
 			break
 		}
@@ -336,8 +336,8 @@ func (s *Service) sortEntries(entries []merkle.Entry) {
 		key := entries[i]
 		j := i - 1
 		// Normalize addresses to lowercase for consistent comparison
-		keyAddr := strings.ToLower(key.Address)
-		for j >= 0 && strings.ToLower(entries[j].Address) > keyAddr {
+		keyAddr := utils.NormalizeAddress(key.Address)
+		for j >= 0 && utils.NormalizeAddress(entries[j].Address) > keyAddr {
 			entries[j+1] = entries[j]
 			j--
 		}
@@ -470,9 +470,9 @@ func (s *Service) findLeafIndex(entries []merkle.Entry, targetAddress string, ta
 	copy(sortedEntries, entries)
 	s.sortEntries(sortedEntries)
 
-	normalizedTargetAddress := strings.ToLower(targetAddress)
+	normalizedTargetAddress := utils.NormalizeAddress(targetAddress)
 	for i, entry := range sortedEntries {
-		if strings.ToLower(entry.Address) == normalizedTargetAddress && entry.TotalEarned.Cmp(targetAmount) == 0 {
+		if utils.NormalizeAddress(entry.Address) == normalizedTargetAddress && entry.TotalEarned.Cmp(targetAmount) == 0 {
 			return i
 		}
 	}
@@ -563,7 +563,7 @@ func (s *Service) getLatestProcessedEpochForVault(ctx context.Context, vaultAddr
 	`
 
 	variables := map[string]interface{}{
-		"vaultAddress": strings.ToLower(vaultAddress),
+		"vaultAddress": utils.NormalizeAddress(vaultAddress),
 	}
 
 	var response struct {
@@ -606,10 +606,10 @@ func (s *Service) generateProofFromSnapshot(snapshot *merkle.MerkleSnapshot, use
 	}
 
 	// Find the user's entry
-	normalizedUserAddress := strings.ToLower(userAddress)
+	normalizedUserAddress := utils.NormalizeAddress(userAddress)
 	var userEntry *merkle.Entry
 	for _, entry := range entries {
-		if strings.ToLower(entry.Address) == normalizedUserAddress {
+		if utils.NormalizeAddress(entry.Address) == normalizedUserAddress {
 			userEntry = &entry
 			break
 		}

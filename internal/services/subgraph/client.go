@@ -653,4 +653,3 @@ func (c *Client) reconstructResponse(allResults []json.RawMessage, entityField s
 
 	return nil
 }
-

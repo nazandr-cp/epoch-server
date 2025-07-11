@@ -47,12 +47,26 @@ func (h *MerkleHandler) HandleGetUserMerkleProof(w http.ResponseWriter, r *http.
 		return
 	}
 
+	// Validate and normalize user address
+	var err error
+	userAddress, err = utils.ValidateAndNormalizeAddress(userAddress)
+	if err != nil {
+		writeErrorResponse(w, r, h.logger, merkle.ErrInvalidInput, "Invalid user address format")
+		return
+	}
+
 	// Get vault address from query parameter or use default from config
 	vaultAddress := r.URL.Query().Get("vault")
 	if vaultAddress == "" {
 		vaultAddress = h.config.Contracts.CollectionsVault
+	} else {
+		// Validate vault address from query parameter
+		vaultAddress, err = utils.ValidateAndNormalizeAddress(vaultAddress)
+		if err != nil {
+			writeErrorResponse(w, r, h.logger, merkle.ErrInvalidInput, "Invalid vault address format")
+			return
+		}
 	}
-	vaultAddress = utils.NormalizeAddress(vaultAddress)
 
 	h.logger.Logf("INFO received merkle proof request for user %s in vault %s", userAddress, vaultAddress)
 
@@ -90,6 +104,14 @@ func (h *MerkleHandler) HandleGetUserHistoricalMerkleProof(w http.ResponseWriter
 		return
 	}
 
+	// Validate and normalize user address
+	var err error
+	userAddress, err = utils.ValidateAndNormalizeAddress(userAddress)
+	if err != nil {
+		writeErrorResponse(w, r, h.logger, merkle.ErrInvalidInput, "Invalid user address format")
+		return
+	}
+
 	if epochNumber == "" {
 		writeErrorResponse(w, r, h.logger, merkle.ErrInvalidInput, "Missing epoch number")
 		return
@@ -99,8 +121,14 @@ func (h *MerkleHandler) HandleGetUserHistoricalMerkleProof(w http.ResponseWriter
 	vaultAddress := r.URL.Query().Get("vault")
 	if vaultAddress == "" {
 		vaultAddress = h.config.Contracts.CollectionsVault
+	} else {
+		// Validate vault address from query parameter
+		vaultAddress, err = utils.ValidateAndNormalizeAddress(vaultAddress)
+		if err != nil {
+			writeErrorResponse(w, r, h.logger, merkle.ErrInvalidInput, "Invalid vault address format")
+			return
+		}
 	}
-	vaultAddress = utils.NormalizeAddress(vaultAddress)
 
 	h.logger.Logf("INFO received historical merkle proof request for user %s in vault %s for epoch %s", userAddress, vaultAddress, epochNumber)
 

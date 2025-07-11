@@ -61,4 +61,3 @@ type Config struct {
 	LendingManager     string
 	CollectionRegistry string
 }
-

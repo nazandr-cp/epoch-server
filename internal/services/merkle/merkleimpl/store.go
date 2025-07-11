@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/andrey/epoch-server/internal/infra/utils"
 	"github.com/andrey/epoch-server/internal/services/merkle"
 	"github.com/dgraph-io/badger/v4"
 	"github.com/go-pkgz/lgr"
@@ -171,16 +172,16 @@ func (s *Store) ListSnapshots(ctx context.Context, vaultID string, limit int) ([
 
 // Key building functions
 func (s *Store) buildSnapshotKey(epochNumber *big.Int, vaultID string) string {
-	normalizedVaultID := strings.ToLower(vaultID)
+	normalizedVaultID := utils.NormalizeAddress(vaultID)
 	return fmt.Sprintf("merkle:snapshot:vault:%s:epoch:%020s", normalizedVaultID, epochNumber.String())
 }
 
 func (s *Store) buildLatestKey(vaultID string) string {
-	normalizedVaultID := strings.ToLower(vaultID)
+	normalizedVaultID := utils.NormalizeAddress(vaultID)
 	return fmt.Sprintf("merkle:latest:vault:%s", normalizedVaultID)
 }
 
 func (s *Store) buildVaultPrefix(vaultID string) string {
-	normalizedVaultID := strings.ToLower(vaultID)
+	normalizedVaultID := utils.NormalizeAddress(vaultID)
 	return fmt.Sprintf("merkle:snapshot:vault:%s:", normalizedVaultID)
 }

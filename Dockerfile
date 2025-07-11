@@ -32,6 +32,9 @@ RUN addgroup -g 1000 appgroup && \
 # Set working directory
 WORKDIR /app
 
+# Create data directory for BadgerDB
+RUN mkdir -p /app/data
+
 # Copy binary from builder stage
 COPY --from=builder /app/server .
 

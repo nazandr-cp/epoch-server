@@ -15,4 +15,3 @@ type Config struct {
 	Type string `yaml:"type"` // "badger" or "memory"
 	Path string `yaml:"path"` // path for badger database
 }
-
